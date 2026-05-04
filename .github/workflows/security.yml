@@ -32,10 +32,13 @@ jobs:
           python -m pip install ".[langfuse,inspect,anthropic,dev]"
       - name: Audit installed environment (excluding the project itself)
         # whatif is pre-release (not on PyPI); strip it from the audit list.
+        # pip 25+ outputs local non-editable installs as `whatif @ file:///...`
+        # rather than `whatif==0.0.1`, so match both forms via [ =@] after the
+        # package name.
         # --strict fails the job on any vuln, including dev/test deps.
         # To permit dev-only vulns, drop --strict and filter the JSON output.
         run: |
-          pip freeze --exclude-editable | grep -v '^whatif==' > /tmp/audit-requirements.txt
+          pip freeze --exclude-editable | grep -vE '^whatif[ =@]' > /tmp/audit-requirements.txt
           pip-audit -r /tmp/audit-requirements.txt --strict
 
   bandit:
