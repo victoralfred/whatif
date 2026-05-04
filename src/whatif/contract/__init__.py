@@ -31,10 +31,9 @@ Then on the command line:
 from __future__ import annotations
 
 import json
-from typing import Any, Literal, Optional, Protocol, runtime_checkable
+from typing import Any, Literal, Protocol, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, Field
-
 
 # ---------------------------------------------------------------------------
 # Inputs the runner receives
@@ -72,11 +71,11 @@ class ReplayConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    system_prompt: Optional[str] = Field(
+    system_prompt: str | None = Field(
         default=None,
         description="A new system prompt to apply for this replay (v0.1).",
     )
-    model: Optional[str] = Field(
+    model: str | None = Field(
         default=None,
         description="A new model identifier to apply (v0.2+).",
     )
@@ -112,7 +111,7 @@ class ToolCache(BaseModel):
         description="Cache policy enforced by whatif.",
     )
 
-    def lookup(self, tool_name: str, args: dict[str, Any]) -> Optional[Any]:
+    def lookup(self, tool_name: str, args: dict[str, Any]) -> Any | None:
         """Return the cached tool output for this call, or None if absent."""
         return self.cache.get(self._key(tool_name, args))
 
@@ -210,11 +209,11 @@ class Runner(Protocol):
 
 
 __all__ = [
-    "TraceInput",
     "ReplayConfig",
-    "ToolCache",
     "ReplayOutput",
-    "TraceOutput",
-    "ScoreCase",
     "Runner",
+    "ScoreCase",
+    "ToolCache",
+    "TraceInput",
+    "TraceOutput",
 ]
