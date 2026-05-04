@@ -7,7 +7,7 @@ body:
     attributes:
       value: |
         Thanks for reporting a bug. Please complete each section so we can
-        reproduce — vague reports are usually closed unactioned.
+        reproduce - vague reports are usually closed unactioned.
 
   - type: input
     id: version
@@ -70,7 +70,7 @@ body:
       label: Tracer / scorer / runner setup
       description: |
         Which tracer (Langfuse, Phoenix, ...)? Which scorer (e.g.
-        `inspect_ai:faithfulness`)? What does your `--target` runner look
+        `inspect_ai:faithfulness`)? What does your - target` runner look
         like? Pasting the relevant 10–30 lines is fine.
     validations:
       required: false

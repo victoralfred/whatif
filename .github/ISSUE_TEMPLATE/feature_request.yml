@@ -61,7 +61,7 @@ body:
       label: Design fit
       description: |
         How does this fit (or push) the goals/non-goals in DESIGN.md? If it
-        conflicts with a non-goal, say so explicitly — non-goals are
+        conflicts with a non-goal, say so explicitly-non-goals are
         load-bearing and the bar to override one is high.
     validations:
       required: true
@@ -74,7 +74,7 @@ body:
         - v0.1 (M10)
         - v0.2 (M11)
         - v0.3 (M12)
-        - v1.0 (year 2 — Path Z)
+        - v1.0 (year 2 - Path Z)
         - Unsure
     validations:
       required: false

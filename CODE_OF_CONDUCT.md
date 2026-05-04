@@ -6,7 +6,7 @@ The full and authoritative text is published at:
 
 > <https://www.contributor-covenant.org/version/2/1/code_of_conduct/>
 
-By participating in this project — opening issues, pull requests, discussions, or interacting in any project space — you agree to abide by its terms.
+By participating in this project-opening issues, pull requests, discussions, or interacting in any project space - you agree to abide by its terms.
 
 ## Reporting
 
@@ -18,7 +18,7 @@ All reports will be reviewed and investigated promptly and fairly. All maintaine
 
 ## Scope
 
-This Code of Conduct applies within all project spaces — the GitHub repository, Discussions, issue trackers, pull request reviews, and any other channels operated under the project's name — and also when an individual is officially representing the project in public spaces.
+This Code of Conduct applies within all project spaces - the GitHub repository, Discussions, issue trackers, pull request reviews, and any other channels operated under the project's name - and also when an individual is officially representing the project in public spaces.
 
 ## Attribution
 

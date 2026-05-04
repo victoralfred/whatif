@@ -8,19 +8,19 @@
 # approving review from one of the owners before merge.
 
 # Default owner for everything in the repo.
-*                              @voseghale
+*                              @victoralfred
 
 # The design and the runner contract are the load-bearing surfaces.
 # Changes here need extra care; the design should rarely change without
 # a corresponding DESIGN.md update.
-DESIGN.md                      @voseghale
-src/whatif/contract/           @voseghale
+DESIGN.md                      @victoralfred
+src/whatif/contract/           @victoralfred
 
 # CI / security / release plumbing requires careful change.
-.github/workflows/             @voseghale
-SECURITY.md                    @voseghale
-pyproject.toml                 @voseghale
+.github/workflows/             @victoralfred
+SECURITY.md                    @victoralfred
+pyproject.toml                 @victoralfred
 
 # Public-facing copy.
-README.md                      @voseghale
-CHANGELOG.md                   @voseghale
+README.md                      @victoralfred
+CHANGELOG.md                   @victoralfred

@@ -47,4 +47,4 @@ repos:
 # - Hooks here are deliberately a subset of CI. CI is the source of truth;
 #   pre-commit just shortens the feedback loop locally.
 # - If a hook fails, fix the underlying issue rather than passing
-#   `--no-verify` — that is the discipline this repo runs on.
+#    - no-verify` - that is the discipline this repo runs on.

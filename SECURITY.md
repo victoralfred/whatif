@@ -13,7 +13,7 @@ This project is pre-alpha. Security fixes will be issued for the most recent min
 
 **Please do not open public GitHub issues for security reports.**
 
-Use [GitHub's private vulnerability reporting](https://github.com/voseghale/whatif/security/advisories/new) to file the report privately. You will receive an acknowledgement within **7 days**.
+Use [GitHub's private vulnerability reporting](https://github.com/victoralfred/whatif/security/advisories/new) to file the report privately. You will receive an acknowledgement within **7 days**.
 
 If GitHub Advisories is not an option for you, email:
 
@@ -23,7 +23,7 @@ When reporting, please include:
 
 - Affected version (release tag or commit SHA).
 - Minimal steps to reproduce.
-- Impact assessment — what an attacker could achieve in practice.
+- Impact assessment-what an attacker could achieve in practice.
 - Suggested remediation, if you have one.
 
 ## Coordinated disclosure
@@ -49,11 +49,11 @@ Please do not publicly disclose the issue or open public PRs that reference it u
 
 **Out of scope** (these are the user's responsibility):
 
-- The user-supplied `--target` runner code.
+- The user-supplied  - target` runner code.
 - Tools cached or invoked during replay (cache policies prevent side effects, but tool implementations themselves are user code).
 - Underlying LLM provider security (covered by each provider's own policy).
 - The user's tracer or SLO platform integrations.
-- Issues that require an attacker with local write access to the user's repository or CI configuration — these are outside our threat model.
+- Issues that require an attacker with local write access to the user's repository or CI configuration - these are outside our threat model.
 
 ## Hall of fame
 

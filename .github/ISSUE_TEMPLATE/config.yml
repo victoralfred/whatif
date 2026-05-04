@@ -1,12 +1,12 @@
 blank_issues_enabled: false
 contact_links:
   - name: Question or design discussion
-    url: https://github.com/voseghale/whatif/discussions
+    url: https://github.com/victoralfred/whatif/discussions
     about: |
       For "how do I do X?", "would you accept a PR that...", or design
       conversations, please use Discussions instead of Issues.
   - name: Security vulnerability (private report)
-    url: https://github.com/voseghale/whatif/security/advisories/new
+    url: https://github.com/victoralfred/whatif/security/advisories/new
     about: |
       Do NOT open a public issue for security vulnerabilities. Use GitHub
       private security advisories. See SECURITY.md for the disclosure policy.

@@ -6,7 +6,7 @@ readme = "README.md"
 license = { text = "Apache-2.0" }
 requires-python = ">=3.11"
 authors = [
-  { name = "voseghale" },
+  { name = "victoralfred" },
 ]
 keywords = ["llm", "evaluation", "observability", "sre", "agents", "regression-testing", "ci"]
 classifiers = [
@@ -46,9 +46,9 @@ dev = [
 whatif = "whatif.cli:app"
 
 [project.urls]
-Homepage      = "https://github.com/voseghale/whatif"
-Documentation = "https://github.com/voseghale/whatif/blob/main/DESIGN.md"
-Issues        = "https://github.com/voseghale/whatif/issues"
+Homepage      = "https://github.com/victoralfred/whatif"
+Documentation = "https://github.com/victoralfred/whatif/blob/main/DESIGN.md"
+Issues        = "https://github.com/victoralfred/whatif/issues"
 
 [build-system]
 requires = ["hatchling"]

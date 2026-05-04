@@ -1,5 +1,5 @@
 <!--
-  Thanks for the PR. Please fill every section below — the template exists
+  Thanks for the PR. Please fill every section below - the template exists
   because reviewing a PR with missing context costs more time than writing it.
 -->
 
@@ -39,7 +39,7 @@ Closes #
 - [ ] New code has tests; existing tests pass locally.
 - [ ] `DESIGN.md` updated **iff** architecture changed.
 - [ ] `CHANGELOG.md` updated under `[Unreleased]`.
-- [ ] If this changes the runner contract (`src/whatif/contract/`), the change is **additive** or behind a major version bump — no silent breakage of user runners.
+- [ ] If this changes the runner contract (`src/whatif/contract/`), the change is **additive** or behind a major version bump - no silent breakage of user runners.
 - [ ] If this changes the report format, all 5 mandatory sections still present (Verdict / Stats / Replay validity / Baseline integrity / Evidence + judge rationale).
 - [ ] If this changes a CLI flag or exit code, README quickstart still accurate.
 

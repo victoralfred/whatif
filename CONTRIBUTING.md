@@ -2,7 +2,7 @@
 
 Thanks for thinking about contributing. This document covers the development workflow, branching strategy, commit and PR conventions, security reporting, and how to add the most common kinds of changes.
 
-If you've not yet read [DESIGN.md](./DESIGN.md), do that first — many *"why is it like this?"* questions are answered there, and PRs that conflict with documented non-goals are usually closed unless they argue convincingly for changing the non-goal itself.
+If you've not yet read [DESIGN.md](./DESIGN.md), do that first - many *"why is it like this?"* questions are answered there, and PRs that conflict with documented non-goals are usually closed unless they argue convincingly for changing the non-goal itself.
 
 ---
 
@@ -12,7 +12,7 @@ If you've not yet read [DESIGN.md](./DESIGN.md), do that first — many *"why is
 - Branch off `main`. Use `feat/...`, `fix/...`, `docs/...`, `chore/...`.
 - Commit subjects follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).
 - Open a PR. CI must be green. One review required for merges to `main`.
-- Maintainer squash-merges. The PR title becomes the squashed commit subject — make it Conventional Commits compliant.
+- Maintainer squash-merges. The PR title becomes the squashed commit subject - make it Conventional Commits compliant.
 - Add a `## [Unreleased]` entry to `CHANGELOG.md` for any user-visible change.
 
 ---
@@ -20,7 +20,7 @@ If you've not yet read [DESIGN.md](./DESIGN.md), do that first — many *"why is
 ## Development setup
 
 ```bash
-git clone https://github.com/voseghale/whatif
+git clone https://github.com/victoralfred/whatif
 cd whatif
 uv sync --all-extras --dev
 
@@ -92,10 +92,10 @@ must update to `tool_cache.get(...)`.
 ## Pull requests
 
 1. Open against `main`.
-2. The PR template auto-loads. Fill every section — vague PRs get blocked.
+2. The PR template auto-loads. Fill every section - vague PRs get blocked.
 3. CI runs: `lint`, `type`, `test (3.11)`, `test (3.12)`, `test (3.13)`, `pip-audit`, `bandit`, `gitleaks`, `codeql`.
 4. **All checks must pass before review.** Don't ask for review on a red PR.
-5. Address review comments by pushing additional commits. **Don't force-push during review** — it makes incremental review hard. The maintainer will squash on merge.
+5. Address review comments by pushing additional commits. **Don't force-push during review** - it makes incremental review hard. The maintainer will squash on merge.
 6. After approval, the maintainer squash-merges. The PR title becomes the squashed commit message subject.
 
 ### What gets reviewed especially carefully
@@ -104,7 +104,7 @@ must update to `tool_cache.get(...)`.
 - **Report format changes** must preserve all 5 mandatory sections (Verdict / Stats / Replay validity / Baseline integrity / Evidence + judge rationale). Removing a section requires a major-version bump.
 - **Public API changes** (anything users import from `whatif.*`) must be either additive or behind a major-version bump. Pre-1.0, breaking changes are allowed but documented in `CHANGELOG.md` under `### Changed (BREAKING)`.
 - **CLI flag or exit-code changes** must update the README quickstart and any docs mentioning them.
-- **Dependency additions** require justification — every dep is a maintenance and security cost.
+- **Dependency additions** require justification - every dep is a maintenance and security cost.
 
 ---
 
@@ -121,8 +121,8 @@ class TracerAdapter(Protocol):
 
 Tests should live at `tests/ingest/test_<adapter>.py` with two flavors:
 
-- **Recorded fixtures** (always run in CI) — pre-captured trace JSON, no network.
-- **Live tests** (skipped without env vars) — talk to the real backend, gated by `pytest.mark.integration` and an env-var presence check.
+- **Recorded fixtures** (always run in CI) - pre-captured trace JSON, no network.
+- **Live tests** (skipped without env vars) - talk to the real backend, gated by `pytest.mark.integration` and an env-var presence check.
 
 ---
 
@@ -134,7 +134,7 @@ Wrap an existing eval framework rather than reimplementing scoring from scratch.
 
 ## Releasing (maintainers only)
 
-1. Bump `__version__` in `src/whatif/__init__.py` and `version` in `pyproject.toml` — keep them in sync.
+1. Bump `__version__` in `src/whatif/__init__.py` and `version` in `pyproject.toml - keep them in sync.
 2. Move `[Unreleased]` items in `CHANGELOG.md` under a new `[X.Y.Z] - YYYY-MM-DD` heading.
 3. Open a PR titled `chore(release): vX.Y.Z`.
 4. After merge to `main`, tag and push:
@@ -147,7 +147,7 @@ Wrap an existing eval framework rather than reimplementing scoring from scratch.
    - Publishes to PyPI via [Trusted Publishers](https://docs.pypi.org/trusted-publishers/) (no API tokens needed).
    - Creates a GitHub Release with auto-generated notes.
 
-Versioning follows [SemVer](https://semver.org/). Pre-1.0, the minor version is allowed to introduce breaking changes — but each one is called out in `CHANGELOG.md`.
+Versioning follows [SemVer](https://semver.org/). Pre-1.0, the minor version is allowed to introduce breaking changes - but each one is called out in `CHANGELOG.md`.
 
 ---
 
@@ -167,7 +167,7 @@ This project follows the [Contributor Covenant 2.1](./CODE_OF_CONDUCT.md). Be ex
 
 These have to be set in GitHub's UI; they aren't part of the repo files.
 
-### Branch protection — `main`
+### Branch protection - `main`
 
 `Settings → Branches → Add branch protection rule → Branch name pattern: main`:
 
@@ -187,10 +187,10 @@ These have to be set in GitHub's UI; they aren't part of the repo files.
 
 `Settings → General → Pull Requests`:
 
-- ☑ Allow squash merging — **default merge strategy**
+- ☑ Allow squash merging - **default merge strategy**
 - ☑ Default to PR title for squashed commits
 - ☐ Allow merge commits (uncheck)
-- ☐ Allow rebase merging (uncheck — keep history simple)
+- ☐ Allow rebase merging (uncheck - keep history simple)
 - ☑ Always suggest updating pull request branches
 - ☑ Automatically delete head branches
 
@@ -204,14 +204,14 @@ These have to be set in GitHub's UI; they aren't part of the repo files.
 - ☑ Secret scanning
 - ☑ Push protection (blocks pushes containing secrets)
 - ☑ Private vulnerability reporting (enables the SECURITY.md GitHub Advisories link)
-- ☑ Code scanning — already configured via `.github/workflows/codeql.yml`
+- ☑ Code scanning-already configured via `.github/workflows/codeql.yml`
 
 ### PyPI Trusted Publisher (one-time, before first release)
 
 After a manual first publish (or via PyPI's pending publisher flow):
 
 - On `pypi.org` → `whatif` project → `Manage` → `Publishing` → `Add a new publisher`:
-  - **Owner**: `voseghale`
+  - **Owner**: `victoralfred`
   - **Repository name**: `whatif`
   - **Workflow filename**: `release.yml`
   - **Environment**: `pypi`

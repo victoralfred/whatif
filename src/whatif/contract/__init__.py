@@ -1,10 +1,10 @@
-"""whatif runner contract — the user-facing API for `--target`.
+"""whatif runner contract - the user-facing API for - target`.
 
 A trace alone is not executable. To replay an agent with a modified config,
 `whatif` calls a user-supplied runner that knows how to reconstitute the agent.
 
 The user runner produces *only* the replayed output. `whatif` owns everything
-else — the original trace artifact, the cohort label, the metadata, the
+else - the original trace artifact, the cohort label, the metadata, the
 comparison, the scoring, the verdict.
 
 Example:
@@ -166,7 +166,7 @@ class TraceOutput(BaseModel):
 
 
 class ScoreCase(BaseModel):
-    """The unit handed to scorers — internal to `whatif`.
+    """The unit handed to scorers - internal to `whatif`.
 
     Constructed by `whatif` from (a) the original trace artifact and
     (b) the user runner's `ReplayOutput`. The scorer compares
@@ -193,10 +193,10 @@ class ScoreCase(BaseModel):
 
 @runtime_checkable
 class Runner(Protocol):
-    """The shape `whatif` expects when invoking your `--target`.
+    """The shape `whatif` expects when invoking your - target`.
 
     Implement a function (or callable) matching this signature, then point
-    `--target` at it via the `python:module.path:attr` syntax:
+     - target` at it via the `python:module.path:attr` syntax:
 
         whatif fork --target "python:my_agent.replay:run" ...
     """

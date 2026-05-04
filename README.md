@@ -1,7 +1,7 @@
 # whatif
 
-[![CI](https://github.com/voseghale/whatif/actions/workflows/ci.yml/badge.svg)](https://github.com/voseghale/whatif/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/voseghale/whatif/actions/workflows/codeql.yml/badge.svg)](https://github.com/voseghale/whatif/actions/workflows/codeql.yml)
+[![CI](https://github.com/victoralfred/whatif/actions/workflows/ci.yml/badge.svg)](https://github.com/victoralfred/whatif/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/victoralfred/whatif/actions/workflows/codeql.yml/badge.svg)](https://github.com/victoralfred/whatif/actions/workflows/codeql.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
@@ -11,9 +11,9 @@
 
 ![whatif workflow](./what_if_archi.png)
 
-When you change a prompt, model, or tool in an LLM system, you don't actually know whether it improves behavior — you guess, with a handful of cherry-picked traces and inconsistent evaluation. Every step in the workflow has a tool: Langfuse for traces, Inspect AI for scoring, GitHub for PRs. **The experiment doesn't.**
+When you change a prompt, model, or tool in an LLM system, you don't actually know whether it improves behavior-you guess, with a handful of cherry-picked traces and inconsistent evaluation. Every step in the workflow has a tool: Langfuse for traces, Inspect AI for scoring, GitHub for PRs. **The experiment doesn't.**
 
-**whatif** is the experiment runner. Fork production traces (failed cases plus a representative baseline), replay them with your proposed change (original tool outputs cached so side effects don't re-fire), score with Inspect AI, and produce a diff + verdict report you can attach to the PR. You stop shipping changes that fix one failure while silently regressing ten others. You go from *"this feels better"* to *"this improved 14/20, regressed 3 — here's exactly where, and here's the evidence I'd defend in review."*
+**whatif** is the experiment runner. Fork production traces (failed cases plus a representative baseline), replay them with your proposed change (original tool outputs cached so side effects don't re-fire), score with Inspect AI, and produce a diff + verdict report you can attach to the PR. You stop shipping changes that fix one failure while silently regressing ten others. You go from *"this feels better"* to *"this improved 14/20, regressed 3-  here's exactly where, and here's the evidence I'd defend in review."*
 
 Run it interactively today. Wire it into PR checks tomorrow.
 
@@ -34,14 +34,14 @@ Run it interactively today. Wire it into PR checks tomorrow.
 | v0.3 | M12 | Live-tool replay (opt-in, allowlist), worked CI sample repo. |
 | v1.0 | year 2 | The pre-merge regression gate for LLM behavior. |
 
-## Quickstart (preview — v0.1 not yet released)
+## Quickstart (preview-v0.1 not yet released)
 
 ```bash
 # Once published:
 uv pip install whatif
 
 # Or from source:
-git clone https://github.com/voseghale/whatif
+git clone https://github.com/victoralfred/whatif
 cd whatif
 uv sync
 ```
@@ -68,7 +68,7 @@ whatif fork \
 
 ## How it composes
 
-`whatif` doesn't replace your tracer or your eval framework — it composes them into an experiment.
+`whatif` doesn't replace your tracer or your eval framework - it composes them into an experiment.
 
 - **Tracers (read from)**: Langfuse (v0.1), Phoenix / LangSmith / OpenTelemetry GenAI (v0.2+).
 - **Scorers (wraps)**: Inspect AI (v0.1), pluggable via the scorer registry.
@@ -97,12 +97,12 @@ A reference adapter for the raw Anthropic SDK ships in v0.1; LangChain and LangG
 - Not a tracer (use Langfuse / Phoenix / LangSmith / OpenTelemetry GenAI).
 - Not an offline eval harness (use Inspect AI / Promptfoo; we wrap them).
 - Not an SLO platform (use Nobl9 / sloth / Honeycomb downstream of `whatif`'s decisions).
-- Not an agent runtime — the runner contract is the boundary.
+- Not an agent runtime-the runner contract is the boundary.
 - Not a UI or dashboard.
 
 ## Design
 
-The full design — problem framing, prior art, runner contract, report shape, eval target, milestones, risks — lives in [DESIGN.md](./DESIGN.md).
+The full design - problem framing, prior art, runner contract, report shape, eval target, milestones, risks - lives in [DESIGN.md](./DESIGN.md).
 
 ## Contributing
 
