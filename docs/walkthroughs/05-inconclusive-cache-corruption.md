@@ -29,3 +29,17 @@ To recover:
    Reads all entries, reports any with checksum mismatches, optionally repairs.
 
 This run produced no verdict. Rerun after recovery.
+
+## Methodology
+
+- **Unit of analysis:** paired trace delta (would have been; never executed)
+- **Primary metric:** faithfulness · **Cohorts:** failure, baseline (selected; not scored)
+- **Primary endpoints:** failure improvement, baseline non-regression (NOT evaluated)
+- **Bootstrap:** *unavailable* — `unavailable_reason: "cache locked, scoring stage did not run"`
+- **Cluster handling:** *unavailable* — same reason
+- **Multiplicity:** N/A (no endpoints evaluated)
+- **Judge:** claude-haiku-4-5 (configured; not invoked)
+- **Scorer cache:** lock acquisition failed; see "Suggested next steps" above
+- **Reliability/validity/calibration/bias:** not measured
+- **Causal scope:** N/A (no claim made)
+- **Why Inconclusive:** run-scope failure prevented scoring. The verdict cannot exist without scored evidence above the floor.

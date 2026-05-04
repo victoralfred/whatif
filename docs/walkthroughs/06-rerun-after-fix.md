@@ -31,3 +31,13 @@
 
 The fix appears to have specifically addressed the over-refusal pattern identified
 in v3's evidence section.
+
+## Methodology
+
+**Unchanged across runs:** unit of analysis (paired trace delta), primary metric (faithfulness), bootstrap (paired percentile, B=5000, seed=42), cluster handling (conversation_id), multiplicity (none), per-trace evidence framing (descriptive), judge (claude-haiku-4-5), practical delta threshold (0.05), causal scope (associated under cached-tool replay).
+
+**Differences:**
+- Cache state: v3 had 39 hits / 1 miss; v4 has 40 hits / 0 misses (the change does not invalidate cached scores).
+- Reliability/validity/calibration/bias: still not measured in either run.
+
+A diff between two runs is only meaningful when methodology is identical or its differences are disclosed. The verdict change (Don't Ship → Ship) is attributable to the prompt change because the methodology held constant.

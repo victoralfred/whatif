@@ -53,3 +53,17 @@ Baseline cohort regression rate: 30% (threshold: 10%) — **POLICY VIOLATION**
 > [...similar shape...]
 
 [See full trace context in Langfuse →](https://langfuse.example/...)
+
+## Methodology
+
+- **Unit of analysis:** paired trace delta
+- **Primary metric:** faithfulness · **Cohorts:** failure, baseline
+- **Primary endpoints:** failure improvement, baseline non-regression
+- **Bootstrap:** paired percentile, B=5000, seed=42
+- **Cluster handling:** conversation_id cluster bootstrap
+- **Multiplicity:** none; one primary metric per cohort
+- **Per-trace evidence:** descriptive, not inferential. *No per-trace statistical significance is claimed.*
+- **Judge:** claude-haiku-4-5 · **Scorer cache:** enabled (39 hits / 1 miss)
+- **Practical delta threshold:** 0.05 (source: policy)
+- **Reliability:** not measured · **Validity / calibration:** not measured · **Bias audit:** not measured
+- **Causal scope:** associated regression under cached-tool replay (NOT "caused production regression")
