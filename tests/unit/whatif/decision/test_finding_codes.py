@@ -31,8 +31,9 @@ from whatif.decision.finding_codes import (
 )
 from whatif.types.finding import DecisionFinding, Severity
 
+from ._constants import CODE_RE
+
 _VALID_SEVERITIES: frozenset[Severity] = frozenset(get_args(Severity))
-_CODE_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 
 
 def _synthetic_details(spec: FindingCodeSpec) -> dict[str, str]:
@@ -67,7 +68,7 @@ class TestRegistryShape:
 
     def test_codes_use_lowercase_snake_case(self) -> None:
         for code in FINDING_CODE_REGISTRY:
-            assert _CODE_RE.match(code), f"code {code!r} is not lowercase snake_case"
+            assert CODE_RE.match(code), f"code {code!r} is not lowercase snake_case"
 
     def test_every_entry_has_valid_severity(self) -> None:
         for code, spec in FINDING_CODE_REGISTRY.items():
@@ -90,7 +91,7 @@ class TestRegistryShape:
     def test_required_details_keys_are_lowercase_snake_case(self) -> None:
         for code, spec in FINDING_CODE_REGISTRY.items():
             for key in spec.required_details:
-                assert _CODE_RE.match(key), (
+                assert CODE_RE.match(key), (
                     f"code={code!r} required-detail key {key!r} is not snake_case"
                 )
 
@@ -257,31 +258,13 @@ class TestSeverityNonOverrideable:
 
 
 # ---------------------------------------------------------------------------
-# Cross-registry coverage (Phase 2.4 placeholder — will lift to assert)
+# Cross-registry coverage moved to test_fix_suggestions.py
 # ---------------------------------------------------------------------------
-
-
-class TestCrossRegistryCoverage:
-    @pytest.mark.xfail(
-        reason="Phase 2.4 introduces FIX_SUGGESTION_REGISTRY; coverage gate lifts then.",
-        strict=True,
-    )
-    def test_every_blocking_finding_has_a_fix_suggestion(self) -> None:
-        # Cardinal #8: Inconclusive must be actionable. Every blocks_ship
-        # and blocks_all finding code must have a fix-suggestion entry.
-        # This test is xfail until Phase 2.4 ships the registry; once it
-        # does, the strict=True forces this test to start passing (or
-        # be deleted in favor of the real Phase 2.4 coverage test).
-        from whatif.decision.fix_suggestions import (
-            FIX_SUGGESTION_REGISTRY,  # type: ignore[import-not-found]
-        )
-
-        blocking = {
-            code
-            for code, spec in FINDING_CODE_REGISTRY.items()
-            if spec.severity in ("blocks_ship", "blocks_all")
-        }
-        assert blocking <= set(FIX_SUGGESTION_REGISTRY)
+# Phase 2.3 staged a strict-xfail placeholder here for the cardinal #8
+# gate ("every blocking finding has a fix suggestion"). Phase 2.4 ships
+# the registry; the canonical coverage test lives in
+# `test_fix_suggestions.py::TestCrossRegistryCoverage` so the assertion
+# sits next to the registry it gates.
 
 
 # ---------------------------------------------------------------------------
