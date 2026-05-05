@@ -12,6 +12,16 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+### Added — Phase 2.5b (rate-count `CohortResult` extension + cardinal #10 primary endpoints)
+
+- `src/whatif/types/cohort.py` — `CohortResult` extended with three int fields: `improved_count`, `unchanged_count`, `regressed_count` (defaulting to 0 for backward compatibility). The triple partitions scored traces per cardinal #10's paired-delta unit of analysis: `improved` when the paired delta exceeds `policy.practical_delta_epsilon`, `regressed` when it falls below `-epsilon`, `unchanged` otherwise. The two new rate-based guards read these counts; existing construction sites (test fixtures, floor evaluator) keep working without changes.
+- `src/whatif/decision/guards/failure_improvement.py` — `failure_improvement_guard`. **The load-bearing primary endpoint for cardinal #10's failure-rescue scope.** Emits `failure_improvement_below_threshold` (blocks_ship) when `improved_count / total_scored < policy.min_failure_improvement_ratio`. Strict `<` so equality at the threshold meets the policy's "at least N%" promise.
+- `src/whatif/decision/guards/baseline_regression.py` — `baseline_regression_guard`. The symmetric non-regression endpoint on the baseline cohort. Emits `baseline_regression_above_threshold` (blocks_ship) when `regressed_count / total_scored > policy.max_baseline_regression_ratio`. Strict `>` so equality meets the policy's "at most N%" promise.
+- `src/whatif/decision/guards/practical_delta.py` — docstring framing-cleanup per the cascade entry that PR #23 deferred to this PR. The TODO marker is removed; the docstring now cross-references `failure_improvement_guard` as the primary endpoint and frames `practical_delta_guard` as the supplementary magnitude layer.
+- `tests/unit/whatif/decision/guards/_helpers.py` — extended `failure_cohort` with optional rate-count kwargs; added `baseline_cohort` builder.
+- `tests/unit/whatif/decision/guards/test_baseline_regression.py` — 11 tests covering boundary at exactly-threshold, custom thresholds (strict + lenient), missing cohort, zero-scored guard, and message format.
+- `tests/unit/whatif/decision/guards/test_failure_improvement.py` — 12 tests including a `TestPrimaryEndpointPairing` class that pins independence: each rate-based guard reads only its own cohort's counts.
+
 ### Added — Phase 2.5 (guard chain — protocol + first two guards)
 
 - `src/whatif/decision/guards/protocol.py` — `Guard` Protocol (callable taking `Sequence[CohortResult]` + `DecisionPolicy`, returning `list[DecisionFinding]`) plus `run_guards` chain composer that concatenates findings in registration order. Guards are pure functions; they never raise (cardinal #1: expected failures are data; unexpected failures propagate).

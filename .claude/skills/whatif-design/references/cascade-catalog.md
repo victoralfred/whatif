@@ -688,6 +688,24 @@ Recommend option 2 (ContextVar) when concurrent or embedded runs become a real u
 
 **Trigger for resolution:** v0.2 first minor release.
 
+### `CohortResult` rate-count partition — tighten `<=` to `==` at Phase 2.6
+
+**Source decision:** PR #24 lands the rate-count partition (`improved_count`, `unchanged_count`, `regressed_count`) on `CohortResult` with `__post_init__` enforcing `improved + unchanged + regressed <= scored`. The lenient `<=` constraint preserves backward compatibility with pre-Phase-2.5b construction sites (test fixtures, the floor evaluator) that default rate counts to 0.
+
+**Rippled to:**
+- `whatif/types/cohort.py::CohortResult.__post_init__` — change the invariant from `count_sum > self.scored` to `count_sum != self.scored` once Phase 2.6's projection layer populates the partition exhaustively for every required cohort.
+- `tests/unit/whatif/types/test_cohort.py::TestRateCountInvariant` — `test_partial_population_passes` flips from a positive test to a `pytest.raises(InvariantViolationError)` test. `test_default_zero_counts_pass` either flips too OR is removed (Phase 2.6 should never produce `scored > 0` with all-zero partition; a structural failure in projection).
+- `tests/unit/whatif/decision/guards/_helpers.py::failure_cohort` and `baseline_cohort` — auto-resolve `_resolve_scored = max(default, sum)` becomes `_resolve_scored = sum if sum > 0 else default`. Phase 2.6 tests should pass exhaustive partitions explicitly.
+- The `<=` lenient form lets a pathological "scored=10 with all-zero partition" pass both the floor (`min_scored_per_required_cohort: 5` is satisfied) AND the rate guards (silent abstain on zero total). PR #24's findings agent flagged this as a misleading-class concern in F1 option 3; the resolution is Phase 2.6 exhaustive partition.
+
+**Status:** open
+
+**Resolution:** Phase 2.6 verdict computation PR — projection layer populates the rate-count partition exhaustively; `__post_init__` invariant tightens to `==`; the lenient default-0 path is removed.
+
+**Trigger for resolution:** Phase 2.6 verdict computation PR (verdict computation reads from `CohortResult` rate counts and depends on them being exhaustive).
+
+**Related Phase 5 ripple:** when `ReportV01` lands in Phase 5 (public schema; hand-written per cardinal #6), the rate-count fields need a projection mapping from internal `CohortResult` to the public report shape. PR #24 reviewer noted: an end-to-end serialization test that a `CohortResult` with non-zero rate counts round-trips through `ReportV01` should land alongside the projection. That test belongs to the Phase 5 serialization PR, not this one.
+
 ### Phase 2.5 deferred guards — dependency map
 
 **Source decision:** Phase 2.5 (PR #23) lands the `Guard` Protocol, the `run_guards` chain composer, and two guards (`practical_delta_guard`, `improvement_observation_guard`). Five remaining guards are intentionally deferred — each blocks on a specific upstream change. Documented here so the dependency chain is discoverable from the catalog rather than buried in a PR body.
@@ -702,11 +720,10 @@ Recommend option 2 (ContextVar) when concurrent or embedded runs become a real u
 **Status:** open (each tracked individually below)
 
 **Resolution plan:**
-1. PR after #23: extend `CohortResult` with rate-count fields → land `baseline_regression_guard` + `failure_improvement_guard` together (they share the data dependency).
+1. ~~PR after #23: extend `CohortResult` with rate-count fields → land `baseline_regression_guard` + `failure_improvement_guard` together~~ → **resolved by Phase 2.5b**: both rate-based guards landed alongside the `improved_count`/`unchanged_count`/`regressed_count` extension on `CohortResult`. Framing cleanup applied: `practical_delta_guard`'s docstring now cross-references `failure_improvement_guard` as the load-bearing primary endpoint.
 2. PR adding `ci_unavailable_for_required_cohort` to `FINDING_CODE_REGISTRY` + `FIX_SUGGESTION_REGISTRY` → land `ci_availability_guard`.
 3. Phase 3 cache subsystem PRs → cache metadata reaches `CohortResult` via projection layer → land `cache_staleness_guard`.
-4. Phase 2.6 verdict computation PR → `primary_endpoint_guard` lands as part of the multi-endpoint resolution.
-   - **Framing cleanup (PR #23 reviewer note):** when the rate-based `failure_improvement_below_threshold` guard lands in this same Phase 2.6 PR, revisit `practical_delta_guard`'s docstring to ensure the magnitude-vs-endpoint partition stays sharp. The Phase 2.5 docstring already says "magnitude layer" but the framing relies on the rate-based endpoint existing in the codebase; once it does, the partition is empirically demonstrable in code. Cross-link the two guard docstrings so a reader stepping in cold sees the layer division immediately.
+4. Phase 2.6 verdict computation PR → `primary_endpoint_guard` lands as part of the multi-endpoint resolution. (Framing cleanup is no longer pending — Phase 2.5b applied it inline when the rate-based guards landed.)
 
 ### Guard pre-parse caching — Phase 2.6 verdict computation
 
@@ -733,6 +750,7 @@ Recommend option 2 (ContextVar) when concurrent or embedded runs become a real u
 - `tests/unit/whatif/serialization/test_decimal.py::TestParseDecimalStringNonCanonicalWarns` — flips from `pytest.warns(FutureWarning)` to `pytest.raises(InvariantViolationError)` for every test in that class.
 - **Flip-test list synchronization (PR #23 reviewer note):** as more callers adopt `parse_decimal_string` (each subsequent guard, the verdict layer, the renderer), every test that uses `pytest.warns(FutureWarning, match=...)` against a non-canonical input becomes part of the Phase 5 flip surface. Phase 5's PR must grep for `pytest.warns(FutureWarning` across `tests/` and update each occurrence in lockstep. Today there's only one location; the count grows.
 - `format_decimal_string` (new in Phase 5) pins per-field precision. The current canonical shape is `^-?\d+\.\d+$`; Phase 5 may narrow further (e.g., exactly 3 fractional digits for ratios).
+- **Phase 5 helper-adoption ripple (PR #24 reviewer note):** when `format_decimal_string` lands, the inline `format(rate, '.3f')` calls in `whatif/decision/guards/{baseline_regression,failure_improvement}.py` (and the symmetric `format(threshold, '.3f')` in both files) should switch to the helper. Today's two sites are bounded; the helper-extraction prevents drift if a third rate-based guard adds the same pattern. Tests for the two `TestSubPrecisionThresholdDivergence` cases (in `test_failure_improvement.py`) will need to flip from "documented divergence pinned" to "round-trip equality pinned" once the canonical shape is enforced.
 - **Float-equality stability (PR #23 reviewer note):** the `practical_delta_guard` boundary check `median_delta_float <= policy.practical_delta_epsilon` relies on `float("0.050") == 0.05` round-tripping exactly. When `format_decimal_string` lands with a guarantee that policy thresholds round-trip through `format(value, '.3f')` to identical bytes, this concern dissolves. The Phase 5 PR should pin a boundary-stability test asserting `parse(format(x)) == x` for the canonical thresholds.
 
 **Status:** open — soft-warning phase active.

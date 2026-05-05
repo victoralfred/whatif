@@ -19,6 +19,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
+from whatif.exceptions import InvariantViolationError
 from whatif.types.primitives import DecimalString
 
 
@@ -70,6 +71,18 @@ class CohortResult:
     in `whatif/serialization/decimal.py` (Phase 5) is platform-stable.
 
     `floor_passed` is True iff `floor_failures` is empty.
+
+    `improved_count`, `unchanged_count`, `regressed_count` carry the
+    per-cohort outcome partition over scored traces (per cardinal #10
+    paired-delta unit of analysis): a trace is `improved` when its
+    paired delta exceeds `policy.practical_delta_epsilon`, `regressed`
+    when it falls below `-epsilon`, and `unchanged` otherwise. The
+    rate-based guards (`baseline_regression_guard`,
+    `failure_improvement_guard`) read these counts to compute
+    regression/improvement rates against the policy thresholds. The
+    counts default to 0 so pre-Phase-2.5b construction sites
+    (test fixtures, the floor evaluator) continue to work without
+    rate data; guards check `total > 0` before computing rates.
     """
 
     name: str  # "failure", "baseline", or future
@@ -86,3 +99,34 @@ class CohortResult:
 
     floor_passed: bool
     floor_failures: list[FloorFailure] = field(default_factory=list)
+
+    # Rate-count partition over scored traces (Phase 2.5b).
+    improved_count: int = 0
+    unchanged_count: int = 0
+    regressed_count: int = 0
+
+    def __post_init__(self) -> None:
+        # Per cardinal #1, structural integrity violations propagate as
+        # typed errors. The rate-count partition can't exceed the
+        # number of scored traces — if a projection-layer bug populates
+        # the wrong totals, the rate-based guards would silently emit
+        # incorrect findings. `<=` (not `==`) is intentional: callers
+        # may legitimately leave counts at 0 (the Phase 2.5b default for
+        # backward compat with construction sites that pre-date the
+        # rate-count fields). Phase 2.6+ projection should populate
+        # exhaustively; this check catches the over-population bug.
+        count_sum = self.improved_count + self.unchanged_count + self.regressed_count
+        if count_sum > self.scored:
+            raise InvariantViolationError(
+                f"CohortResult({self.name!r}) rate-count partition exceeds scored: "
+                f"improved={self.improved_count} + unchanged={self.unchanged_count} + "
+                f"regressed={self.regressed_count} = {count_sum}, but scored={self.scored}. "
+                "The rate partition is over scored traces; sum cannot exceed total. "
+                "Likely a projection-layer bug."
+            )
+        if self.improved_count < 0 or self.unchanged_count < 0 or self.regressed_count < 0:
+            raise InvariantViolationError(
+                f"CohortResult({self.name!r}) rate counts must be non-negative: "
+                f"improved={self.improved_count}, unchanged={self.unchanged_count}, "
+                f"regressed={self.regressed_count}."
+            )

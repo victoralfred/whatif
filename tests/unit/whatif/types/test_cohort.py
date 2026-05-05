@@ -6,6 +6,7 @@ import dataclasses
 
 import pytest
 
+from whatif.exceptions import InvariantViolationError
 from whatif.types import (
     CIUnavailableReason,
     CohortResult,
@@ -160,3 +161,63 @@ class TestCohortResult:
             ],
         )
         assert c1 != c2
+
+
+class TestRateCountInvariant:
+    """`CohortResult.__post_init__` enforces that the rate-count
+    partition cannot exceed scored. Catches projection-layer bugs that
+    would otherwise silently skew rate-based guards.
+    """
+
+    def _build(
+        self, *, improved: int, unchanged: int, regressed: int, scored: int = 10
+    ) -> CohortResult:
+        return CohortResult(
+            name="failure",
+            selected=10,
+            replayed=10,
+            scored=scored,
+            ci_available=True,
+            ci_unavailable_reason=None,
+            median_delta=None,
+            ci_lower=None,
+            ci_upper=None,
+            floor_passed=True,
+            improved_count=improved,
+            unchanged_count=unchanged,
+            regressed_count=regressed,
+        )
+
+    def test_default_zero_counts_pass(self) -> None:
+        # Phase 2.5b backward compat: counts default to 0; sum=0 <= scored.
+        c = self._build(improved=0, unchanged=0, regressed=0)
+        assert c.improved_count == 0
+
+    def test_partition_summing_to_scored_passes(self) -> None:
+        # Exhaustive partition (every scored trace categorized): scored=10, sum=10.
+        c = self._build(improved=4, unchanged=3, regressed=3)
+        assert c.improved_count + c.unchanged_count + c.regressed_count == 10
+
+    def test_partial_population_passes(self) -> None:
+        # Lenient `<=` allows partial population during early integration.
+        c = self._build(improved=2, unchanged=0, regressed=0)
+        assert c.improved_count == 2
+
+    def test_partition_exceeding_scored_raises(self) -> None:
+        with pytest.raises(InvariantViolationError, match="exceeds scored"):
+            self._build(improved=5, unchanged=4, regressed=2)  # sum=11 > scored=10
+
+    def test_error_message_includes_breakdown(self) -> None:
+        with pytest.raises(InvariantViolationError, match="improved=5"):
+            self._build(improved=5, unchanged=4, regressed=2)
+        with pytest.raises(InvariantViolationError, match="scored=10"):
+            self._build(improved=5, unchanged=4, regressed=2)
+
+    def test_negative_counts_raise(self) -> None:
+        with pytest.raises(InvariantViolationError, match="non-negative"):
+            self._build(improved=-1, unchanged=0, regressed=0)
+
+    def test_error_includes_cohort_name(self) -> None:
+        # Diagnostic: the cohort name appears so callers can locate the bug.
+        with pytest.raises(InvariantViolationError, match="'failure'"):
+            self._build(improved=11, unchanged=0, regressed=0)
