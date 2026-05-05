@@ -105,6 +105,53 @@ class TestRegistryShape:
             spec.stage = "selection"  # type: ignore[misc]
 
 
+class TestStageScopeReachability:
+    """Catch drift between scope and stage on registry updates.
+
+    The two-type scope rule (failure.py) and the pipeline order combine
+    to constrain which (stage, scope) pairs make sense:
+
+    - `default_scope=="trace"` requires per-trace context, which exists
+      from ingest through diff. Decision and report run after
+      aggregation; trace-scope codes there would imply context the core
+      doesn't have.
+    - `default_scope=="cohort"` requires cohorts to exist (post-
+      selection, post-aggregation). Decision and report are the natural
+      places; selection itself COULD emit cohort-scope (e.g., empty
+      cohort), but v0.1 keeps the rule narrow until that pattern arises.
+    - `default_scope=="run"` is run-level and can fire at any stage
+      since the run encompasses all of them.
+    """
+
+    _TRACE_STAGES = frozenset({"ingest", "selection", "replay", "score", "diff"})
+    _COHORT_STAGES = frozenset({"decision", "report"})
+
+    def test_trace_default_scope_implies_per_trace_stage(self) -> None:
+        for code, spec in FAILURE_CODE_REGISTRY.items():
+            if spec.default_scope == "trace":
+                assert spec.stage in self._TRACE_STAGES, (
+                    f"code={code!r} has default_scope='trace' but stage={spec.stage!r} "
+                    f"— trace context only exists in {sorted(self._TRACE_STAGES)}."
+                )
+
+    def test_cohort_default_scope_implies_post_aggregation_stage(self) -> None:
+        for code, spec in FAILURE_CODE_REGISTRY.items():
+            if spec.default_scope == "cohort":
+                assert spec.stage in self._COHORT_STAGES, (
+                    f"code={code!r} has default_scope='cohort' but stage={spec.stage!r} "
+                    f"— cohort context exists only in {sorted(self._COHORT_STAGES)}."
+                )
+
+    def test_run_default_scope_unconstrained(self) -> None:
+        # Smoke: run-scope codes can sit anywhere. This test exists to
+        # document the asymmetry (no constraint) so the absence of one
+        # isn't taken as oversight.
+        run_codes = [
+            code for code, spec in FAILURE_CODE_REGISTRY.items() if spec.default_scope == "run"
+        ]
+        assert run_codes, "expected at least one run-scope code (cache subsystem)"
+
+
 # ---------------------------------------------------------------------------
 # Factory: positive sweep over every registered code
 # ---------------------------------------------------------------------------
