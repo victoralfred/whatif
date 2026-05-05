@@ -79,7 +79,7 @@ from whatif.decision.guards import (
 )
 from whatif.types.cohort import CohortResult
 from whatif.types.finding import DecisionFinding
-from whatif.types.policy import DecisionPolicy
+from whatif.types.policy import DecisionPolicy, TrustFloor
 from whatif.types.verdict import DontShip, Inconclusive, Ship, Verdict
 
 # v0.1 default guard chain, in registration order. Order matches the
@@ -99,7 +99,7 @@ _DEFAULT_GUARDS: tuple[Guard, ...] = (
 
 def compute_verdict(
     cohort_results: Sequence[CohortResult],
-    floor: object,  # TrustFloor; not imported to avoid type-narrowing issues
+    floor: TrustFloor,
     policy: DecisionPolicy,
     *,
     guards: Sequence[Guard] | None = None,
@@ -115,12 +115,12 @@ def compute_verdict(
     Returns one of `Ship`, `DontShip`, `Inconclusive`. The `Ship`
     branch consumes the `FloorPassedProof` from `evaluate_floor`;
     structurally cannot construct `Ship` without that token.
+
+    `floor` is typed `TrustFloor` directly — mypy strict enforces the
+    contract at call sites. No runtime isinstance check; per the
+    project's enforcement-strength hierarchy, type-level prevention
+    is stronger than runtime defense-in-depth.
     """
-    from whatif.types.policy import TrustFloor
-
-    if not isinstance(floor, TrustFloor):
-        raise TypeError(f"compute_verdict requires a TrustFloor; got {type(floor).__name__}")
-
     floor_outcome = evaluate_floor(
         cohort_results,
         floor,

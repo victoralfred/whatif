@@ -310,17 +310,9 @@ class TestComputeVerdictCustomGuards:
 # ---------------------------------------------------------------------------
 # Type-input contract
 # ---------------------------------------------------------------------------
-
-
-class TestComputeVerdictTypeContract:
-    def test_non_trust_floor_input_raises(self) -> None:
-        """Calling with the wrong type for `floor` is a contract bug —
-        InvariantViolation behavior; surfaces as TypeError per cardinal #1."""
-        import pytest
-
-        with pytest.raises(TypeError, match="TrustFloor"):
-            compute_verdict(
-                [_passing_failure_cohort(), _passing_baseline_cohort()],
-                "not a TrustFloor",  # type: ignore[arg-type]
-                DecisionPolicy(),
-            )
+#
+# `compute_verdict` types its `floor` parameter as `TrustFloor` directly;
+# mypy strict catches wrong-type calls at compile time. No runtime
+# isinstance check — per the enforcement-strength hierarchy in
+# `references/enforcement.md`, type-level prevention is stronger than
+# runtime defense. There is intentionally no `test_non_trust_floor_input_raises`.
