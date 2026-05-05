@@ -24,6 +24,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Protocol, runtime_checkable
 
+from whatif.exceptions import InvariantViolationError
 from whatif.types.cohort import CohortResult
 from whatif.types.finding import DecisionFinding
 from whatif.types.policy import DecisionPolicy
@@ -68,8 +69,26 @@ def run_guards(
     unexpected raise should surface immediately rather than silently
     drop findings. Per cardinal #1, expected failures are data
     (FailureRecord); unexpected failures are bugs (let them propagate).
+
+    Each guard MUST return a fresh `list` — not a class-level mutable
+    or a list shared with a sibling guard. The check below catches the
+    cross-guard sharing case (`id(result) in seen_ids`) which would
+    indicate two guards returning the same list. A guard returning the
+    same list across separate `run_guards` calls isn't caught here
+    (different invocations, different state); that pattern is rare in
+    practice and code review is the safety net.
     """
     findings: list[DecisionFinding] = []
+    seen_ids: set[int] = set()
     for guard in guards:
-        findings.extend(guard(cohort_results, policy))
+        result = guard(cohort_results, policy)
+        if id(result) in seen_ids:
+            raise InvariantViolationError(
+                f"guard {guard!r} returned a list shared with another guard "
+                "in the same run_guards call. Each guard must return a fresh "
+                "list to prevent cross-guard mutation. See the protocol.py "
+                "docstring for the contract."
+            )
+        seen_ids.add(id(result))
+        findings.extend(result)
     return findings

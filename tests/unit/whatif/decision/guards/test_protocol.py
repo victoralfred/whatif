@@ -4,9 +4,13 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+import pytest
+
+from whatif.decision.finding_codes import make_decision_finding
 from whatif.decision.guards import Guard, run_guards
 from whatif.decision.guards.improvement_observation import improvement_observation_guard
 from whatif.decision.guards.practical_delta import practical_delta_guard
+from whatif.exceptions import InvariantViolationError
 from whatif.types.cohort import CohortResult
 from whatif.types.finding import DecisionFinding
 from whatif.types.policy import DecisionPolicy
@@ -126,4 +130,71 @@ class TestRunGuards:
             [],  # no cohorts
             DecisionPolicy(),
         )
+        assert result == []
+
+
+class TestSharedMutableListDetection:
+    """Cardinal #1 / contributor discipline: each guard MUST return a
+    fresh list. The classic footgun is a class-level mutable attribute
+    or a closure-bound list reused across guards. `run_guards` raises
+    `InvariantViolationError` when two guards in the same call return
+    the same list (by identity).
+    """
+
+    def test_two_guards_returning_same_list_raises(self) -> None:
+        # Construct the canonical footgun: a shared list that two
+        # guards both return. `run_guards` should detect by id() and
+        # raise.
+        shared: list[DecisionFinding] = [
+            make_decision_finding(
+                "improvement_observed",
+                message="shared",
+                details={"median_delta": "0.500"},
+            )
+        ]
+
+        def guard_a(
+            cohort_results: Sequence[CohortResult], policy: DecisionPolicy
+        ) -> list[DecisionFinding]:
+            return shared
+
+        def guard_b(
+            cohort_results: Sequence[CohortResult], policy: DecisionPolicy
+        ) -> list[DecisionFinding]:
+            return shared  # SAME list — the bug pattern this catches
+
+        with pytest.raises(InvariantViolationError, match="shared with another guard"):
+            run_guards([guard_a, guard_b], [], DecisionPolicy())
+
+    def test_two_guards_returning_distinct_empty_lists_pass(self) -> None:
+        # Each guard returns a fresh empty list — fine.
+        def empty_guard_a(
+            cohort_results: Sequence[CohortResult], policy: DecisionPolicy
+        ) -> list[DecisionFinding]:
+            return []
+
+        def empty_guard_b(
+            cohort_results: Sequence[CohortResult], policy: DecisionPolicy
+        ) -> list[DecisionFinding]:
+            return []
+
+        # No raise; both empty lists are different `id()` values.
+        result = run_guards([empty_guard_a, empty_guard_b], [], DecisionPolicy())
+        assert result == []
+
+    def test_single_guard_returning_persistent_list_passes_first_call(self) -> None:
+        # A guard returning a persistent mutable list (class-level or
+        # closure-bound) passes the cross-guard check when invoked
+        # alone — only one id in the seen_ids set. The check catches
+        # the *cross-guard* sharing pattern, not the within-guard
+        # repeat-call pattern. The test pins this scope.
+        persistent: list[DecisionFinding] = []
+
+        def stateful_guard(
+            cohort_results: Sequence[CohortResult], policy: DecisionPolicy
+        ) -> list[DecisionFinding]:
+            return persistent
+
+        # Invoked alone — no other id to collide with.
+        result = run_guards([stateful_guard], [], DecisionPolicy())
         assert result == []

@@ -8,18 +8,29 @@ each guard contributes 0+ findings; the verdict computation in Phase
 
 ## Discipline
 
-- A guard never raises. Inputs that don't match its precondition (e.g.,
-  required cohort missing) cause it to emit no finding; the floor or
-  another guard catches that case.
+- A guard never raises on precondition mismatch (e.g., required cohort
+  missing) — it emits no finding and lets the floor or another guard
+  catch the case. Structural integrity violations (e.g., a non-numeric
+  `DecimalString` reaching `parse_decimal_string`) DO raise; per
+  cardinal #1 those are bugs, not data.
 - A guard only ever emits findings via `make_decision_finding`, never
   via `DecisionFinding(...)` directly — the registry-level severity is
   load-bearing per cardinal #2.
 - Guards do NOT mutate inputs. `cohort_results` and `policy` are frozen
-  dataclasses; the guard returns a fresh `list[DecisionFinding]`.
+  dataclasses; the guard returns a **fresh** `list[DecisionFinding]`.
+  `run_guards` checks that returned lists aren't shared across guards
+  in the same call (catches class-level mutable footgun).
 - A guard reads ONLY data on the inputs it's passed. Reaching into
   global state (cache contents, environment) belongs upstream — the
   upstream computes the relevant fields and stuffs them into
   `CohortResult` or `DecisionPolicy` before the guard chain runs.
+- `DecisionFinding.details` payloads are typed `Mapping[str, JsonPrimitive]`
+  per cardinal rule #6 — never `dict[str, Any]`. When the
+  `primary_endpoint` guard lands (Phase 2.6) and any guard is tempted
+  to put structured data in `details`, that data must serialize to
+  `JsonPrimitive` (str / int / float / bool / None). Nested structures
+  belong as new typed fields on the finding or new finding codes, not
+  as opaque dicts.
 
 ## Phase 2.5 lands the protocol + chain composer + two guards
 
