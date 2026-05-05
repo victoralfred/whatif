@@ -706,6 +706,7 @@ Recommend option 2 (ContextVar) when concurrent or embedded runs become a real u
 2. PR adding `ci_unavailable_for_required_cohort` to `FINDING_CODE_REGISTRY` + `FIX_SUGGESTION_REGISTRY` → land `ci_availability_guard`.
 3. Phase 3 cache subsystem PRs → cache metadata reaches `CohortResult` via projection layer → land `cache_staleness_guard`.
 4. Phase 2.6 verdict computation PR → `primary_endpoint_guard` lands as part of the multi-endpoint resolution.
+   - **Framing cleanup (PR #23 reviewer note):** when the rate-based `failure_improvement_below_threshold` guard lands in this same Phase 2.6 PR, revisit `practical_delta_guard`'s docstring to ensure the magnitude-vs-endpoint partition stays sharp. The Phase 2.5 docstring already says "magnitude layer" but the framing relies on the rate-based endpoint existing in the codebase; once it does, the partition is empirically demonstrable in code. Cross-link the two guard docstrings so a reader stepping in cold sees the layer division immediately.
 
 ### Guard pre-parse caching — Phase 2.6 verdict computation
 

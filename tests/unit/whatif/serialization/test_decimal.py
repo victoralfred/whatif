@@ -68,6 +68,30 @@ class TestParseDecimalStringNonCanonicalWarns:
         with pytest.warns(FutureWarning, match="Phase 5"):
             parse_decimal_string(DecimalString("42"), field=_LABEL)
 
+    def test_future_warning_surfaces_under_library_context_filters(self) -> None:
+        # Visibility pin: in production library use, Python's default
+        # filters silence DeprecationWarning outside __main__.
+        # FutureWarning is shown by default. This test simulates the
+        # library-context filter set and confirms FutureWarning surfaces
+        # — the empirical justification for choosing FutureWarning over
+        # DeprecationWarning. If this test fails, library users won't
+        # see the soft-warn drift signal and Phase 5's flip surface
+        # widens silently.
+        with warnings.catch_warnings(record=True) as recorded:
+            # Library-context: silence DeprecationWarning, default-show FutureWarning.
+            warnings.resetwarnings()
+            warnings.filterwarnings("ignore", category=DeprecationWarning)
+            warnings.filterwarnings("default", category=FutureWarning)
+            parse_decimal_string(DecimalString("42"), field=_LABEL)
+
+        future_warnings = [w for w in recorded if issubclass(w.category, FutureWarning)]
+        assert future_warnings, (
+            "FutureWarning must surface under library-context filter set "
+            "(DeprecationWarning ignored). If this fails, library users miss "
+            "the soft-warn drift signal — see "
+            "cascade-catalog `parse_decimal_string` permissiveness entry."
+        )
+
 
 class TestParseDecimalStringRaisesOnMalformed:
     def test_raises_on_non_numeric(self) -> None:
