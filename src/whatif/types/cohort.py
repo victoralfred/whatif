@@ -70,6 +70,18 @@ class CohortResult:
     in `whatif/serialization/decimal.py` (Phase 5) is platform-stable.
 
     `floor_passed` is True iff `floor_failures` is empty.
+
+    `improved_count`, `unchanged_count`, `regressed_count` carry the
+    per-cohort outcome partition over scored traces (per cardinal #10
+    paired-delta unit of analysis): a trace is `improved` when its
+    paired delta exceeds `policy.practical_delta_epsilon`, `regressed`
+    when it falls below `-epsilon`, and `unchanged` otherwise. The
+    rate-based guards (`baseline_regression_guard`,
+    `failure_improvement_guard`) read these counts to compute
+    regression/improvement rates against the policy thresholds. The
+    counts default to 0 so pre-Phase-2.5b construction sites
+    (test fixtures, the floor evaluator) continue to work without
+    rate data; guards check `total > 0` before computing rates.
     """
 
     name: str  # "failure", "baseline", or future
@@ -86,3 +98,8 @@ class CohortResult:
 
     floor_passed: bool
     floor_failures: list[FloorFailure] = field(default_factory=list)
+
+    # Rate-count partition over scored traces (Phase 2.5b).
+    improved_count: int = 0
+    unchanged_count: int = 0
+    regressed_count: int = 0

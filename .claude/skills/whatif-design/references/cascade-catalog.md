@@ -702,11 +702,10 @@ Recommend option 2 (ContextVar) when concurrent or embedded runs become a real u
 **Status:** open (each tracked individually below)
 
 **Resolution plan:**
-1. PR after #23: extend `CohortResult` with rate-count fields → land `baseline_regression_guard` + `failure_improvement_guard` together (they share the data dependency).
+1. ~~PR after #23: extend `CohortResult` with rate-count fields → land `baseline_regression_guard` + `failure_improvement_guard` together~~ → **resolved by Phase 2.5b**: both rate-based guards landed alongside the `improved_count`/`unchanged_count`/`regressed_count` extension on `CohortResult`. Framing cleanup applied: `practical_delta_guard`'s docstring now cross-references `failure_improvement_guard` as the load-bearing primary endpoint.
 2. PR adding `ci_unavailable_for_required_cohort` to `FINDING_CODE_REGISTRY` + `FIX_SUGGESTION_REGISTRY` → land `ci_availability_guard`.
 3. Phase 3 cache subsystem PRs → cache metadata reaches `CohortResult` via projection layer → land `cache_staleness_guard`.
-4. Phase 2.6 verdict computation PR → `primary_endpoint_guard` lands as part of the multi-endpoint resolution.
-   - **Framing cleanup (PR #23 reviewer note):** when the rate-based `failure_improvement_below_threshold` guard lands in this same Phase 2.6 PR, revisit `practical_delta_guard`'s docstring to ensure the magnitude-vs-endpoint partition stays sharp. The Phase 2.5 docstring already says "magnitude layer" but the framing relies on the rate-based endpoint existing in the codebase; once it does, the partition is empirically demonstrable in code. Cross-link the two guard docstrings so a reader stepping in cold sees the layer division immediately.
+4. Phase 2.6 verdict computation PR → `primary_endpoint_guard` lands as part of the multi-endpoint resolution. (Framing cleanup is no longer pending — Phase 2.5b applied it inline when the rate-based guards landed.)
 
 ### Guard pre-parse caching — Phase 2.6 verdict computation
 
