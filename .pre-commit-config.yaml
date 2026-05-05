@@ -1,12 +1,12 @@
 # Pre-commit hooks for whatif.
 #
-# Install once per clone:
-#   uv run pip install pre-commit
-#   pre-commit install
+# `pre-commit` is in the project's [dependency-groups].dev, so `uv sync`
+# installs it. Activate the hook once per clone:
+#   uv run pre-commit install
 #
-# Then ruff + mypy + the hygiene hooks run on every `git commit`.
-# Run on the whole tree at any time with:
-#   pre-commit run --all-files
+# Then ruff + mypy + the hygiene hooks run on every `git commit`. Run on
+# the whole tree at any time with:
+#   uv run pre-commit run --all-files
 
 repos:
   # ----- Ruff: lint + format ---------------------------------------------
