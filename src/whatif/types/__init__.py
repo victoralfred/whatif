@@ -20,6 +20,7 @@ Phase 1 ordering (per `.claude/skills/whatif-design/phases.md`):
 from whatif.types.cohort import CIUnavailableReason, CohortResult, FloorFailure
 from whatif.types.failure import FailureRecord, Scope, Stage
 from whatif.types.finding import DecisionFinding, Severity
+from whatif.types.manifest import EnvironmentFingerprint, RunManifest
 from whatif.types.policy import (
     DecisionPolicy,
     EndpointDirection,
@@ -68,4 +69,7 @@ __all__ = [  # noqa: RUF022 — grouped by Phase for readability, not alphabetic
     "ScorerCacheMode",
     "ScorerCacheStorageProfile",
     "TrustFloor",
+    # 1.6 manifest (SensitiveUnwrap re-exported from 1.2 sensitive)
+    "EnvironmentFingerprint",
+    "RunManifest",
 ]
