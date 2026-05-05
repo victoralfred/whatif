@@ -31,8 +31,9 @@ from whatif.decision.finding_codes import (
 )
 from whatif.types.finding import DecisionFinding, Severity
 
+from ._constants import CODE_RE
+
 _VALID_SEVERITIES: frozenset[Severity] = frozenset(get_args(Severity))
-_CODE_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 
 
 def _synthetic_details(spec: FindingCodeSpec) -> dict[str, str]:
@@ -67,7 +68,7 @@ class TestRegistryShape:
 
     def test_codes_use_lowercase_snake_case(self) -> None:
         for code in FINDING_CODE_REGISTRY:
-            assert _CODE_RE.match(code), f"code {code!r} is not lowercase snake_case"
+            assert CODE_RE.match(code), f"code {code!r} is not lowercase snake_case"
 
     def test_every_entry_has_valid_severity(self) -> None:
         for code, spec in FINDING_CODE_REGISTRY.items():
@@ -90,7 +91,7 @@ class TestRegistryShape:
     def test_required_details_keys_are_lowercase_snake_case(self) -> None:
         for code, spec in FINDING_CODE_REGISTRY.items():
             for key in spec.required_details:
-                assert _CODE_RE.match(key), (
+                assert CODE_RE.match(key), (
                     f"code={code!r} required-detail key {key!r} is not snake_case"
                 )
 

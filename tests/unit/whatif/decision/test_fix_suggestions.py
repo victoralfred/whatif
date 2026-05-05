@@ -21,7 +21,6 @@ in the same PR.
 from __future__ import annotations
 
 import dataclasses
-import re
 from collections.abc import Mapping
 
 import pytest
@@ -29,8 +28,7 @@ import pytest
 from whatif.decision.finding_codes import FINDING_CODE_REGISTRY
 from whatif.decision.fix_suggestions import FIX_SUGGESTION_REGISTRY, FixSuggestion
 
-_CODE_RE = re.compile(r"^[a-z][a-z0-9_]*$")
-
+from ._constants import CODE_RE
 
 # ---------------------------------------------------------------------------
 # Registry shape
@@ -55,7 +53,7 @@ class TestRegistryShape:
 
     def test_keys_are_lowercase_snake_case(self) -> None:
         for code in FIX_SUGGESTION_REGISTRY:
-            assert _CODE_RE.match(code), f"key {code!r} is not lowercase snake_case"
+            assert CODE_RE.match(code), f"key {code!r} is not lowercase snake_case"
 
     def test_finding_code_matches_dict_key(self) -> None:
         # Catches the "renamed key but forgot to update finding_code" bug.
