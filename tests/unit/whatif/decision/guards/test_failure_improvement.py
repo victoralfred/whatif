@@ -70,6 +70,55 @@ class TestFailureImprovementCustomThreshold:
         assert findings == []
 
 
+class TestSubPrecisionThresholdDivergence:
+    """Pin the float-vs-displayed-string caveat documented in both
+    rate-based guards' module docstrings.
+
+    The comparator runs on the underlying float; displayed strings round
+    via `format(rate, '.3f')` to 3 decimal places. At standard policy
+    thresholds (default 0.50, 0.10) the two agree. At sub-precision
+    thresholds (e.g., 0.333 against a 1/3 rate), the displayed equality
+    may not match the comparator's verdict.
+
+    These tests exist so a future "fix" can't silently change the
+    behavior. Phase 5's `format_decimal_string` round-trip pair will
+    dissolve this concern by codifying the canonical shape; until
+    then, the documented divergence is empirically pinned.
+    """
+
+    def test_one_third_rate_at_one_third_threshold_does_not_emit(self) -> None:
+        # 1/3 = 0.3333... > 0.333 (the threshold's float value, also
+        # 0.333 displayed). Comparator: rate >= threshold (strict `<` so
+        # no emit). But the rendered finding would have shown
+        # "observed 0.333, threshold 0.333" — identical strings while
+        # the float comparison treated them as inequal.
+        # No finding here; the test pins that the GUARD does not emit.
+        policy = DecisionPolicy(min_failure_improvement_ratio=0.333)
+        # 1 improved out of 3 scored → rate = 0.3333...
+        cohort = failure_cohort(improved=1, unchanged=1, regressed=1)
+        findings = failure_improvement_guard([cohort], policy)
+        assert findings == [], (
+            "1/3 rate (0.3333...) is strictly > threshold 0.333 in float, "
+            "so the guard should not emit even though displayed strings "
+            "would both round to '0.333'. Phase 5 dissolves this divergence."
+        )
+
+    def test_two_thirds_rate_at_two_thirds_threshold_emits(self) -> None:
+        # 2/3 = 0.6666... < 0.667 (threshold). Comparator: rate < threshold
+        # → guard emits. Display: "observed 0.667, threshold 0.667" → both
+        # round identically. The reader sees equality; the guard treated
+        # them as inequal. The pinned behavior is "comparator wins; display
+        # rounds".
+        policy = DecisionPolicy(min_failure_improvement_ratio=0.667)
+        # 2 improved out of 3 scored → rate = 0.6666...
+        cohort = failure_cohort(improved=2, unchanged=1, regressed=0)
+        findings = failure_improvement_guard([cohort], policy)
+        assert len(findings) == 1
+        # Both displayed values round to "0.667":
+        assert findings[0].details["observed"] == "0.667"
+        assert findings[0].details["threshold"] == "0.667"
+
+
 class TestPrimaryEndpointPairing:
     """The two rate-based guards form cardinal #10's primary endpoints
     for v0.1's failure-rescue scope. Test that they're independent —

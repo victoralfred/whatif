@@ -1,5 +1,5 @@
-"""In-diff spot-check that Phase 2.5b's new blocking finding codes
-have registered fix-suggestion templates (cardinal rule #8).
+"""In-diff spot-check that recent blocking finding codes have
+registered fix-suggestion templates (cardinal rule #8).
 
 The Phase 2.4 cross-registry coverage gate at
 `tests/unit/whatif/decision/test_fix_suggestions.py::TestCrossRegistryCoverage`
@@ -10,9 +10,10 @@ adds a blocking finding code, so reviewers don't have to chase the
 gate test to confirm coverage.
 
 Pattern: any PR that adds a `blocks_ship` or `blocks_all` finding code
-to `FINDING_CODE_REGISTRY` should add an assertion here for that
-specific code. The Phase 2.4 gate is the canonical enforcement; this
-file is the in-PR breadcrumb.
+to `FINDING_CODE_REGISTRY` should add a targeted assertion here for
+that specific code. The Phase 2.4 gate is the canonical enforcement;
+this file is the in-PR breadcrumb. Filename is phase-agnostic so future
+phases can add to it without renaming churn.
 """
 
 from __future__ import annotations
