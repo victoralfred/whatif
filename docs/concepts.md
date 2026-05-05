@@ -13,11 +13,7 @@ A corollary that resolves day-to-day disputes:
 > **If a design flaw would mislead a reviewer, it is a correctness bug. If it only slows or inconveniences the reviewer, it is an optimization or UX issue.**
 
 ## 2. Non-claims
-
 Stating non-claims protects the doctrine. whatif is:
-
-- **Not a safety certifier.** whatif enforces *your* declared policy. It does not certify the absence of bugs, harms, or regressions outside the dimensions you scored.
-- **Not a replacement for human review.** It is input to human review. The report shape exists to make that review fast and grounded, not to replace it.
 - **Not a substitute for production monitoring.** Production drift is a different problem.
 - **Not a benchmark suite.** It evaluates *your* change against *your* traces; it does not produce comparable scores across projects.
 - **Not a load test.** Replay is for behavior comparison, not for performance evaluation.
@@ -38,11 +34,6 @@ Two layered types:
 
 The bright-line rule: `FailureRecord` is what happened, `DecisionFinding` is what it means. Aggregation happens in the finding, not by mutating records.
 
-## 6. Evidence and audit bundle
-
-A whatif run produces an `ArtifactBundle` on disk. Profile-driven layout:
-
-- **`minimal`** — `report.md`, `report.json`, `manifest.json`, `hashes.json`. Smallest defensible bundle.
 - **`review`** — adds `cache-summary.json`, `trace-selection.json`. Default for interactive use.
 - **`audit`** — adds `config.resolved.yaml`, `dependencies.json`. Default in CI.
 - **`forensic`** — adds raw evidence (full prompts, full outputs, full judge rationale). Two-affirmation opt-in only: requires both a config block AND a CLI flag; both disclosed in the manifest.
