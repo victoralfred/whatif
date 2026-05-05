@@ -30,3 +30,10 @@ def test_failure_improvement_below_threshold_has_fix_suggestion() -> None:
 def test_baseline_regression_above_threshold_has_fix_suggestion() -> None:
     # PR #24 added the symmetric non-regression endpoint guard.
     assert "baseline_regression_above_threshold" in FIX_SUGGESTION_REGISTRY
+
+
+def test_ci_unavailable_for_required_cohort_has_fix_suggestion() -> None:
+    # Phase 2.5c added the CI-availability guard. Cardinal #8 requires
+    # the blocks_all finding to be actionable — `--accept-no-ci` escape
+    # hatch is the v0.1 path.
+    assert "ci_unavailable_for_required_cohort" in FIX_SUGGESTION_REGISTRY

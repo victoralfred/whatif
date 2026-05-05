@@ -147,6 +147,21 @@ _REGISTRY_BUILDER: dict[str, FindingCodeSpec] = {
             "FAILURE_CODE_REGISTRY['cache_lock_unavailable']."
         ),
     ),
+    "ci_unavailable_for_required_cohort": FindingCodeSpec(
+        severity="blocks_all",
+        message_template=("CI unavailable for required cohort {cohort}: {reason}"),
+        required_details=("cohort", "reason"),
+        derived_from_failures_expectation="always",
+        description=(
+            "Confidence interval could not be computed for a required "
+            "cohort (sample too small, zero variance, computation failed). "
+            "Pairs with FAILURE_CODE_REGISTRY['ci_uncomputable_for_required_cohort']. "
+            "Forces Inconclusive — verdicts that depend on cohort-level "
+            "uncertainty cannot be rendered without it. The companion "
+            "DecisionPolicy.accept_no_ci escape hatch (v0.1) is the "
+            "configured opt-out; absent that, the floor blocks Ship."
+        ),
+    ),
     "cohort_systemic_failure": FindingCodeSpec(
         severity="blocks_all",
         message_template=("{percent} of {cohort} cohort traces shared failure code {code}"),

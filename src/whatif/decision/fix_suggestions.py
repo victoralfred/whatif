@@ -133,6 +133,29 @@ _REGISTRY_BUILDER: dict[str, FixSuggestion] = {
             "appropriate to their situation."
         ),
     ),
+    "ci_unavailable_for_required_cohort": FixSuggestion(
+        finding_code="ci_unavailable_for_required_cohort",
+        summary="Confidence interval could not be computed for a required cohort.",
+        steps=(
+            "Check the linked failure record (see `derived_from_failures` in the finding) for the "
+            "specific reason: `sample_too_small` means fewer scored traces than the bootstrap requires; "
+            "`zero_variance` means every paired delta was identical; `computation_failed` means the "
+            "bootstrap raised an unexpected error.",
+            "If the reason is sample size: increase the cohort selection limit in `whatif.config.yaml` "
+            "so more traces are evaluated, or relax the `selection.<cohort>.filter` if it's too narrow.",
+            "If you accept verdict-without-CI for this run (e.g., a known small-sample experiment), pass "
+            "`--accept-no-ci` on the CLI. The opt-out is recorded in the manifest and the report's "
+            "methodology block.",
+            "If the reason is `zero_variance` or `computation_failed`: investigate the scored traces "
+            "directly. Identical deltas on every trace suggest a scoring bug; computation failures point "
+            "at the bootstrap implementation.",
+        ),
+        description=(
+            "CI unavailable on a required cohort. Cardinal #10 stance: verdicts that depend on cohort-"
+            "level uncertainty cannot ship without it. The `--accept-no-ci` flag is the v0.1 escape "
+            "hatch when sample-too-small is the diagnosed cause."
+        ),
+    ),
     "cohort_systemic_failure": FixSuggestion(
         finding_code="cohort_systemic_failure",
         summary="A single failure mode dominates the cohort — the run is not measuring the change.",

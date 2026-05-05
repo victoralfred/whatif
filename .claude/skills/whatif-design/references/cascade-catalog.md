@@ -721,9 +721,9 @@ Recommend option 2 (ContextVar) when concurrent or embedded runs become a real u
 
 **Resolution plan:**
 1. ~~PR after #23: extend `CohortResult` with rate-count fields → land `baseline_regression_guard` + `failure_improvement_guard` together~~ → **resolved by Phase 2.5b**: both rate-based guards landed alongside the `improved_count`/`unchanged_count`/`regressed_count` extension on `CohortResult`. Framing cleanup applied: `practical_delta_guard`'s docstring now cross-references `failure_improvement_guard` as the load-bearing primary endpoint.
-2. PR adding `ci_unavailable_for_required_cohort` to `FINDING_CODE_REGISTRY` + `FIX_SUGGESTION_REGISTRY` → land `ci_availability_guard`.
+2. ~~PR adding `ci_unavailable_for_required_cohort` to `FINDING_CODE_REGISTRY` + `FIX_SUGGESTION_REGISTRY` → land `ci_availability_guard`~~ → **resolved by Phase 2.5c**: finding code added (severity=blocks_all, derived_from_failures="always"); fix-suggestion entry added with `--accept-no-ci` escape-hatch guidance; `ci_availability_guard` lands and emits one finding per affected required cohort. Pending: failure-record plumbing (`derived_from_failures` placeholder used; real wiring in Phase 2.6 / projection layer).
 3. Phase 3 cache subsystem PRs → cache metadata reaches `CohortResult` via projection layer → land `cache_staleness_guard`.
-4. Phase 2.6 verdict computation PR → `primary_endpoint_guard` lands as part of the multi-endpoint resolution. (Framing cleanup is no longer pending — Phase 2.5b applied it inline when the rate-based guards landed.)
+4. Phase 2.6 verdict computation PR → `primary_endpoint_guard` lands as part of the multi-endpoint resolution. Also: `ci_availability_guard`'s emitted findings need real `derived_from_failures` wiring once failure records are threaded end-to-end (placeholder `["pending_phase_2_6_plumbing"]` is in place today).
 
 ### Guard pre-parse caching — Phase 2.6 verdict computation
 

@@ -12,6 +12,15 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+### Added — Phase 2.5c (CI availability guard)
+
+- `src/whatif/decision/finding_codes.py` — new `ci_unavailable_for_required_cohort` finding code (severity `blocks_all`, derived_from_failures="always"). Pairs with `FAILURE_CODE_REGISTRY['ci_uncomputable_for_required_cohort']` (the operational fact); the finding is the policy conclusion that forces Inconclusive when CI is missing on a required cohort.
+- `src/whatif/decision/fix_suggestions.py` — new fix-suggestion entry guiding users through the `--accept-no-ci` escape hatch (the v0.1 single-flag opt-out for known-small-sample experiments) and the diagnostic path for `sample_too_small` / `zero_variance` / `computation_failed` reasons.
+- `src/whatif/decision/guards/ci_availability.py` — `ci_availability_guard`. For every cohort named in `policy.required_cohorts`, checks `cohort.ci_available`; emits one finding per affected cohort (ordered to match `policy.required_cohorts`). Missing cohorts (the floor's `required_cohort_present` rule) and non-required cohorts are skipped. `accept_no_ci` is NOT consulted here — emission is unconditional; Phase 2.6 verdict computation does the acceptance arithmetic so the manifest records both finding AND opt-out.
+- `tests/unit/whatif/decision/guards/test_ci_availability.py` — 11 tests covering boundary cases (CI on all required, CI missing on one, CI missing on all, CI missing on non-required, missing-cohort silence, empty cohort list), per-cohort emission ordering, custom `required_cohorts` (3-cohort policy), and the `unspecified` reason fallback when projection-layer bug leaves `ci_unavailable_reason=None`.
+- `tests/unit/whatif/decision/guards/test_blocking_finding_fix_suggestions_inline.py` — added the cardinal-#8 spot-check assertion for the new finding code.
+- Cascade catalog "Phase 2.5 deferred guards" entry: bullet 2 marked resolved. Pending in bullet 4: real `derived_from_failures` wiring (placeholder used today) lands when Phase 2.6 plumbs failure records end-to-end.
+
 ### Added — Phase 2.5b (rate-count `CohortResult` extension + cardinal #10 primary endpoints)
 
 - `src/whatif/types/cohort.py` — `CohortResult` extended with three int fields: `improved_count`, `unchanged_count`, `regressed_count` (defaulting to 0 for backward compatibility). The triple partitions scored traces per cardinal #10's paired-delta unit of analysis: `improved` when the paired delta exceeds `policy.practical_delta_epsilon`, `regressed` when it falls below `-epsilon`, `unchanged` otherwise. The two new rate-based guards read these counts; existing construction sites (test fixtures, floor evaluator) keep working without changes.
