@@ -17,6 +17,9 @@ Phase 1 ordering (per `.claude/skills/whatif-design/phases.md`):
   1.7 statistical   — TraceDelta, MethodologyDisclosure (cardinal #10)
 """
 
+from whatif.types.cohort import CIUnavailableReason, CohortResult, FloorFailure
+from whatif.types.failure import FailureRecord, Scope, Stage
+from whatif.types.finding import DecisionFinding, Severity
 from whatif.types.primitives import DecimalString, JsonPrimitive
 from whatif.types.sensitive import (
     Sensitive,
@@ -25,11 +28,22 @@ from whatif.types.sensitive import (
     UnredactedSensitiveError,
 )
 
-__all__ = [
+__all__ = [  # noqa: RUF022 — grouped by Phase for readability, not alphabetical
+    # 1.1 primitives
     "DecimalString",
     "JsonPrimitive",
+    # 1.2 sensitive
     "Sensitive",
     "SensitiveSerializationError",
     "SensitiveUnwrap",
     "UnredactedSensitiveError",
+    # 1.3 operational
+    "CIUnavailableReason",
+    "CohortResult",
+    "DecisionFinding",
+    "FailureRecord",
+    "FloorFailure",
+    "Scope",
+    "Severity",
+    "Stage",
 ]
