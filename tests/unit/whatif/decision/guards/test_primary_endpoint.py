@@ -83,12 +83,15 @@ class TestPrimaryEndpointDefaultPolicyNonRegression:
         assert findings == []
 
     def test_silent_when_no_baseline_cohort(self) -> None:
-        # Only failure cohort (improvement endpoint applies); baseline
-        # endpoint silently abstains because cohort is missing.
+        # Default policy declares BOTH the failure and baseline endpoints.
+        # This test pins zero findings via two distinct paths in one run:
+        #   - failure endpoint PASSES: improved=10/12 = 0.833, threshold 0.500,
+        #     strict-< check fails → no emit.
+        #   - baseline endpoint ABSTAINS: baseline cohort missing from results,
+        #     guard's `if cohort is None: continue` branch fires.
         findings = primary_endpoint_guard(
             [failure_cohort(improved=10, regressed=2)], DecisionPolicy()
         )
-        # failure_cohort with improved=10 (rate 0.833 above threshold) → no emit
         assert findings == []
 
 

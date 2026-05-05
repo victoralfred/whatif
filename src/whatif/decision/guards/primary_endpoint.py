@@ -138,11 +138,12 @@ def _evaluate_improvement(
     """`improvement_above_threshold`: emit when improvement rate is
     strictly below `policy.min_failure_improvement_ratio`."""
     improvement_rate = cohort.improved_count / total_scored
-    # v0.1 limitation: the threshold is policy-level, not endpoint-level.
-    # Any cohort using `improvement_above_threshold` reads the same value
-    # (regardless of cohort name). v0.2 threads thresholds through
-    # `PrimaryEndpoint`. See cascade-catalog "Direction-keyed finding
-    # codes for v0.2 multi-cohort primary_endpoint_guard".
+    # TODO(v0.2): per-endpoint thresholds. The threshold is currently
+    # policy-level, not endpoint-level — any cohort using
+    # `improvement_above_threshold` reads the same value regardless of
+    # cohort name. v0.2 threads thresholds through `PrimaryEndpoint`.
+    # See cascade-catalog "Direction-keyed finding codes for v0.2
+    # multi-cohort primary_endpoint_guard".
     threshold = policy.min_failure_improvement_ratio
 
     if improvement_rate >= threshold:
@@ -169,8 +170,10 @@ def _evaluate_non_regression(
     """`non_regression_below_threshold`: emit when regression rate
     strictly exceeds `policy.max_baseline_regression_ratio`."""
     regression_rate = cohort.regressed_count / total_scored
-    # v0.1 limitation: same as `_evaluate_improvement` — threshold is
-    # policy-level, not per-endpoint. v0.2 cascade-tracked.
+    # TODO(v0.2): per-endpoint thresholds. Same v0.1 limitation as
+    # `_evaluate_improvement` — threshold is policy-level, not
+    # endpoint-level. See cascade-catalog "Direction-keyed finding
+    # codes for v0.2 multi-cohort primary_endpoint_guard".
     threshold = policy.max_baseline_regression_ratio
 
     if regression_rate <= threshold:
