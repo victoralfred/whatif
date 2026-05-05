@@ -109,6 +109,36 @@ class TestCiAvailabilityReasonFallback:
         assert findings[0].details["reason"] == "unspecified"
 
 
+class TestCiAvailabilityPlaceholderContract:
+    """Lock the `pending_phase_2_6_plumbing` placeholder on
+    `derived_from_failures` so Phase 2.6 (which wires real failure
+    records end-to-end) is forced to update this test when it lands.
+
+    The placeholder is the in-code surface for the cascade-catalog
+    "Phase 2.5 deferred guards" → bullet 4 work item.
+    """
+
+    def test_derived_from_failures_uses_placeholder(self) -> None:
+        from whatif.decision.guards.ci_availability import _PHASE_2_6_PLACEHOLDER
+
+        cohort = _cohort("failure", ci_available=False, ci_unavailable_reason="sample_too_small")
+        findings = ci_availability_guard([cohort], DecisionPolicy())
+        assert len(findings) == 1
+        # Phase 2.6 will replace this placeholder with real failure-record
+        # IDs. When this test fails, the guard's emit logic should be
+        # updated to use the real IDs and this test deleted.
+        assert findings[0].derived_from_failures == [_PHASE_2_6_PLACEHOLDER]
+
+    def test_placeholder_constant_is_grep_discoverable(self) -> None:
+        # The placeholder string itself should be greppable as a single
+        # constant. If a future contributor types the literal inline
+        # somewhere instead of importing the constant, this test still
+        # protects the central definition.
+        from whatif.decision.guards.ci_availability import _PHASE_2_6_PLACEHOLDER
+
+        assert _PHASE_2_6_PLACEHOLDER == "pending_phase_2_6_plumbing"
+
+
 class TestCiAvailabilityCustomPolicy:
     def test_respects_custom_required_cohorts(self) -> None:
         # Policy with three required cohorts (forward-looking — v0.2 may

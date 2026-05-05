@@ -40,6 +40,12 @@ from whatif.types.cohort import CohortResult
 from whatif.types.finding import DecisionFinding
 from whatif.types.policy import DecisionPolicy
 
+# Placeholder for `derived_from_failures` until Phase 2.6 plumbs real
+# failure-record IDs through the verdict pipeline. Exported (single
+# underscore) so tests can lock it; once Phase 2.6 lands, the test
+# that asserts this constant flips and the constant is removed.
+_PHASE_2_6_PLACEHOLDER = "pending_phase_2_6_plumbing"
+
 
 def ci_availability_guard(
     cohort_results: Sequence[CohortResult],
@@ -77,10 +83,12 @@ def ci_availability_guard(
                 "ci_unavailable_for_required_cohort",
                 message=(f"CI unavailable for required cohort {cohort.name!r}: {reason}"),
                 details={"cohort": cohort.name, "reason": reason},
-                # derived_from_failures left empty pending failure-record
-                # plumbing in Phase 2.6 / projection layer (see
-                # cascade-catalog "Phase 2.5 deferred guards" entry).
-                derived_from_failures=["pending_phase_2_6_plumbing"],
+                # TODO(phase-2.6): replace this placeholder with the
+                # real failure-record IDs once Phase 2.6 plumbs failure
+                # records end-to-end through the verdict pipeline. See
+                # cascade-catalog "Phase 2.5 deferred guards" → bullet 4.
+                # The constant string makes this grep-discoverable.
+                derived_from_failures=[_PHASE_2_6_PLACEHOLDER],
             )
         )
     return findings
