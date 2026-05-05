@@ -27,17 +27,11 @@ from whatif.types import (
     FloorFailure,
     Inconclusive,
     Ship,
+    TrustFloor,
     Verdict,
 )
 
 # --- Fixtures -----------------------------------------------------------
-
-
-def _proof() -> FloorPassedProof:
-    """A genuine FloorPassedProof from evaluate_floor()."""
-    p = evaluate_floor()
-    assert isinstance(p, FloorPassedProof)
-    return p
 
 
 def _passing_cohort(name: str = "failure") -> CohortResult:
@@ -53,6 +47,17 @@ def _passing_cohort(name: str = "failure") -> CohortResult:
         ci_upper=DecimalString("0.440"),
         floor_passed=True,
     )
+
+
+def _proof() -> FloorPassedProof:
+    """A genuine FloorPassedProof from evaluate_floor()."""
+    p = evaluate_floor(
+        [_passing_cohort("failure"), _passing_cohort("baseline")],
+        TrustFloor(),
+        ("failure", "baseline"),
+    )
+    assert isinstance(p, FloorPassedProof)
+    return p
 
 
 def _info_finding(code: str = "improvement_observed") -> DecisionFinding:
