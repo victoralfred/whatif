@@ -28,6 +28,7 @@ Requires:
 - ANTHROPIC_API_KEY in environment (CLAUDE_API_KEY honored as legacy fallback)
 - anthropic >= 0.40 (already in pyproject.toml [project.optional-dependencies.anthropic])
 """
+
 from __future__ import annotations
 
 import argparse
@@ -309,10 +310,7 @@ def main() -> int:
     title: str = pr.get("title", "") or ""
     body: str = pr.get("body") or ""
     files_raw = pr.get("files", []) or []
-    files = [
-        f.get("path", str(f)) if isinstance(f, dict) else str(f)
-        for f in files_raw
-    ]
+    files = [f.get("path", str(f)) if isinstance(f, dict) else str(f) for f in files_raw]
 
     # Read diff.
     try:
