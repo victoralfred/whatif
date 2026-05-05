@@ -63,13 +63,14 @@ the closure-capture protection is preserved at runtime.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, cast
 
-if TYPE_CHECKING:
-    from whatif.types.cohort import FloorFailure
-
+from whatif.types.cohort import CohortResult, FloorFailure
+from whatif.types.policy import TrustFloor
+from whatif.types.primitives import DecimalString
 
 if TYPE_CHECKING:
     # Type stubs for static analysis. The runtime classes are built inside
@@ -106,7 +107,7 @@ if TYPE_CHECKING:
         def __bool__(self) -> bool: ...
 
 
-def _build_floor_machinery() -> tuple[type, type, Callable[[], object]]:
+def _build_floor_machinery() -> tuple[type, type, Callable[..., object]]:
     """Module-init factory.
 
     Binds `_floor_token` in this function's closure. Returns the runtime
@@ -170,28 +171,147 @@ def _build_floor_machinery() -> tuple[type, type, Callable[[], object]]:
         def __bool__(self) -> bool:
             return bool(self.failures)
 
-    def evaluate_floor() -> FloorPassedProof | FloorFailureSet:
-        """Phase 1.4 stub.
+    def evaluate_floor(
+        cohort_results: Sequence[CohortResult],
+        floor: TrustFloor,
+        required_cohorts: Sequence[str],
+        *,
+        now: Callable[[], datetime] | None = None,
+    ) -> FloorPassedProof | FloorFailureSet:
+        """Evaluate the trust floor for a run.
 
-        Phase 2.1 replaces this signature with
-        `evaluate_floor(result: ExperimentResult, floor: TrustFloor)`
-        and implements real per-cohort rule evaluation. For Phase 1.4
-        testing, this stub always returns a `FloorPassedProof`. Tests
-        that need to exercise the failure branch can construct a
-        `FloorFailureSet` directly (it has no closure-bound construction
-        guard).
+        Per cardinal rule #2, the floor is structural: failing any rule
+        for any required cohort yields a `FloorFailureSet` (the run is
+        Inconclusive); passing all rules yields a `FloorPassedProof`
+        (the only object that allows `Ship` construction).
+
+        Per-cohort rule failures are computed from each cohort's raw
+        counts (`selected`, `replayed`, `scored`) by
+        `compute_cohort_floor_failures`. Aggregation across required
+        cohorts happens here.
+
+        A required cohort that's absent from `cohort_results` is itself a
+        `blocks_all` floor failure with rule `"required_cohort_present"`
+        — distinct from the per-cohort numeric rules so the renderer can
+        surface the missing-cohort case directly.
+
+        An empty `required_cohorts` is itself a structural failure under
+        cardinal #2 — it would otherwise produce a vacuous proof
+        (no rules to fail) and let `Ship` construct on a misconfigured
+        policy. We emit `required_cohorts_nonempty` (severity `blocks_all`)
+        so the floor refuses to issue a proof for a policy with nothing
+        to require. Per cardinal #1 this is a structured failure, not an
+        exception — the verdict layer turns it into Inconclusive with an
+        actionable message.
+
+        `now` is injectable for deterministic tests; defaults to UTC wall
+        clock. The proof's `evaluated_at` is the ISO 8601 string at the
+        moment the floor passed.
         """
+        if not required_cohorts:
+            return FloorFailureSet(
+                failures=[
+                    FloorFailure(
+                        rule="required_cohorts_nonempty",
+                        observed=0,
+                        threshold=1,
+                        severity="blocks_all",
+                    )
+                ]
+            )
+
+        cohorts_by_name = {c.name: c for c in cohort_results}
+        all_failures: list[FloorFailure] = []
+        for required in required_cohorts:
+            cohort = cohorts_by_name.get(required)
+            if cohort is None:
+                all_failures.append(
+                    FloorFailure(
+                        rule="required_cohort_present",
+                        observed="absent",
+                        threshold=1,
+                        severity="blocks_all",
+                    )
+                )
+                continue
+            all_failures.extend(compute_cohort_floor_failures(cohort, floor))
+
+        if all_failures:
+            return FloorFailureSet(failures=all_failures)
+
+        clock = now if now is not None else (lambda: datetime.now(UTC))
         return FloorPassedProof(
             _token=_floor_token,
-            floor_version="v1",
-            # Loud marker so a manifest carrying this string in production
-            # is obviously bug evidence, not a real evaluation timestamp.
-            # Phase 2.1 replaces this with an ISO 8601 timestamp from the
-            # injected clock.
-            evaluated_at="<<PHASE_1_4_STUB_REPLACE_IN_PHASE_2_1>>",
+            floor_version=floor.version,
+            evaluated_at=clock().isoformat(),
         )
 
     return FloorPassedProof, FloorFailureSet, evaluate_floor
+
+
+def compute_cohort_floor_failures(
+    cohort: CohortResult,
+    floor: TrustFloor,
+) -> list[FloorFailure]:
+    """Per-cohort floor evaluation against the four rules in `TrustFloor`.
+
+    The rules and their canonical names match `TrustFloor.rule_names()`.
+    Counts below threshold yield `blocks_all` failures (no evidence
+    exists). The replay-validity ratio yields a `blocks_ship` failure
+    when below threshold but with non-zero `selected` (some evidence
+    exists, but its quality is below the floor).
+
+    The ratio rule is skipped when `selected == 0` — the
+    `min_selected_per_required_cohort` rule already catches that case
+    with higher severity, and `0/0` has no meaningful ratio.
+
+    Returns an empty list when the cohort passes all rules.
+    """
+    failures: list[FloorFailure] = []
+
+    if cohort.selected < floor.min_selected_per_required_cohort:
+        failures.append(
+            FloorFailure(
+                rule="min_selected_per_required_cohort",
+                observed=cohort.selected,
+                threshold=floor.min_selected_per_required_cohort,
+                severity="blocks_all",
+            )
+        )
+
+    if cohort.replayed < floor.min_replayed_per_required_cohort:
+        failures.append(
+            FloorFailure(
+                rule="min_replayed_per_required_cohort",
+                observed=cohort.replayed,
+                threshold=floor.min_replayed_per_required_cohort,
+                severity="blocks_all",
+            )
+        )
+
+    if cohort.scored < floor.min_scored_per_required_cohort:
+        failures.append(
+            FloorFailure(
+                rule="min_scored_per_required_cohort",
+                observed=cohort.scored,
+                threshold=floor.min_scored_per_required_cohort,
+                severity="blocks_all",
+            )
+        )
+
+    if cohort.selected > 0:
+        ratio = cohort.replayed / cohort.selected
+        if ratio < floor.min_replay_validity_ratio_per_required_cohort:
+            failures.append(
+                FloorFailure(
+                    rule="min_replay_validity_ratio_per_required_cohort",
+                    observed=cast(DecimalString, format(ratio, ".3f")),
+                    threshold=floor.min_replay_validity_ratio_per_required_cohort,
+                    severity="blocks_ship",
+                )
+            )
+
+    return failures
 
 
 # Bind the closure-captured machinery to module-level names. The token
