@@ -24,7 +24,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from whatif.decision.finding_codes import make_decision_finding
-from whatif.serialization.decimal import parse_decimal_string
+from whatif.serialization.decimal import FieldLabel, parse_decimal_string
 from whatif.types.cohort import CohortResult
 from whatif.types.finding import DecisionFinding
 from whatif.types.policy import DecisionPolicy
@@ -48,7 +48,7 @@ def practical_delta_guard(
     median_delta_str = failure.median_delta
     median_delta_float = parse_decimal_string(
         median_delta_str,
-        field=f"CohortResult.median_delta (cohort={failure.name!r})",
+        field=FieldLabel(f"CohortResult.median_delta (cohort={failure.name!r})"),
     )
 
     threshold = policy.practical_delta_epsilon

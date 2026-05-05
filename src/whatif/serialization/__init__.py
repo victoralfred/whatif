@@ -13,6 +13,6 @@ The early delivery is intentional; Phase 5 fills in the surrounding
 helpers without disturbing the parse contract.
 """
 
-from whatif.serialization.decimal import parse_decimal_string
+from whatif.serialization.decimal import FieldLabel, parse_decimal_string
 
-__all__ = ["parse_decimal_string"]
+__all__ = ["FieldLabel", "parse_decimal_string"]

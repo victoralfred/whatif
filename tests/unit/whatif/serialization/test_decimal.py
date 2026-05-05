@@ -2,57 +2,94 @@
 
 from __future__ import annotations
 
+import warnings
+
 import pytest
 
 from whatif.exceptions import InvariantViolationError
-from whatif.serialization.decimal import parse_decimal_string
+from whatif.serialization.decimal import FieldLabel, parse_decimal_string
 from whatif.types.primitives import DecimalString
 
+# Convenience: most tests use a fixed label; some use a specific one.
+_LABEL = FieldLabel("x")
 
-class TestParseDecimalString:
+
+class TestParseDecimalStringCanonical:
+    """Canonical inputs — fixed-precision decimal with required decimal point."""
+
     def test_parses_positive_decimal(self) -> None:
-        assert parse_decimal_string(DecimalString("0.310"), field="x") == 0.310
+        assert parse_decimal_string(DecimalString("0.310"), field=_LABEL) == 0.310
 
     def test_parses_negative_decimal(self) -> None:
-        assert parse_decimal_string(DecimalString("-0.050"), field="x") == -0.050
+        assert parse_decimal_string(DecimalString("-0.050"), field=_LABEL) == -0.050
 
     def test_parses_zero(self) -> None:
-        assert parse_decimal_string(DecimalString("0.000"), field="x") == 0.0
+        assert parse_decimal_string(DecimalString("0.000"), field=_LABEL) == 0.0
 
-    def test_parses_integer_form(self) -> None:
-        # `float("42")` works fine; the contract doesn't require a decimal
-        # point — DecimalString is "fixed-precision decimal string", and
-        # an integer form is a valid representation of a whole number.
-        assert parse_decimal_string(DecimalString("42"), field="x") == 42.0
+    def test_canonical_input_does_not_warn(self) -> None:
+        # Hard error if any warning fires on canonical input.
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", DeprecationWarning)
+            assert parse_decimal_string(DecimalString("0.310"), field=_LABEL) == 0.310
 
-    def test_parses_scientific_notation(self) -> None:
-        # `float("1e-3")` succeeds. We don't constrain the format beyond
-        # "parseable by float()" — Phase 5 may tighten this when
-        # `format_decimal_string` lands and pins the canonical shape.
-        assert parse_decimal_string(DecimalString("1e-3"), field="x") == 0.001
+
+class TestParseDecimalStringNonCanonicalWarns:
+    """Non-canonical-but-parseable inputs warn instead of raising.
+
+    Phase 5 will flip these tests from `pytest.warns` to `pytest.raises`
+    when `format_decimal_string` codifies the canonical shape and parse
+    tightens to match.
+    """
+
+    def test_warns_on_integer_form(self) -> None:
+        # `"42"` parses (`float()` accepts), but lacks a decimal point —
+        # not the fixed-precision shape `format_decimal_string` will emit.
+        with pytest.warns(DeprecationWarning, match="non-canonical"):
+            result = parse_decimal_string(DecimalString("42"), field=_LABEL)
+        assert result == 42.0
+
+    def test_warns_on_scientific_notation(self) -> None:
+        with pytest.warns(DeprecationWarning, match="non-canonical"):
+            result = parse_decimal_string(DecimalString("1e-3"), field=_LABEL)
+        assert result == 0.001
+
+    def test_warning_message_includes_field_label(self) -> None:
+        with pytest.warns(DeprecationWarning, match="median_delta"):
+            parse_decimal_string(
+                DecimalString("42"),
+                field=FieldLabel("CohortResult.median_delta"),
+            )
+
+    def test_warning_message_includes_offending_value(self) -> None:
+        with pytest.warns(DeprecationWarning, match="1e-3"):
+            parse_decimal_string(DecimalString("1e-3"), field=_LABEL)
+
+    def test_warning_mentions_phase_5_tightening(self) -> None:
+        with pytest.warns(DeprecationWarning, match="Phase 5"):
+            parse_decimal_string(DecimalString("42"), field=_LABEL)
 
 
 class TestParseDecimalStringRaisesOnMalformed:
     def test_raises_on_non_numeric(self) -> None:
         with pytest.raises(InvariantViolationError, match="parseable as a number"):
-            parse_decimal_string(DecimalString("not-a-number"), field="x")
+            parse_decimal_string(DecimalString("not-a-number"), field=_LABEL)
 
     def test_error_message_includes_field_label(self) -> None:
         with pytest.raises(InvariantViolationError, match=r"CohortResult\.median_delta"):
             parse_decimal_string(
                 DecimalString("garbage"),
-                field="CohortResult.median_delta",
+                field=FieldLabel("CohortResult.median_delta"),
             )
 
     def test_error_message_includes_offending_value(self) -> None:
         with pytest.raises(InvariantViolationError, match="garbage"):
-            parse_decimal_string(DecimalString("garbage"), field="x")
+            parse_decimal_string(DecimalString("garbage"), field=_LABEL)
 
     def test_chains_underlying_value_error(self) -> None:
         with pytest.raises(InvariantViolationError) as exc_info:
-            parse_decimal_string(DecimalString("garbage"), field="x")
+            parse_decimal_string(DecimalString("garbage"), field=_LABEL)
         assert isinstance(exc_info.value.__cause__, ValueError)
 
     def test_raises_on_empty_string(self) -> None:
         with pytest.raises(InvariantViolationError):
-            parse_decimal_string(DecimalString(""), field="x")
+            parse_decimal_string(DecimalString(""), field=_LABEL)
