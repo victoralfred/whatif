@@ -151,7 +151,13 @@ _REGISTRY_BUILDER: dict[str, FindingCodeSpec] = {
             "Phase 2.7 aggregation emit: when ≥50% of a cohort's traces "
             "fail with the same code. Forces Inconclusive — the run is "
             "dominated by a systemic issue rather than measuring the "
-            "change."
+            "change. "
+            "Field contract: `percent` is a DecimalString ratio "
+            "(e.g., '0.730' for 73%) per cardinal rule #4 — the renderer "
+            "formats it as a percent string at display time. Callers pass "
+            "the ratio in `details`; Phase 2.7 composes a human-readable "
+            "`message` separately (the caller-composed `message` is "
+            "authoritative; the template here is renderer documentation)."
         ),
     ),
 }
