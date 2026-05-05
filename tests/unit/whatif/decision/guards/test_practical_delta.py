@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from whatif.decision.guards.practical_delta import practical_delta_guard
+from whatif.exceptions import InvariantViolationError
 from whatif.types.cohort import CohortResult
 from whatif.types.policy import DecisionPolicy
 from whatif.types.primitives import DecimalString
@@ -108,12 +109,13 @@ class TestPracticalDeltaGuardDoesNotMutate:
 
 
 class TestPracticalDeltaGuardMalformedDelta:
-    def test_raises_on_non_numeric_string(self) -> None:
+    def test_raises_invariant_violation_on_non_numeric_string(self) -> None:
         # A non-numeric DecimalString is a structural integrity
         # violation upstream — the type contract is "decimal-formatted
-        # string". Per cardinal #1, bugs propagate; the guard does not
-        # silently hide malformed data. PR #23 reviewer flagged the
-        # earlier silent-abstention path as tensioning with cardinal #1.
+        # string". Per cardinal #1, bugs propagate as a typed
+        # `InvariantViolationError` (not stdlib `ValueError`) so the call-
+        # site intent is legible. PR #23 reviewer flagged the earlier
+        # silent-abstention path as tensioning with cardinal #1.
         cohort = CohortResult(
             name="failure",
             selected=10,
@@ -126,5 +128,24 @@ class TestPracticalDeltaGuardMalformedDelta:
             ci_upper=None,
             floor_passed=True,
         )
-        with pytest.raises(ValueError):
+        with pytest.raises(InvariantViolationError, match="parseable DecimalString"):
             practical_delta_guard([cohort], DecisionPolicy())
+
+    def test_invariant_violation_chains_underlying_value_error(self) -> None:
+        # `raise ... from e` preserves the stdlib ValueError as __cause__
+        # so the underlying parse failure is recoverable in tracebacks.
+        cohort = CohortResult(
+            name="failure",
+            selected=10,
+            replayed=10,
+            scored=10,
+            ci_available=True,
+            ci_unavailable_reason=None,
+            median_delta=DecimalString("garbage"),
+            ci_lower=None,
+            ci_upper=None,
+            floor_passed=True,
+        )
+        with pytest.raises(InvariantViolationError) as exc_info:
+            practical_delta_guard([cohort], DecisionPolicy())
+        assert isinstance(exc_info.value.__cause__, ValueError)

@@ -24,6 +24,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from whatif.decision.finding_codes import make_decision_finding
+from whatif.exceptions import InvariantViolationError
 from whatif.types.cohort import CohortResult
 from whatif.types.finding import DecisionFinding
 from whatif.types.policy import DecisionPolicy
@@ -47,9 +48,16 @@ def practical_delta_guard(
     median_delta_str = failure.median_delta
     # A non-numeric DecimalString is a structural integrity violation
     # upstream, not a precondition the guard should hide. Per cardinal
-    # #1, bugs propagate; expected failures are data. We let ValueError
-    # surface to the verdict pipeline rather than silently abstaining.
-    median_delta_float = float(median_delta_str)
+    # #1, bugs propagate; expected failures are data. We surface as a
+    # typed `InvariantViolationError` so the call-site intent is legible —
+    # a stdlib `ValueError` would conflate this with value-domain bugs.
+    try:
+        median_delta_float = float(median_delta_str)
+    except ValueError as e:
+        raise InvariantViolationError(
+            f"CohortResult.median_delta must be a parseable DecimalString; "
+            f"got {median_delta_str!r} on cohort={failure.name!r}"
+        ) from e
 
     threshold = policy.practical_delta_epsilon
     if median_delta_float > threshold:

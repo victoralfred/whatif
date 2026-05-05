@@ -48,32 +48,60 @@ class TestRunGuards:
         assert result == []
 
     def test_findings_are_concatenated_in_registration_order(self) -> None:
-        # Guard 1 emits "improvement_observed" (failure delta 0.31 > 0.05).
-        # Guard 2 (custom) emits a second info finding.
-        # Order in output should match registration order.
+        # Guard A emits info; Guard B emits blocks_ship. The two guards
+        # produce findings with different codes AND different severities
+        # so the order assertion can't pass on a details-payload
+        # coincidence — registration order is verified by
+        # finding-identity, not by content matching.
         from whatif.decision.finding_codes import make_decision_finding
 
-        def custom_info_guard(
+        def info_guard_a(
             cohort_results: Sequence[CohortResult], policy: DecisionPolicy
         ) -> list[DecisionFinding]:
             return [
                 make_decision_finding(
                     "improvement_observed",
-                    message="custom",
-                    details={"median_delta": "0.999"},
+                    message="from A",
+                    details={"median_delta": "0.500"},
                 )
             ]
 
-        cohorts = [_failure_cohort("0.310")]
+        def blocks_ship_guard_b(
+            cohort_results: Sequence[CohortResult], policy: DecisionPolicy
+        ) -> list[DecisionFinding]:
+            return [
+                make_decision_finding(
+                    "practical_delta_below_threshold",
+                    message="from B",
+                    details={"median_delta": "0.020", "threshold": "0.050"},
+                )
+            ]
+
         result = run_guards(
-            [improvement_observation_guard, custom_info_guard],
-            cohorts,
+            [info_guard_a, blocks_ship_guard_b],
+            [_failure_cohort("0.500")],
             DecisionPolicy(),
         )
         assert len(result) == 2
-        # First finding from improvement_observation_guard, second from custom
-        assert result[0].details["median_delta"] == "0.310"
-        assert result[1].details["median_delta"] == "0.999"
+
+        # First finding is from A: info severity, improvement_observed code.
+        assert result[0].code == "improvement_observed"
+        assert result[0].severity == "info"
+        assert result[0].message == "from A"
+
+        # Second finding is from B: blocks_ship severity, different code.
+        assert result[1].code == "practical_delta_below_threshold"
+        assert result[1].severity == "blocks_ship"
+        assert result[1].message == "from B"
+
+        # Reverse the registration order; assert the output flips.
+        flipped = run_guards(
+            [blocks_ship_guard_b, info_guard_a],
+            [_failure_cohort("0.500")],
+            DecisionPolicy(),
+        )
+        assert flipped[0].code == "practical_delta_below_threshold"
+        assert flipped[1].code == "improvement_observed"
 
     def test_returns_fresh_list_each_call(self) -> None:
         # Caller may mutate the returned list without affecting future calls.
