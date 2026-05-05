@@ -688,6 +688,22 @@ Recommend option 2 (ContextVar) when concurrent or embedded runs become a real u
 
 **Trigger for resolution:** v0.2 first minor release.
 
+### `CohortResult` rate-count partition — tighten `<=` to `==` at Phase 2.6
+
+**Source decision:** PR #24 lands the rate-count partition (`improved_count`, `unchanged_count`, `regressed_count`) on `CohortResult` with `__post_init__` enforcing `improved + unchanged + regressed <= scored`. The lenient `<=` constraint preserves backward compatibility with pre-Phase-2.5b construction sites (test fixtures, the floor evaluator) that default rate counts to 0.
+
+**Rippled to:**
+- `whatif/types/cohort.py::CohortResult.__post_init__` — change the invariant from `count_sum > self.scored` to `count_sum != self.scored` once Phase 2.6's projection layer populates the partition exhaustively for every required cohort.
+- `tests/unit/whatif/types/test_cohort.py::TestRateCountInvariant` — `test_partial_population_passes` flips from a positive test to a `pytest.raises(InvariantViolationError)` test. `test_default_zero_counts_pass` either flips too OR is removed (Phase 2.6 should never produce `scored > 0` with all-zero partition; a structural failure in projection).
+- `tests/unit/whatif/decision/guards/_helpers.py::failure_cohort` and `baseline_cohort` — auto-resolve `_resolve_scored = max(default, sum)` becomes `_resolve_scored = sum if sum > 0 else default`. Phase 2.6 tests should pass exhaustive partitions explicitly.
+- The `<=` lenient form lets a pathological "scored=10 with all-zero partition" pass both the floor (`min_scored_per_required_cohort: 5` is satisfied) AND the rate guards (silent abstain on zero total). PR #24's findings agent flagged this as a misleading-class concern in F1 option 3; the resolution is Phase 2.6 exhaustive partition.
+
+**Status:** open
+
+**Resolution:** Phase 2.6 verdict computation PR — projection layer populates the rate-count partition exhaustively; `__post_init__` invariant tightens to `==`; the lenient default-0 path is removed.
+
+**Trigger for resolution:** Phase 2.6 verdict computation PR (verdict computation reads from `CohortResult` rate counts and depends on them being exhaustive).
+
 ### Phase 2.5 deferred guards — dependency map
 
 **Source decision:** Phase 2.5 (PR #23) lands the `Guard` Protocol, the `run_guards` chain composer, and two guards (`practical_delta_guard`, `improvement_observation_guard`). Five remaining guards are intentionally deferred — each blocks on a specific upstream change. Documented here so the dependency chain is discoverable from the catalog rather than buried in a PR body.
