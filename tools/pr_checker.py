@@ -59,11 +59,18 @@ VerdictState = Literal["ship", "dont_ship", "inconclusive"]
 DEFAULT_MODEL = "claude-haiku-4-5"
 
 # Hard limits to bound context usage and API cost on giant PRs.
-# A 50K-char diff is ~12.5K tokens, well under any current Claude context window.
-# If exceeded, we tell the model to return state=inconclusive rather than guess.
-MAX_DIFF_CHARS = 50_000
+# A 150K-char diff is ~37.5K tokens; well under Claude's 200K context window
+# even with the system prompt + user prompt overhead.
+# Earlier limit of 50K truncated foundational PRs (e.g. PR #13 was 156K chars,
+# saw ~32%) and forced inconclusive verdicts due to insufficient context.
+# If still exceeded, we tell the model to return state=inconclusive rather
+# than guess.
+MAX_DIFF_CHARS = 150_000
 MAX_BODY_CHARS = 5_000
-MAX_OUTPUT_TOKENS = 1_500
+# 4000 tokens is plenty for a thorough review with multiple blocking issues
+# and cardinal-rule citations. Earlier limit of 1500 truncated Sonnet responses
+# mid-string and broke JSON parsing.
+MAX_OUTPUT_TOKENS = 4_000
 
 
 @dataclass
@@ -95,7 +102,7 @@ class ReviewVerdict:
         }
 
 
-SYSTEM_PROMPT = """You are reviewing a pull request for the `whatif` project — an open-source CLI experiment runner for LLM behavior changes that emits PR-ready verdict reports.
+SYSTEM_PROMPT = """Ultrathink You are reviewing a pull request for the `whatif` project — an open-source CLI experiment runner for LLM behavior changes that emits PR-ready verdict reports.
 
 The project follows a TRUST-FIRST doctrine. Your review must check the PR against these CARDINAL RULES (any violation makes the verdict Don't Ship):
 
@@ -133,7 +140,7 @@ State semantics:
 - **dont_ship** — at least one cardinal rule violation, OR missing tests for behavioral change, OR sensitive data leaked, OR the change weakens a structural guarantee.
 - **inconclusive** — diff too large to evaluate fairly, refactor with unclear scope, ambiguous case where you cannot recommend ship without human judgment.
 
-Be specific. Cite line ranges or file paths in `blocking_issues` when possible. Do NOT default to ship; when in doubt, prefer inconclusive."""
+Be specific but TERSE. Each `blocking_issues` entry, `suggestions` entry, and `cardinal_rule_citations` entry should be one sentence — no multi-paragraph explanations, no essays, no quoted code blocks. Cite line ranges or file paths inline. The reviewer reading this report has 3 minutes; respect their time. Cap `blocking_issues` and `suggestions` at 5 items each. Do NOT default to ship; when in doubt, prefer inconclusive."""
 
 
 def build_user_prompt(title: str, body: str, diff: str, files: list[str]) -> str:
