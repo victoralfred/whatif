@@ -24,7 +24,6 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Protocol, runtime_checkable
 
-from whatif.exceptions import InvariantViolationError
 from whatif.types.cohort import CohortResult
 from whatif.types.finding import DecisionFinding
 from whatif.types.policy import DecisionPolicy
@@ -70,34 +69,16 @@ def run_guards(
     drop findings. Per cardinal #1, expected failures are data
     (FailureRecord); unexpected failures are bugs (let them propagate).
 
-    Each guard MUST return a fresh `list` — not a class-level mutable
-    or a list shared with a sibling guard. The check below catches the
-    cross-guard sharing case by `is` identity, comparing the actual
-    returned list objects. A guard returning the same list across
-    separate `run_guards` calls isn't caught here (different
-    invocations, different state); that pattern is rare in practice
-    and code review is the safety net.
-
-    Implementation note: the contract is "fresh list", not "distinct
-    id". `id()` would false-positive if CPython recycled the address
-    of a GC'd list. We hold strong references to every returned list
-    in `seen_lists` for the duration of the call, which prevents any
-    of them from being collected and keeps `is` comparison meaningful.
+    The "fresh list per guard" contract is documented in the package
+    docstring but not runtime-enforced. A previous iteration tracked
+    list identity across guards and raised on shared-list reuse; the
+    check was removed because the footgun is rare, code review catches
+    it, and the runtime cost wasn't worth the defense-in-depth. If a
+    real shared-list bug surfaces, the recovery path is to add a
+    targeted regression test rather than re-introduce blanket
+    enforcement.
     """
     findings: list[DecisionFinding] = []
-    # Strong references to every returned list — prevents GC, which
-    # in turn prevents id recycling, which keeps `is` comparison sound.
-    seen_lists: list[list[DecisionFinding]] = []
     for guard in guards:
-        result = guard(cohort_results, policy)
-        for prior in seen_lists:
-            if result is prior:
-                raise InvariantViolationError(
-                    f"guard {guard!r} returned a list shared with another "
-                    "guard in the same run_guards call. Each guard must "
-                    "return a fresh list to prevent cross-guard mutation. "
-                    "See the protocol.py docstring for the contract."
-                )
-        seen_lists.append(result)
-        findings.extend(result)
+        findings.extend(guard(cohort_results, policy))
     return findings

@@ -18,8 +18,8 @@ each guard contributes 0+ findings; the verdict computation in Phase
   load-bearing per cardinal #2.
 - Guards do NOT mutate inputs. `cohort_results` and `policy` are frozen
   dataclasses; the guard returns a **fresh** `list[DecisionFinding]`.
-  `run_guards` checks that returned lists aren't shared across guards
-  in the same call (catches class-level mutable footgun).
+  The fresh-list contract is documented but not runtime-enforced —
+  code review is the safety net for the class-level-mutable footgun.
 - A guard reads ONLY data on the inputs it's passed. Reaching into
   global state (cache contents, environment) belongs upstream — the
   upstream computes the relevant fields and stuffs them into
