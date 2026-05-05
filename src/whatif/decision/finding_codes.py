@@ -77,12 +77,17 @@ _REGISTRY_BUILDER: dict[str, FindingCodeSpec] = {
     # ----- info severity (no verdict impact) ------------------------------
     "improvement_observed": FindingCodeSpec(
         severity="info",
-        message_template="failure cohort median delta {median_delta} (improvement observed)",
-        required_details=("median_delta",),
+        message_template=(
+            "failure cohort median delta {median_delta} above practical-delta "
+            "threshold {threshold} (improvement observed)"
+        ),
+        required_details=("median_delta", "threshold"),
         derived_from_failures_expectation="never",
         description=(
-            "Failure cohort showed improvement. Information for the "
-            "report; does not by itself drive the verdict."
+            "Failure cohort showed improvement above the practical-delta "
+            "threshold. Information for the report; does not by itself "
+            "drive the verdict. Carries the threshold so the finding is "
+            "self-describing for the renderer."
         ),
     ),
     # ----- blocks_ship severity (DontShip) --------------------------------

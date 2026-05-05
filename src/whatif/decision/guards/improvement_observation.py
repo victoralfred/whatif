@@ -62,13 +62,22 @@ def improvement_observation_guard(
         field=FieldLabel(f"CohortResult.median_delta (cohort={failure.name!r})"),
     )
 
-    if median_delta_float <= policy.practical_delta_epsilon:
+    threshold = policy.practical_delta_epsilon
+    if median_delta_float <= threshold:
         return []
 
+    threshold_str = format(threshold, ".3f")
     return [
         make_decision_finding(
             "improvement_observed",
-            message=f"failure cohort median delta {failure.median_delta} (improvement observed)",
-            details={"median_delta": failure.median_delta},
+            message=(
+                f"failure cohort median delta {failure.median_delta} "
+                f"above practical-delta threshold {threshold_str} "
+                "(improvement observed)"
+            ),
+            details={
+                "median_delta": failure.median_delta,
+                "threshold": threshold_str,
+            },
         )
     ]

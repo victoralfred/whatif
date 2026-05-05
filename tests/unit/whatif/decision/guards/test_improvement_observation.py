@@ -33,6 +33,16 @@ class TestImprovementObservationEmits:
         assert f.code == "improvement_observed"
         assert f.severity == "info"
         assert f.details["median_delta"] == "0.310"
+        # Self-describing: threshold is in details so the renderer can
+        # show "your delta X is above threshold Y → improvement observed".
+        assert f.details["threshold"] == "0.050"
+
+    def test_threshold_detail_reflects_custom_epsilon(self) -> None:
+        # Custom policy epsilon → emitted threshold matches policy.
+        policy = DecisionPolicy(practical_delta_epsilon=0.10)
+        findings = improvement_observation_guard([_failure_cohort("0.310")], policy)
+        assert len(findings) == 1
+        assert findings[0].details["threshold"] == "0.100"
 
 
 class TestImprovementObservationSilent:

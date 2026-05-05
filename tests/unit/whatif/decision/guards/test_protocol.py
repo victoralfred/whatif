@@ -31,41 +31,17 @@ def _failure_cohort(median_delta: str | None = "0.310") -> CohortResult:
 
 class TestGuardProtocol:
     def test_practical_delta_guard_satisfies_protocol(self) -> None:
-        # `Guard` is `@runtime_checkable` so `isinstance` works.
-        # Caveat documented on the Protocol: Python cannot verify call
-        # signatures at runtime, so this only checks that `__call__`
-        # exists. Full signature compliance is type-system-enforced
-        # (mypy strict on the assignment).
+        # `Guard` is a typing.Protocol — NOT `@runtime_checkable`. The
+        # signature contract is enforced by mypy strict at type-check
+        # time (the assignment below would fail mypy if the function
+        # didn't match). At runtime there's nothing to assert beyond
+        # callability; the type system is the contract.
         g: Guard = practical_delta_guard
-        assert isinstance(g, Guard)
+        assert callable(g)
 
     def test_improvement_observation_guard_satisfies_protocol(self) -> None:
         g: Guard = improvement_observation_guard
-        assert isinstance(g, Guard)
-
-    def test_non_callable_does_not_satisfy_protocol(self) -> None:
-        # The runtime check at least catches the obvious case: passing
-        # something that isn't callable at all.
-        assert not isinstance(42, Guard)
-        assert not isinstance("a string", Guard)
-        assert not isinstance({"a": "dict"}, Guard)
-
-    def test_runtime_check_does_not_validate_signature(self) -> None:
-        # CRITICAL caveat documented as a test rather than a comment:
-        # `@runtime_checkable` Protocols with `__call__` can only verify
-        # that `__call__` exists at runtime. Python cannot inspect call
-        # signatures. So a callable with the WRONG signature passes the
-        # runtime check.
-        #
-        # Future contributors: do NOT rely on `isinstance(x, Guard)` for
-        # signature validation. The full signature contract is enforced
-        # by mypy strict; the runtime check is a smoke test for "is it
-        # callable", nothing more.
-        wrong_signature_lambda = lambda: None  # noqa: E731 — intentional
-        assert isinstance(wrong_signature_lambda, Guard)  # falsely passes!
-
-        wrong_signature_function: object = lambda x, y, z: "totally wrong"  # noqa: E731
-        assert isinstance(wrong_signature_function, Guard)  # falsely passes!
+        assert callable(g)
 
 
 class TestRunGuards:
@@ -87,7 +63,7 @@ class TestRunGuards:
                 make_decision_finding(
                     "improvement_observed",
                     message="from A",
-                    details={"median_delta": "0.500"},
+                    details={"median_delta": "0.500", "threshold": "0.050"},
                 )
             ]
 

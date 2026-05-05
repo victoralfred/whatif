@@ -198,7 +198,11 @@ class TestFactoryRejectsMissingRequiredDetails:
         finding = make_decision_finding(
             "improvement_observed",
             message="x",
-            details={"median_delta": "0.31", "extra_diagnostic": "value"},
+            details={
+                "median_delta": "0.310",
+                "threshold": "0.050",
+                "extra_diagnostic": "value",
+            },
         )
         assert finding.details["extra_diagnostic"] == "value"
 
@@ -209,7 +213,7 @@ class TestFactoryEnforcesDerivationExpectation:
             make_decision_finding(
                 "improvement_observed",
                 message="x",
-                details={"median_delta": "0.31"},
+                details={"median_delta": "0.310", "threshold": "0.050"},
                 derived_from_failures=["failure_001"],
             )
 
@@ -241,7 +245,7 @@ class TestSeverityNonOverrideable:
             make_decision_finding(  # type: ignore[call-arg]
                 "improvement_observed",
                 message="x",
-                details={"median_delta": "0.31"},
+                details={"median_delta": "0.310", "threshold": "0.050"},
                 severity="blocks_ship",
             )
 
