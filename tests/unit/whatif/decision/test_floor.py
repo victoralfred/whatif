@@ -438,8 +438,24 @@ class TestEvaluateFloorAggregation:
         )
         assert isinstance(result, FloorPassedProof)
 
-    def test_empty_required_with_empty_cohorts_passes(self) -> None:
-        # Pathological case: no required cohorts, no cohort results.
-        # The floor has nothing to check; the pass is vacuous but valid.
+    def test_empty_required_cohorts_is_structural_failure(self) -> None:
+        # Cardinal #2: a misconfigured policy with no required cohorts must
+        # not produce a vacuous proof. The floor refuses with a structured
+        # `required_cohorts_nonempty` failure (cardinal #1: structured
+        # data, not an exception).
         result = evaluate_floor([], TrustFloor(), (), now=_FIXED_NOW)
-        assert isinstance(result, FloorPassedProof)
+        assert isinstance(result, FloorFailureSet)
+        assert len(result) == 1
+        only = next(iter(result))
+        assert only.rule == "required_cohorts_nonempty"
+        assert only.observed == 0
+        assert only.threshold == 1
+        assert only.severity == "blocks_all"
+
+    def test_empty_required_cohorts_blocks_even_with_results(self) -> None:
+        # Even when cohort results are present, empty required_cohorts is
+        # a structural failure — a policy that demands no required cohorts
+        # is the bypass scenario cardinal #2 prevents.
+        result = evaluate_floor(_passing_pair(), TrustFloor(), (), now=_FIXED_NOW)
+        assert isinstance(result, FloorFailureSet)
+        assert next(iter(result)).rule == "required_cohorts_nonempty"

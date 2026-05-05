@@ -195,10 +195,31 @@ def _build_floor_machinery() -> tuple[type, type, Callable[..., object]]:
         — distinct from the per-cohort numeric rules so the renderer can
         surface the missing-cohort case directly.
 
+        An empty `required_cohorts` is itself a structural failure under
+        cardinal #2 — it would otherwise produce a vacuous proof
+        (no rules to fail) and let `Ship` construct on a misconfigured
+        policy. We emit `required_cohorts_nonempty` (severity `blocks_all`)
+        so the floor refuses to issue a proof for a policy with nothing
+        to require. Per cardinal #1 this is a structured failure, not an
+        exception — the verdict layer turns it into Inconclusive with an
+        actionable message.
+
         `now` is injectable for deterministic tests; defaults to UTC wall
         clock. The proof's `evaluated_at` is the ISO 8601 string at the
         moment the floor passed.
         """
+        if not required_cohorts:
+            return FloorFailureSet(
+                failures=[
+                    FloorFailure(
+                        rule="required_cohorts_nonempty",
+                        observed=0,
+                        threshold=1,
+                        severity="blocks_all",
+                    )
+                ]
+            )
+
         cohorts_by_name = {c.name: c for c in cohort_results}
         all_failures: list[FloorFailure] = []
         for required in required_cohorts:
