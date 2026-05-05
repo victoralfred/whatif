@@ -9,4 +9,11 @@ Replay validity: 40/40 traces. Cache: 38 hits, 2 misses.
 **Top improvement:** trace `t_4a91f` — agent now correctly handles ambiguous date input
 **Top regression:** trace `t_8c33b` — slight wordiness increase in greeting
 
-[Full evidence ↓](#evidence) · [Manifest →](manifest.json)
+## Methodology
+- Unit: paired trace delta · Bootstrap: paired percentile, B=5000, seed=42
+- Primary metric: faithfulness · Endpoints: failure improvement + baseline non-regression
+- Cluster: conversation_id · Multiplicity: none · Per-trace evidence: descriptive
+- Judge: claude-haiku-4-5 · Cache: enabled · Practical delta: 0.05 (policy)
+- Reliability/validity/calibration/bias: not measured · Causal scope: associated under cached-tool replay
+
+[Manifest →](manifest.json)

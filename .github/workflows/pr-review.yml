@@ -1,0 +1,127 @@
+name: pr-review (claude)
+
+# Runs the Claude-based doctrine reviewer (tools/pr_checker.py) against each PR.
+# Advisory only: an Inconclusive verdict (exit 2) does NOT block the merge —
+# inconclusive ≠ failure. Don't Ship (exit 1) does fail the check, surfacing
+# the blocking-issues list.
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write   # post the verdict comment
+  issues: write          # gh comment uses the issues API surface
+
+concurrency:
+  group: pr-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: claude doctrine review
+    runs-on: ubuntu-latest
+    # Skip drafts and bot PRs by default; flip these if you want bots reviewed too.
+    if: |
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.user.type != 'Bot'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # Need full history so `gh pr diff` resolves correctly against base.
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pip + anthropic
+        run: |
+          python -m pip install --upgrade pip
+          # Install the project with the anthropic extra so tools/pr_checker.py
+          # has its single SDK dependency. Avoid full project install (no extras
+          # we don't need) to keep the job fast.
+          python -m pip install ".[anthropic]"
+
+      - name: Fetch PR metadata and diff
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p .pr-review
+          gh pr view "${{ github.event.pull_request.number }}" \
+              --json number,title,body,author,baseRefName,headRefName,files \
+              > .pr-review/pr.json
+          gh pr diff "${{ github.event.pull_request.number }}" > .pr-review/pr.diff
+
+      - name: Run Claude doctrine review
+        id: review
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_MODEL: ${{ vars.ANTHROPIC_MODEL || 'claude-haiku-4-5' }}
+        # `set +e` so we capture the exit code regardless. The post-comment step
+        # runs before we re-raise the failure.
+        run: |
+          set +e
+          python tools/pr_checker.py \
+              --pr-json .pr-review/pr.json \
+              --diff-file .pr-review/pr.diff \
+              --output-json .pr-review/verdict.json \
+              | tee .pr-review/summary.txt
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Upload verdict artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-review-verdict
+          path: |
+            .pr-review/verdict.json
+            .pr-review/summary.txt
+          if-no-files-found: warn
+
+      - name: Post verdict as PR comment
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Use a unique header so subsequent runs replace, rather than stack.
+          # `gh pr comment --edit-last` only replaces the most recent comment by
+          # the workflow user; safe enough for a single-job pattern.
+          {
+              echo "## 🤖 Claude doctrine review"
+              echo ""
+              echo '```'
+              cat .pr-review/summary.txt
+              echo '```'
+              echo ""
+              echo "_Advisory only. Inconclusive verdicts do not block; see [tools/pr_checker.py](../blob/main/tools/pr_checker.py) for the rule set._"
+          } > .pr-review/comment.md
+
+          gh pr comment "${{ github.event.pull_request.number }}" \
+              --body-file .pr-review/comment.md \
+              --edit-last 2>/dev/null \
+            || gh pr comment "${{ github.event.pull_request.number }}" \
+                  --body-file .pr-review/comment.md
+
+      - name: Surface verdict
+        # Exit 0 (Ship) and exit 2 (Inconclusive) both pass this check.
+        # Exit 1 (Don't Ship) fails — surfacing the cardinal-rule violation.
+        run: |
+          ec="${{ steps.review.outputs.exit_code }}"
+          case "$ec" in
+              0) echo "::notice::whatif PR review: Ship" ;;
+              1)
+                  echo "::error::whatif PR review: Don't Ship — see PR comment for blocking issues."
+                  exit 1
+                  ;;
+              2)
+                  echo "::warning::whatif PR review: Inconclusive — human review needed."
+                  # Inconclusive does NOT fail the workflow. The PR comment carries the detail.
+                  ;;
+              *)
+                  echo "::error::pr_checker.py exited with unexpected code $ec"
+                  exit 1
+                  ;;
+          esac

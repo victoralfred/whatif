@@ -55,3 +55,18 @@ Skipped traces:
 | min_replayed_per_required_cohort | baseline | 5 | 5 | ✓ |
 | **min_scored_per_required_cohort** | **baseline** | **3** | **5** | **✗** |
 | min_replay_validity_ratio_per_required_cohort | baseline | 0.375 | 0.50 | ✗ |
+
+## Methodology
+
+- **Unit of analysis:** paired trace delta
+- **Primary metric:** faithfulness · **Cohorts:** failure, baseline
+- **Primary endpoints:** failure improvement, baseline non-regression (NOT evaluated; baseline cohort below floor)
+- **Bootstrap:** paired percentile, B=5000, seed=42 (applied to failure cohort; *unavailable* for baseline — sample too small)
+- **Cluster handling:** conversation_id cluster bootstrap (applied where bootstrap ran)
+- **Multiplicity:** none; one primary metric per cohort
+- **Per-trace evidence:** descriptive, not inferential. *No per-trace statistical significance is claimed.*
+- **Judge:** claude-haiku-4-5 · **Scorer cache:** enabled
+- **Practical delta threshold:** 0.05 (source: policy)
+- **Reliability:** not measured · **Validity / calibration:** not measured · **Bias audit:** not measured
+- **Causal scope:** associated under cached-tool replay
+- **Why Inconclusive:** the trust floor is about evidence existence, not evidence quality. Below the floor, no verdict can be rendered. Fix the cohort sample size and rerun.
