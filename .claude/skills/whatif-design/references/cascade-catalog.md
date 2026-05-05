@@ -707,6 +707,21 @@ Recommend option 2 (ContextVar) when concurrent or embedded runs become a real u
 3. Phase 3 cache subsystem PRs → cache metadata reaches `CohortResult` via projection layer → land `cache_staleness_guard`.
 4. Phase 2.6 verdict computation PR → `primary_endpoint_guard` lands as part of the multi-endpoint resolution.
 
+### `parse_decimal_string` permissiveness — tighten at Phase 5
+
+**Source decision:** PR #23 ships `parse_decimal_string` early (one half of the Phase 5 serialization helper pair) so Phase 2.5 guards can validate `CohortResult.median_delta`. The current implementation accepts anything `float()` parses — including scientific notation (`"1e-3"`) and bare integers (`"42"`). Phase 2.5 PR #23 reviewer correctly flagged that this could mask format drift once `format_decimal_string` codifies the canonical fixed-precision shape (e.g., `format(value, '.3f')` always emits "N.NNN").
+
+**Rippled to:**
+- `whatif/serialization/decimal.py` — `parse_decimal_string` regex/validation tightening lands alongside `format_decimal_string`.
+- `tests/unit/whatif/serialization/test_decimal.py` — the two current "permissive" tests (`test_parses_integer_form`, `test_parses_scientific_notation`) flip from positive to `pytest.raises(InvariantViolationError)`. The test docstrings already note this is "may tighten in Phase 5".
+- Any guard or stats code that already passes a non-canonical `DecimalString` through parse will need to be audited; today there are no such call sites because float-source-of-truth values are always formatted via `format(value, '.3f')` before being typed as `DecimalString`. Phase 5 codifies that.
+
+**Status:** open
+
+**Resolution:** Phase 5 — `format_decimal_string` lands and pins the canonical shape; `parse_decimal_string` tightens to match. The two functions become a round-trip pair: `parse(format(x)) == x` for every numeric x in the determinism budget.
+
+**Trigger for resolution:** Phase 5 serialization layer PR.
+
 ## Resolved cascades
 
 (Populate as decisions ship.)

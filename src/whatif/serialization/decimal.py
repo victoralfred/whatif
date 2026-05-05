@@ -13,6 +13,13 @@ Per cardinal #1, a `DecimalString` that doesn't parse is an upstream
 contract violation, not a runtime data condition. The helper raises
 `InvariantViolationError` (typed; not stdlib `ValueError`) so call-site
 intent is legible.
+
+The current implementation accepts anything `float()` parses, including
+scientific notation and bare integers. Phase 5 will tighten this to
+match the canonical fixed-precision shape emitted by
+`format_decimal_string`. See cascade-catalog "`parse_decimal_string`
+permissiveness — tighten at Phase 5" for the deferral rationale and
+the test changes that flip when it lands.
 """
 
 from __future__ import annotations
