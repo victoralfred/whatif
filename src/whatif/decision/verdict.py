@@ -78,7 +78,6 @@ from whatif.decision.guards import (
     run_guards,
 )
 from whatif.types.cohort import CohortResult
-from whatif.types.finding import DecisionFinding
 from whatif.types.policy import DecisionPolicy, TrustFloor
 from whatif.types.verdict import DontShip, Inconclusive, Ship, Verdict
 
@@ -129,54 +128,50 @@ def compute_verdict(
         policy.required_cohorts,
     )
 
+    # Run guards regardless of floor outcome so observational findings
+    # (improvement_observed, etc.) appear in the report even when the
+    # floor is the structural reason for Inconclusive.
+    findings = run_guards(resolved_guards, cohort_results, policy)
+
+    # Pre-compute severity-partitioned views once; both Inconclusive
+    # branches and the DontShip branch read from these.
+    inconclusive_blocking = [f for f in findings if f.severity in ("blocks_ship", "blocks_all")]
+    blocks_all = [f for f in findings if f.severity == "blocks_all"]
+    blocks_ship = [f for f in findings if f.severity == "blocks_ship"]
+
+    cohort_results_list = list(cohort_results)
+
     # Cardinal #2: floor failures → Inconclusive, regardless of guards.
     if isinstance(floor_outcome, FloorFailureSet):
-        # Run guards anyway so observational findings (improvement_observed,
-        # etc.) appear in the report. Their severities are NOT blocking
-        # in this branch; the floor is the structural reason for
-        # Inconclusive.
-        findings = run_guards(resolved_guards, cohort_results, policy)
         return Inconclusive(
-            cohort_results=list(cohort_results),
+            cohort_results=cohort_results_list,
             findings=findings,
-            blocking_findings=_filter_inconclusive_blocking(findings),
+            blocking_findings=inconclusive_blocking,
             floor_failures=list(floor_outcome.failures),
         )
 
     # Floor passed; floor_outcome is a FloorPassedProof.
     assert isinstance(floor_outcome, FloorPassedProof)  # narrows for mypy
-    findings = run_guards(resolved_guards, cohort_results, policy)
 
-    blocks_all = [f for f in findings if f.severity == "blocks_all"]
     if blocks_all:
         # Operational catastrophe at policy level (e.g., cache lock
         # unavailable). Floor passed but evidence is unrenderable.
         return Inconclusive(
-            cohort_results=list(cohort_results),
+            cohort_results=cohort_results_list,
             findings=findings,
-            blocking_findings=_filter_inconclusive_blocking(findings),
+            blocking_findings=inconclusive_blocking,
             floor_failures=[],
         )
 
-    blocks_ship = [f for f in findings if f.severity == "blocks_ship"]
     if blocks_ship:
         return DontShip(
-            cohort_results=list(cohort_results),
+            cohort_results=cohort_results_list,
             findings=findings,
             blocking_findings=blocks_ship,
         )
 
     return Ship(
         proof=floor_outcome,
-        cohort_results=list(cohort_results),
+        cohort_results=cohort_results_list,
         findings=findings,
     )
-
-
-def _filter_inconclusive_blocking(findings: list[DecisionFinding]) -> list[DecisionFinding]:
-    """Inconclusive's `blocking_findings` accepts both `blocks_ship`
-    and `blocks_all` per the type's `__post_init__` invariant.
-    `Inconclusive` collects everything blocking; `DontShip` collects
-    only `blocks_ship`.
-    """
-    return [f for f in findings if f.severity in ("blocks_ship", "blocks_all")]

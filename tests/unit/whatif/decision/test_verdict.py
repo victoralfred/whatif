@@ -260,6 +260,8 @@ class TestCardinalTwoTrustChain:
     """
 
     def test_ship_carries_proof_from_evaluate_floor(self) -> None:
+        from datetime import datetime
+
         verdict = compute_verdict(
             [_passing_failure_cohort(), _passing_baseline_cohort()],
             TrustFloor(),
@@ -268,8 +270,11 @@ class TestCardinalTwoTrustChain:
         assert isinstance(verdict, Ship)
         # Proof's metadata reflects the floor we passed in.
         assert verdict.proof.floor_version == "v1"
-        # evaluated_at is an ISO 8601 timestamp from the floor's clock.
-        assert "T" in verdict.proof.evaluated_at  # ISO format
+        # evaluated_at is a real ISO 8601 timestamp from the floor's
+        # clock — round-tripping through fromisoformat() is the strict
+        # check (a string containing 'T' isn't enough).
+        parsed = datetime.fromisoformat(verdict.proof.evaluated_at)
+        assert parsed.tzinfo is not None  # UTC timestamp from evaluate_floor's default clock
 
     def test_dont_ship_does_not_construct_with_proof(self) -> None:
         """DontShip has no `proof` field — confirmed at the type level
