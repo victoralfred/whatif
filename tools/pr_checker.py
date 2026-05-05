@@ -98,7 +98,7 @@ class ReviewVerdict:
         }
 
 
-SYSTEM_PROMPT = """You are reviewing a pull request for the `whatif` project — an open-source CLI experiment runner for LLM behavior changes that emits PR-ready verdict reports.
+SYSTEM_PROMPT = """Ultrathink You are reviewing a pull request for the `whatif` project — an open-source CLI experiment runner for LLM behavior changes that emits PR-ready verdict reports.
 
 The project follows a TRUST-FIRST doctrine. Your review must check the PR against these CARDINAL RULES (any violation makes the verdict Don't Ship):
 
