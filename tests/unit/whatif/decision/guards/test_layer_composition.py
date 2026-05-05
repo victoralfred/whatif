@@ -92,19 +92,22 @@ class TestCardinal10LayerComposition:
         # Catastrophe scenario: failure rescue too low AND baseline regressed
         # AND magnitude in noise floor. All three blocking findings should
         # surface so the verdict layer (Phase 2.6) can render the full picture.
+        #
+        # Order matters: `run_guards` documents registration-order
+        # concatenation. `_LAYER` is registered as
+        # (failure_improvement, baseline_regression, practical_delta), so
+        # findings must come back in that exact order.
         cohorts = [
             failure_cohort(median_delta="0.020", improved=2, unchanged=4, regressed=4),
             baseline_cohort(improved=3, unchanged=4, regressed=3),
         ]
         findings = run_guards(_LAYER, cohorts, DecisionPolicy())
-        codes = sorted(f.code for f in findings)
-        assert codes == sorted(
-            [
-                "failure_improvement_below_threshold",
-                "baseline_regression_above_threshold",
-                "practical_delta_below_threshold",
-            ]
-        ), f"all three blocking findings should fire; got {codes}"
+        codes = [f.code for f in findings]
+        assert codes == [
+            "failure_improvement_below_threshold",
+            "baseline_regression_above_threshold",
+            "practical_delta_below_threshold",
+        ], f"findings should arrive in registration order; got {codes}"
 
     def test_layer_independence_under_composition(self) -> None:
         # Pin that running all three guards together produces the same
@@ -118,17 +121,21 @@ class TestCardinal10LayerComposition:
         policy = DecisionPolicy()
 
         composed = run_guards(_LAYER, cohorts, policy)
-        composed_codes = sorted(f.code for f in composed)
+        composed_codes = [f.code for f in composed]
 
+        # Individual concatenation in the SAME order as _LAYER registration.
         individual = (
             failure_improvement_guard(cohorts, policy)
             + baseline_regression_guard(cohorts, policy)
             + practical_delta_guard(cohorts, policy)
         )
-        individual_codes = sorted(f.code for f in individual)
+        individual_codes = [f.code for f in individual]
 
+        # Order-preserving equality (not just sorted equality): pins that
+        # `run_guards` matches manual concatenation in registration order.
         assert composed_codes == individual_codes, (
-            "composition via run_guards must match running guards individually"
+            "composition via run_guards must match running guards individually "
+            f"in registration order; got {composed_codes} vs {individual_codes}"
         )
 
     def test_only_failure_cohort_present_does_not_break_composition(self) -> None:
