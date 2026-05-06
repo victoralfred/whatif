@@ -242,13 +242,24 @@ def acquire_cache_lock(
     lock_path = cache_root / _LOCK_FILENAME
     cache_root.mkdir(parents=True, exist_ok=True)
 
+    # Open via os.open + os.fdopen to get O_RDWR | O_CREAT semantics
+    # WITHOUT O_APPEND. The earlier "a+" mode worked but had subtle
+    # cross-platform read-back behavior — POSIX O_APPEND forces every
+    # write to EOF atomically, which is correct for our truncate-then-
+    # write takeover path (truncate sets EOF to 0, so the forced-EOF
+    # write lands at byte 0) but easy to misunderstand. Using O_RDWR
+    # explicitly avoids the append-mode mental model entirely:
+    #   - position-0 reads: explicit fp.seek(0); fp.read()
+    #   - takeover writes: explicit fp.seek(0); fp.truncate(); fp.write()
+    # No O_APPEND means no platform-dependent write-positioning.
+    #
     # SIM115 (use `with open(...)`) is suppressed: the file's lifetime
     # spans the entire context manager — we acquire the fcntl lock on
     # this fd, yield the CacheLock to the caller, and only release +
     # close in the conditional-acquired finally path below. A `with`
-    # block would close at the wrong scope. `pathlib.Path.open()` has
-    # the same scoping issue and offers no advantage here.
-    fp = open(lock_path, "a+", encoding="utf-8")  # noqa: SIM115
+    # block would close at the wrong scope.
+    fd = os.open(lock_path, os.O_RDWR | os.O_CREAT, 0o600)
+    fp = os.fdopen(fd, "r+", encoding="utf-8")
     acquired = False
     try:
         try:
