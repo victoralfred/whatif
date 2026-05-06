@@ -68,6 +68,22 @@ because the PID is "alive" — it just isn't the same process.
 - **#9 (orchestration not compute):** `fcntl.flock` is the OS doing
   the work. No CPU optimization, no shared-memory tricks. The Python
   layer just records provenance.
+
+## Internal surface (single underscore, importable for tests)
+
+The single-underscore helpers below are part of the package's
+internal surface. They have stable names so the unit-test suite can
+exercise pure decision logic in isolation from filesystem state:
+
+- `_should_takeover(content, stale_after_seconds, allow_age_takeover) -> bool`
+  — pure stale-decision function tested in `TestShouldTakeover`.
+- `_process_dead_or_recycled(content) -> bool` — psutil-backed
+  helper; tested via monkeypatch for the `AccessDenied` branch.
+
+External callers (outside `whatif.cache.lock`) should NOT import
+these — `acquire_cache_lock` is the only public surface. Internal
+imports are fine because the package's test suite is the only other
+in-tree consumer, and renames will be coordinated.
 """
 
 from __future__ import annotations

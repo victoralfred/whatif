@@ -38,6 +38,7 @@ import pytest
 from whatif.cache.lock import (
     CacheLockedError,
     LockFileContent,
+    _process_dead_or_recycled,
     _should_takeover,
     acquire_cache_lock,
 )
@@ -46,6 +47,25 @@ from whatif.serialization import canonical_json_bytes
 # ---------------------------------------------------------------------------
 # Single-writer with real processes
 # ---------------------------------------------------------------------------
+
+
+def _wait_for_ready(ready_file: Path, timeout_seconds: float = 30.0) -> None:
+    """Spin until the child process writes its ready sentinel.
+
+    Bumped from the previous 5-second budget (100 x 50ms) to 30s so
+    heavily-loaded CI runners don't flake on subprocess startup. A
+    full process spawn + import + flock is well under a second on
+    even slow CI; 30s gives plenty of headroom while still failing
+    cleanly if the child genuinely hung.
+    """
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        if ready_file.exists():
+            return
+        time.sleep(0.05)
+    raise AssertionError(
+        f"child process never wrote ready sentinel at {ready_file} within {timeout_seconds}s"
+    )
 
 
 _HOLD_LOCK_SCRIPT = """
@@ -75,11 +95,7 @@ class TestSingleWriter:
         )
         try:
             # Spin until the child writes the ready sentinel.
-            for _ in range(100):
-                if ready_file.exists():
-                    break
-                time.sleep(0.05)
-            assert ready_file.exists(), "child process never acquired the lock"
+            _wait_for_ready(ready_file)
 
             # Parent attempt: must fail.
             with (
@@ -186,11 +202,7 @@ class TestStaleTakeover:
             [sys.executable, "-c", _HOLD_LOCK_SCRIPT, str(cache_root), str(ready_file), "5"],
         )
         try:
-            for _ in range(100):
-                if ready_file.exists():
-                    break
-                time.sleep(0.05)
-            assert ready_file.exists()
+            _wait_for_ready(ready_file)
             with pytest.raises(CacheLockedError), acquire_cache_lock(cache_root):
                 pass  # pragma: no cover
         finally:
@@ -218,11 +230,7 @@ class TestAgeTakeover:
             [sys.executable, "-c", _HOLD_LOCK_SCRIPT, str(cache_root), str(ready_file), "5"],
         )
         try:
-            for _ in range(100):
-                if ready_file.exists():
-                    break
-                time.sleep(0.05)
-            assert ready_file.exists()
+            _wait_for_ready(ready_file)
             # Manually overwrite the lock content with an old
             # started_at to simulate a long-running legitimate batch.
             old_started = (datetime.now(UTC) - timedelta(days=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -305,11 +313,7 @@ class TestLockProvenance:
             [sys.executable, "-c", _HOLD_LOCK_SCRIPT, str(cache_root), str(ready_file), "5"],
         )
         try:
-            for _ in range(100):
-                if ready_file.exists():
-                    break
-                time.sleep(0.05)
-            assert ready_file.exists()
+            _wait_for_ready(ready_file)
             with (
                 pytest.raises(CacheLockedError) as exc_info,
                 acquire_cache_lock(cache_root),
@@ -417,6 +421,35 @@ class TestShouldTakeover:
         recent = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
         recorded = self._live_self(recent)
         assert not _should_takeover(recorded, stale_after_seconds=86400, allow_age_takeover=True)
+
+    def test_access_denied_treats_lock_as_not_stale(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # If psutil can SEE the PID but can't read its create_time
+        # (permission error in containerized / hardened environments),
+        # the conservative behavior is to treat the lock as NOT stale.
+        # Better to surface CacheLockedError than to clobber a
+        # legitimate process whose creation time we can't verify.
+        # Pinned via monkeypatch since AccessDenied is hard to
+        # reproduce naturally in a unit test.
+        class _DeniedProc:
+            def create_time(self) -> float:
+                raise psutil.AccessDenied(pid=12345)
+
+        def _fake_process(pid: int) -> _DeniedProc:
+            return _DeniedProc()
+
+        monkeypatch.setattr("whatif.cache.lock.psutil.Process", _fake_process)
+
+        recorded = LockFileContent(
+            pid=12345,
+            process_start_time=time.time(),
+            hostname="any",
+            started_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        )
+        # Conservative: not stale → operator gets a CacheLockedError
+        # rather than silent takeover.
+        assert not _process_dead_or_recycled(recorded)
+        # Same pinned through _should_takeover.
+        assert not _should_takeover(recorded, stale_after_seconds=86400, allow_age_takeover=False)
 
     def test_malformed_started_at_does_not_age_out(self) -> None:
         # If started_at is unparseable, the age path returns False —
