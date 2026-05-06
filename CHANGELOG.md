@@ -12,6 +12,21 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+### Added — Phase 3.3 (cache lock)
+
+- `src/whatif/cache/lock.py` — `acquire_cache_lock(cache_root, *, stale_after_seconds=86400, allow_age_takeover=False)` context manager. Two layers of defense per `references/enforcement.md` row "Single-writer cache access": (1) OS-level `fcntl.flock(LOCK_EX | LOCK_NB)` on `<cache>/.lock` (kernel releases on process death — SIGKILL, OOM, kernel panic — including across SIGKILL), (2) stale-lock fallback that records `{pid, process_start_time, hostname, started_at}` and takes over when the recorded process is dead OR its `psutil.Process(pid).create_time()` mismatches `process_start_time` (PID-reuse defense).
+- `CacheLockedError` typed exception — DATA condition (a held lock is legitimate runtime state, not a programmer bug); callers convert to `FailureRecord` per cardinal #1. Error message names PID, hostname, started_at from the held lock so operators can decide between `whatif cache unlock` (CLI sub-command, Phase 8) and `whatif cache rebuild --force`.
+- `LockFileContent` and `CacheLock` typed dataclasses — typed boundaries per cardinal #6.
+- Age-based takeover (`allow_age_takeover=True`) is opt-in only. Default behavior takes over only on dead-process or PID-reuse evidence; age alone is a weak signal because long-running batches can legitimately hold locks for days.
+- NFS unsupported; documented in module docstring + clear error message naming NFS as the likely cause if `flock` returns `ENOLCK`/`EOPNOTSUPP`. Multi-tenant cache directories deferred to v0.3 (cascade entry).
+- New runtime dependency: `psutil>=6.0` (and `types-psutil` for mypy strict). Used for `Process.create_time()` PID-reuse defense.
+- `tests/unit/whatif/cache/test_lock.py` — 13 tests across five classes:
+  - `TestSingleWriter`: real-process contention via subprocess (NOT mocks; per Phase 3 gate); release on normal exit; release on exception (no orphan locks).
+  - `TestStaleTakeover`: takeover when recorded PID is dead (the scenario-5 recovery loop); takeover when PID was recycled (live process but `create_time` mismatch); no takeover when PID alive and matches; takeover on corrupted/empty lock file.
+  - `TestAgeTakeover`: default off (long-running batch not preempted); opt-in path reaches the age check (OS-level flock still primary defense, file-level age is advisory).
+  - `TestLockProvenance`: lock content records this process correctly; `CacheLockedError` message includes PID/hostname/started_at.
+  - `TestLockFileContentDataclass`: frozen-dataclass immutability.
+
 ### Added — Phase 3.2 (cache storage)
 
 - `src/whatif/cache/storage/v1.py` — file layout + entry I/O for the scorer cache. Layout: `.whatif/cache/entries/<digest[0:2]>/<digest>.json` (sharded by first 2 hex chars; `v1:` prefix excluded from filename per Windows compat). Public surface: `init_cache(root) -> CacheMeta` (idempotent; refuses mismatched on-disk schema version), `write_entry(root, key, entry) -> Path` (refuses entries with mismatched `cache_schema_version`), `read_entry(root, key) -> CacheEntry | None` (None on miss; raises `CacheSchemaMismatchError` on disk-version mismatch), `read_meta(root) -> CacheMeta`.

@@ -27,6 +27,7 @@ dependencies = [
   "anyio>=4.3",
   "pyyaml>=6.0",
   "rich>=15.0.0",
+  "psutil>=6.0",
 ]
 
 [project.optional-dependencies]
@@ -41,6 +42,7 @@ dev = [
   "mypy>=1.20.2",
   "hypothesis>=6.152.4",
   "pre-commit>=4.4.1",
+  "types-psutil>=6.0",
 ]
 
 [project.scripts]
