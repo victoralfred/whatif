@@ -153,6 +153,16 @@ class CacheMeta:
     Reading code uses this to decide whether to migrate, refuse, or
     proceed. Cache-version-bump tests assert the entries match the
     meta-recorded versions.
+
+    `extra` is the forward-compatibility escape hatch: any keys present
+    in `meta.json` that this module does not recognize are collected
+    here on read and re-emitted on write. A future minor that adds a
+    new informational field to `meta.json` (e.g., `tenant_id`,
+    `last_verified_at`) can land that field as a v1 extension without
+    breaking existing v1 caches — older code preserves the new field
+    via `extra` round-trip rather than dropping it. Breaking changes
+    (new required fields, semantic changes to existing fields) still
+    require a `v2` schema bump.
     """
 
     cache_schema_version: str

@@ -22,6 +22,7 @@ Tests use `tmp_path` so no shared state. The non-deterministic
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -37,6 +38,13 @@ from whatif.cache.storage import (
     read_meta,
     write_entry,
 )
+from whatif.serialization import canonical_json_bytes
+
+# Tests use `canonical_json_bytes` rather than `json.dumps` directly to
+# match the production write path AND to stay forward-compatible with
+# the Phase 5 banned-import lint (`references/enforcement.md` row 2).
+# `json.loads` is not banned (it's an input-side concern, not the
+# cardinal #5 artifact-write boundary the lint enforces).
 
 
 def _components() -> CacheKeyComponents:
@@ -91,11 +99,9 @@ class TestInitCache:
 
     def test_raises_on_schema_version_mismatch(self, tmp_path: Path) -> None:
         # Manually write a meta.json with a mismatched version.
-        import json
-
         (tmp_path / "entries").mkdir()
-        (tmp_path / "meta.json").write_text(
-            json.dumps(
+        (tmp_path / "meta.json").write_bytes(
+            canonical_json_bytes(
                 {
                     "cache_schema_version": "v0",
                     "cache_key_version": "v1",
@@ -211,15 +217,13 @@ class TestSchemaMismatch:
 
     def test_read_rejects_mismatched_on_disk_version(self, tmp_path: Path) -> None:
         # Write a valid entry, then mutate its on-disk version.
-        import json
-
         init_cache(tmp_path)
         components = _components()
         key = build_cache_key(components)
         path = write_entry(tmp_path, key, _entry(components))
         raw = json.loads(path.read_text())
         raw["cache_schema_version"] = "v0"
-        path.write_text(json.dumps(raw))
+        path.write_bytes(canonical_json_bytes(raw))
         with pytest.raises(CacheSchemaMismatchError, match="v0"):
             read_entry(tmp_path, key)
 
@@ -260,3 +264,47 @@ class TestMeta:
         # created_at is non-deterministic but well-formed ISO-8601.
         assert meta.created_at.endswith("Z")
         assert "T" in meta.created_at
+
+    def test_read_meta_uninitialized_root_raises(self, tmp_path: Path) -> None:
+        # read_meta is the low-level reader; it does NOT call init_cache.
+        # Pinning FileNotFoundError per the docstring's contract:
+        # callers wanting idempotence use init_cache; callers wanting
+        # to fail loud on a missing cache use read_meta directly.
+        with pytest.raises(FileNotFoundError):
+            read_meta(tmp_path)
+
+    def test_meta_byte_identical_under_same_timestamp(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Companion to test_byte_identical_for_same_input: verifies
+        # meta.json itself is byte-stable when the timestamp is fixed.
+        # Foundation for `whatif cache verify` byte-diffing meta as a
+        # cross-cache integrity check.
+        monkeypatch.setattr(
+            "whatif.cache.storage.v1._utc_now_iso",
+            lambda: "2026-05-05T12:00:00Z",
+        )
+        a = tmp_path / "a"
+        b = tmp_path / "b"
+        init_cache(a)
+        init_cache(b)
+        assert (a / "meta.json").read_bytes() == (b / "meta.json").read_bytes()
+
+    def test_extra_keys_round_trip(self, tmp_path: Path) -> None:
+        # Forward-compat: a future minor that adds an informational key
+        # to meta.json (e.g., tenant_id) lands as a v1 extension. Older
+        # readers preserve the new field via CacheMeta.extra rather than
+        # dropping it. Test simulates this by writing meta.json with an
+        # unknown key and verifying it survives a read+re-init.
+        init_cache(tmp_path)
+        # Manually mutate meta.json to add a forward-compat field.
+        raw = json.loads((tmp_path / "meta.json").read_text())
+        raw["future_field"] = "future_value"
+        (tmp_path / "meta.json").write_bytes(canonical_json_bytes(raw))
+        # Read picks up the unknown key into `extra`.
+        meta = read_meta(tmp_path)
+        assert meta.extra == {"future_field": "future_value"}
+        # init_cache (idempotent) doesn't strip it on re-init.
+        init_cache(tmp_path)
+        meta_again = read_meta(tmp_path)
+        assert meta_again.extra == {"future_field": "future_value"}
