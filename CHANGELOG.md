@@ -12,6 +12,14 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+### Added — Phase 3.4 (cache mode resolution)
+
+- `src/whatif/cache/policy.py::resolve_cache_mode(config_mode, env) -> CachePolicyResolution`. Resolves `DecisionPolicy.scorer_cache_mode` into a concrete `ScorerCacheMode`, honoring CI environment signals per `references/contracts.md` §"CI environment detection". Concrete inputs (`on`/`off`/`read_only`/`refresh`) pass through unchanged. `auto` + CI signal (`CI`/`GITHUB_ACTIONS`/`GITLAB_CI`/`BUILDKITE`/`JENKINS_URL`, lowercased-truthy-aware: accepts `true`/`1`, rejects `false`/`0`) → `on` with a `cache_mode_inferred` finding. `auto` + no CI → `auto` unchanged.
+- `CachePolicyResolution` typed dataclass (`mode`, `findings: tuple`) — frozen, slot, no `dict[str, Any]` boundary. Callers (Phase 2.6+ projection) splice `findings` into `decision_findings` and use `mode` for cache I/O.
+- New `cache_mode_inferred` info-severity finding code in `FINDING_CODE_REGISTRY`. Required details: `input_mode`, `resolved_mode`, `env_signal`. Cardinal #1: mode inference is structured data, not a log line — the manifest discloses what the user got even when they didn't pick it.
+- `whatif.cache.__init__` re-exports `resolve_cache_mode` and `CachePolicyResolution`.
+- `tests/unit/whatif/cache/test_policy.py` — 24 tests across five classes: concrete-input pass-through (parametrized × 4 modes + ignore-CI), `auto` + CI signal (parametrized × 5 env vars + finding details + first-match ordering + `1` truthy variant), `auto` interactive (`{}` / `false` / `0` / empty / unrelated env), `_detected_ci_signal` direct coverage (case-insensitive truthy boundary), structure pins (frozen, tuple-not-list, dataclass type).
+
 ### Added — Phase 3.3 (cache lock)
 
 - `src/whatif/cache/lock.py` — `acquire_cache_lock(cache_root, *, stale_after_seconds=86400, allow_age_takeover=False)` context manager. Two layers of defense per `references/enforcement.md` row "Single-writer cache access": (1) OS-level `fcntl.flock(LOCK_EX | LOCK_NB)` on `<cache>/.lock` (kernel releases on process death — SIGKILL, OOM, kernel panic — including across SIGKILL), (2) stale-lock fallback that records `{pid, process_start_time, hostname, started_at}` and takes over when the recorded process is dead OR its `psutil.Process(pid).create_time()` mismatches `process_start_time` (PID-reuse defense).

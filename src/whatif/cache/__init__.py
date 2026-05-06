@@ -35,10 +35,13 @@ from whatif.cache.lock import (
     CacheLockedError,
     acquire_cache_lock,
 )
+from whatif.cache.policy import CachePolicyResolution, resolve_cache_mode
 
 __all__ = (
     "LOCK_FAILURE_CODE",
     "CacheLock",
     "CacheLockedError",
+    "CachePolicyResolution",
     "acquire_cache_lock",
+    "resolve_cache_mode",
 )
