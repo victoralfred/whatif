@@ -11,11 +11,7 @@ two-valued return contract.
 from __future__ import annotations
 
 from whatif.cache.lock import LockFileContent
-from whatif.serialization import (
-    canonical_json_bytes,
-    parse_lock_file_content,
-    parse_lock_file_for_diagnostics,
-)
+from whatif.serialization import canonical_json_bytes, parse_lock_file_content
 
 _VALID_DICT = {
     "pid": 12345,
@@ -77,26 +73,3 @@ class TestParseLockFileContent:
             )
             is None
         )
-
-
-class TestParseLockFileForDiagnostics:
-    def test_returns_dict_on_valid(self) -> None:
-        raw = canonical_json_bytes(_VALID_DICT)
-        result = parse_lock_file_for_diagnostics(raw)
-        assert result["pid"] == 12345
-        assert result["hostname"] == "ci-runner-7"
-
-    def test_empty_returns_empty_dict(self) -> None:
-        assert parse_lock_file_for_diagnostics("") == {}
-        assert parse_lock_file_for_diagnostics(b"") == {}
-
-    def test_invalid_json_returns_empty_dict(self) -> None:
-        assert parse_lock_file_for_diagnostics("{nope") == {}
-
-    def test_non_dict_top_level_returns_empty_dict(self) -> None:
-        # Diagnostic helper only deals with dict shape. A list or
-        # number at the top level is treated as "no diagnostic
-        # info available" — the load-bearing fact (lock held) is
-        # already established by the caller.
-        assert parse_lock_file_for_diagnostics("[1,2,3]") == {}
-        assert parse_lock_file_for_diagnostics("42") == {}

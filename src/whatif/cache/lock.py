@@ -134,11 +134,7 @@ import fcntl  # POSIX-only; Windows fails the sys.platform check above
 
 import psutil
 
-from whatif.serialization import (
-    canonical_json_bytes,
-    parse_lock_file_content,
-    parse_lock_file_for_diagnostics,
-)
+from whatif.serialization import canonical_json_bytes, parse_lock_file_content
 
 # The failure-code registry entry that wraps `CacheLockedError` when
 # Phase 2.6 projection layer converts the exception into a structured
@@ -430,9 +426,10 @@ def _build_locked_error(lock_path: Path) -> CacheLockedError:
     caller; this function ENRICHES the error message with provenance.
     Diagnostic-read failures (file rotated, permission denied) chain
     via `__cause__` so nothing is silently swallowed. Deserialization
-    goes through `whatif.serialization.parse_lock_file_for_diagnostics`,
-    which returns an empty dict on parse failure — the helper keeps
-    json operations centralized.
+    goes through the same typed `parse_lock_file_content` helper used
+    for stale-detection — `None` here means "file readable but content
+    unparseable," and we fall back to a degraded message rather than
+    fabricating provenance.
     """
     try:
         raw = lock_path.read_text(encoding="utf-8")
@@ -450,12 +447,12 @@ def _build_locked_error(lock_path: Path) -> CacheLockedError:
         err.__cause__ = diag_err
         return err
 
-    parsed = parse_lock_file_for_diagnostics(raw)
-    if parsed:
+    content = parse_lock_file_content(raw)
+    if content is not None:
         return CacheLockedError(
             f"Cache lock at {lock_path} is held by another live process. "
-            f"PID={parsed.get('pid')!r}, hostname={parsed.get('hostname')!r}, "
-            f"started_at={parsed.get('started_at')!r}. If you know the "
+            f"PID={content.pid}, hostname={content.hostname!r}, "
+            f"started_at={content.started_at!r}. If you know the "
             "holding process is no longer running, run `whatif cache unlock`. "
             "If the cache may be corrupted, run `whatif cache rebuild --force`."
         )
