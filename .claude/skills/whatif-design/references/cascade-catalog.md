@@ -155,6 +155,21 @@ Initial registry (catalog from doctrine):
 
 **Resolution:** drift test in place from Phase 5.5. Phase 9 adds `jsonschema`-library validation. Phase 10 publishes to the public URI. Schema-version bump (v0.1 → v0.2) requires regenerating into `v0.2.schema.json` plus a `whatif report-migrate` stub.
 
+### Per-trace ThreadPoolExecutor + leaked-thread-on-timeout pattern
+
+**Source decision:** Phase 6.3a (PR #44) `whatif.replay.kernel.replay_one_trace` enforces a wall-clock timeout via `ThreadPoolExecutor(max_workers=1)` + `Future.result(timeout=...)`. Python provides no portable way to kill a running thread, so on timeout the kernel calls `executor.shutdown(wait=False)` and returns immediately — the runner thread keeps running until the runner returns naturally. v0.1 accepts this with documented constraint that runners must be timeout-aware via inner I/O timeouts.
+
+**Rippled to:**
+- `whatif/replay/kernel.py` (Phase 6.3a) — fresh executor per call, manual lifecycle (no `with` block — `with` would block in `__exit__` defeating the timeout). The test `test_slow_runner_produces_runner_timeout` asserts kernel returns within 10× the timeout budget.
+- Phase 6.3b streaming pipeline — must NOT wrap the kernel inside its own outer `ThreadPoolExecutor` with `wait=True` semantics, or it serializes timeouts (the outer pool blocks on the leaked inner thread). Options: shared executor injected as a dependency; per-trace inner executor with the streaming layer using `as_completed`. Decision deferred until 6.3b lands.
+- Phase 6.3c async runner path — async cancellation IS portable (`asyncio.Task.cancel()`), so the async path doesn't need the leaked-thread workaround. Different concurrency primitive, different lifecycle.
+- v0.2 hardening candidate: subprocess pool for runners. Subprocesses CAN be killed (`Process.terminate`), so timeout enforcement becomes real. Trade-off: serialization overhead per trace (the runner state has to round-trip via pickle). Out of v0.1 scope.
+- Documentation: `docs/runner-contract.md` (Phase 10) must spell out the inner-I/O-timeout requirement so runner authors know the wall-clock backstop is best-effort.
+
+**Status:** open (acceptable for v0.1 with documented constraint).
+
+**Resolution:** v0.2 subprocess-pool hardening, OR v0.2 stays on threads but documents more aggressively. Trigger condition: a real production user hits a runner-hang scenario where the leaked thread accumulates measurable resource pressure across many traces.
+
 ### Replay subpackage boundary (`whatif.replay`)
 
 **Source decision:** Phase 6 introduces a dedicated `whatif.replay` subpackage with a sealed-union typed result (`ReplayResult = ReplaySuccess | ReplayFailure`) as the per-trace pipeline output. `ReplayFailure` is the lightweight in-pipeline shape (registry-validated `code` with `stage="replay"`); the report-level `FailureRecord` is produced at aggregation via `make_failure_record`, which assigns the stable `id` and enforces required-details. Cardinal #1 boundary lives at `ReplayFailure.__post_init__`.

@@ -12,6 +12,16 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+### Added — Phase 6.3a (per-trace replay kernel)
+
+- `src/whatif/replay/kernel.py::replay_one_trace(*, trace_id, cohort, trace_input, config, tool_cache, runner, timeout_seconds) -> ReplayResult` — synchronous per-trace runner-call wrapper. The boundary that converts the three classes of runner-execution failure into typed `ReplayFailure` records: `CacheMissError` → `tool_cache_miss`; wall-clock timeout → `runner_timeout`; any other exception → `runner_exception`. Clean returns produce `ReplaySuccess` carrying the runner's `ReplayOutput`.
+- Catch-order: `CacheMissError` is caught BEFORE the bare `Exception` catch so a cache miss is classified correctly even though it IS a Python exception. Test `TestOrderCorrect` pins this so a future refactor that reorders the catches surfaces immediately.
+- Timeout enforcement via `ThreadPoolExecutor(max_workers=1)` + `Future.result(timeout=...)`. On timeout, `executor.shutdown(wait=False)` detaches so the kernel returns immediately; the runner thread leaks until it returns naturally (Python can't kill threads). Module docstring documents the requirement that runners be timeout-aware via inner I/O timeouts; the wall-clock limit is a backstop, not the primary bound. Subprocess-pool hardening deferred to v0.2.
+- `BaseException` (KeyboardInterrupt, SystemExit) is intentionally NOT caught — cardinal #1 covers EXPECTED failures, not programmer-bug exit signals. Pinned by `TestNeverRaises::test_kernel_swallows_all_runner_exceptions` which asserts `SystemExit` propagates.
+- Long exception messages truncated at 2048 chars with `...(truncated)` suffix to bound report bloat from runaway-message bugs.
+- `tests/unit/whatif/replay/test_kernel.py` — pins all four classifications (success / cache-miss / timeout / exception), the catch-order defense, the no-raise boundary, message truncation, and the timeout's "must return immediately" property (asserts elapsed wall-clock < 1s on a 0.1s timeout against a 2s sleep).
+- Phase 6.3 split into 6.3a (kernel, this PR), 6.3b (streaming pipeline + ThreadPoolExecutor parallelism, next), 6.3c (async runner path).
+
 ### Added — Phase 6.2 (strict per-trace tool cache)
 
 - `src/whatif/replay/tool_cache.py::StrictToolCache` — `whatif.contract.ToolCache` subclass that overrides `lookup(...)` to raise `CacheMissError` on miss instead of returning `None`. Liskov-substitutable: user runners annotated `tool_cache: ToolCache` receive the strict variant transparently. Public `ToolCache` contract remains unchanged (Pydantic v2 `extra="forbid"` boundary preserved); strictness lives in the subclass.

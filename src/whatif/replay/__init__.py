@@ -19,10 +19,12 @@ raise its `CacheMissError` and have a typed shape to convert into
 without forward references.
 """
 
+from whatif.replay.kernel import replay_one_trace
 from whatif.replay.result import ReplayFailure, ReplayResult, ReplaySuccess
 
 __all__ = [
     "ReplayFailure",
     "ReplayResult",
     "ReplaySuccess",
+    "replay_one_trace",
 ]
