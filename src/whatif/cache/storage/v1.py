@@ -233,18 +233,30 @@ def init_cache(root: Path) -> CacheMeta:
 def read_meta(root: Path) -> CacheMeta:
     """Read `meta.json` from a cache root.
 
-    Raises `FileNotFoundError` if the cache hasn't been initialized;
-    callers should use `init_cache` first if they want idempotent
-    behavior.
+    Raises `FileNotFoundError` if the cache hasn't been initialized
+    (callers wanting idempotence use `init_cache` first). Raises
+    `CacheSchemaMismatchError` on a corrupted file (invalid JSON) or
+    a file missing required top-level keys — both are DATA conditions
+    per cardinal #1: the disk surprised us, not a programmer bug.
     """
     meta_path = root / _META_FILENAME
-    raw = json.loads(meta_path.read_text(encoding="utf-8"))
-    return CacheMeta(
-        cache_schema_version=raw["cache_schema_version"],
-        cache_key_version=raw["cache_key_version"],
-        created_at=raw["created_at"],
-        extra={k: v for k, v in raw.items() if k not in _META_KNOWN_KEYS},
-    )
+    text = meta_path.read_text(encoding="utf-8")  # FileNotFoundError surfaces
+    try:
+        raw = json.loads(text)
+        return CacheMeta(
+            cache_schema_version=raw["cache_schema_version"],
+            cache_key_version=raw["cache_key_version"],
+            created_at=raw["created_at"],
+            extra={k: v for k, v in raw.items() if k not in _META_KNOWN_KEYS},
+        )
+    except (json.JSONDecodeError, KeyError, TypeError) as e:
+        raise CacheSchemaMismatchError(
+            f"Cache meta file at {meta_path} is corrupted or missing "
+            f"required top-level keys: {e}. The file is unreadable as a "
+            "v1 CacheMeta. Likely cause: on-disk corruption or partial "
+            "write from a crashed run. Recover via "
+            "`whatif cache rebuild --force`."
+        ) from e
 
 
 def write_entry(root: Path, key: str, entry: CacheEntry) -> Path:
@@ -292,45 +304,49 @@ def read_entry(root: Path, key: str) -> CacheEntry | None:
     entry_path = root / _ENTRIES_DIRNAME / digest[:2] / f"{digest}.json"
     if not entry_path.exists():
         return None
-    raw = json.loads(entry_path.read_text(encoding="utf-8"))
-    if raw.get("cache_schema_version") != CACHE_SCHEMA_VERSION:
+    try:
+        raw = json.loads(entry_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        raise CacheSchemaMismatchError(
+            f"Cache entry at {entry_path} is corrupted (invalid JSON): {e}. "
+            "Likely cause: on-disk corruption or partial write. Recover "
+            "via `whatif cache rebuild --force`."
+        ) from e
+    if not isinstance(raw, dict) or raw.get("cache_schema_version") != CACHE_SCHEMA_VERSION:
         raise CacheSchemaMismatchError(
             f"Entry {entry_path} has cache_schema_version="
-            f"{raw.get('cache_schema_version')!r}; this module expects "
-            f"{CACHE_SCHEMA_VERSION!r}. Migration is not automatic in v0.1."
+            f"{raw.get('cache_schema_version') if isinstance(raw, dict) else None!r}; "
+            f"this module expects {CACHE_SCHEMA_VERSION!r}. "
+            "Migration is not automatic in v0.1."
         )
-    result = raw["result"]
-    # Reconstruct CacheKeyComponents from the on-disk dict. Wrap the
-    # kwarg splat in a domain-specific exception: a corrupted or
-    # version-skewed entry whose key_components shape doesn't match
-    # the current dataclass surfaces as `CacheSchemaMismatchError`
-    # (data condition; cardinal #1) rather than a raw `TypeError` from
-    # the dataclass constructor. Catch both TypeError (unexpected/
-    # missing kwargs) and KeyError (top-level "key_components" key
-    # absent entirely).
+    # Reconstruct typed object. Wrap the kwarg splats in a domain-
+    # specific exception: a corrupted or version-skewed entry surfaces
+    # as `CacheSchemaMismatchError` (data condition; cardinal #1)
+    # rather than a raw `TypeError`/`KeyError` from the constructor.
     try:
+        result = raw["result"]
         key_components = CacheKeyComponents(**raw["key_components"])
+        return CacheEntry(
+            cache_key_version=raw["cache_key_version"],
+            cache_schema_version=raw["cache_schema_version"],
+            created_at=raw["created_at"],
+            key_components=key_components,
+            result=CacheResult(
+                score_delta=result["score_delta"],
+                verdict=result["verdict"],
+                confidence=result["confidence"],
+                flags=tuple(result.get("flags", ())),
+                rationale=result.get("rationale"),
+            ),
+        )
     except (TypeError, KeyError) as e:
         raise CacheSchemaMismatchError(
-            f"Entry {entry_path} has a key_components shape this storage "
-            f"module cannot reconstruct: {e}. The on-disk dict does not "
-            "match the v1 CacheKeyComponents fields. Likely cause: a v2 "
-            "keying schema written into a v1 entry by a future code path, "
-            "or on-disk corruption."
+            f"Entry {entry_path} has a shape this storage module cannot "
+            f"reconstruct: {e}. The on-disk JSON does not match the v1 "
+            "CacheEntry/CacheKeyComponents fields. Likely cause: a v2 "
+            "schema written into a v1 entry by a future code path, or "
+            "on-disk corruption."
         ) from e
-    return CacheEntry(
-        cache_key_version=raw["cache_key_version"],
-        cache_schema_version=raw["cache_schema_version"],
-        created_at=raw["created_at"],
-        key_components=key_components,
-        result=CacheResult(
-            score_delta=result["score_delta"],
-            verdict=result["verdict"],
-            confidence=result["confidence"],
-            flags=tuple(result.get("flags", ())),
-            rationale=result.get("rationale"),
-        ),
-    )
 
 
 def _digest_from_key(key: str) -> str:
@@ -373,11 +389,23 @@ def _digest_from_key(key: str) -> str:
 def _entry_to_dict(entry: CacheEntry) -> dict[str, Any]:
     """Convert a `CacheEntry` to the on-disk dict shape.
 
-    Uses field-by-field copy rather than `asdict()` so the on-disk
-    schema is decoupled from the dataclass shape — a future field on
-    `CacheEntry` is opt-in into the wire format, not auto-included.
-    `key_components` is asdict'd here (it's a known v1 schema; the
-    on-disk form mirrors the dataclass fields exactly).
+    Uses field-by-field copy rather than `asdict()` at the top level
+    so the on-disk schema is decoupled from the dataclass shape — a
+    future field on `CacheEntry` is opt-in into the wire format, not
+    auto-included. `key_components` is asdict'd inside because it
+    belongs to a sibling versioned module (`whatif.cache.keying.v1`):
+    any field added there requires a paired keying-version bump under
+    the project's "PRs touching this directory bump version" rule, so
+    asdict's auto-include behavior is bounded by the version contract,
+    not by typing here.
+
+    `dict[str, Any]` return type is the wire-format glue: the function
+    produces JSON-roundtrippable structure for `canonical_json_bytes`
+    consumption. Per cardinal #6, public schemas are hand-written
+    (`ReportV01`, etc.); this helper is private (underscore prefix)
+    and never crosses the public-schema boundary. The boundary types
+    `CacheEntry`, `CacheResult`, `CacheKeyComponents` ARE typed; the
+    JSON glue is intentionally opaque.
     """
     from dataclasses import asdict
 

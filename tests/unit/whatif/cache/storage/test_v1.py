@@ -310,7 +310,9 @@ class TestVersionMismatch:
         raw = json.loads(path.read_text())
         raw["key_components"]["unexpected_v2_field"] = "value"
         path.write_bytes(canonical_json_bytes(raw))
-        with pytest.raises(CacheSchemaMismatchError, match="key_components shape"):
+        with pytest.raises(
+            CacheSchemaMismatchError, match="shape this storage module cannot reconstruct"
+        ):
             read_entry(tmp_path, key)
 
     def test_read_rejects_missing_key_components_field_as_data(self, tmp_path: Path) -> None:
@@ -323,7 +325,9 @@ class TestVersionMismatch:
         raw = json.loads(path.read_text())
         del raw["key_components"]["rubric_hash"]
         path.write_bytes(canonical_json_bytes(raw))
-        with pytest.raises(CacheSchemaMismatchError, match="key_components shape"):
+        with pytest.raises(
+            CacheSchemaMismatchError, match="shape this storage module cannot reconstruct"
+        ):
             read_entry(tmp_path, key)
 
     def test_init_cache_rejects_mismatched_meta_as_data(self, tmp_path: Path) -> None:
@@ -429,11 +433,53 @@ class TestMeta:
         # Manually mutate meta.json to add a forward-compat field.
         raw = json.loads((tmp_path / "meta.json").read_text())
         raw["future_field"] = "future_value"
-        (tmp_path / "meta.json").write_bytes(canonical_json_bytes(raw))
+        meta_path = tmp_path / "meta.json"
+        meta_path.write_bytes(canonical_json_bytes(raw))
         # Read picks up the unknown key into `extra`.
         meta = read_meta(tmp_path)
         assert meta.extra == {"future_field": "future_value"}
         # init_cache (idempotent) doesn't strip it on re-init.
+        # Mechanism check: the re-init path must NOT re-write meta.json
+        # (which would lose any unknown keys not represented in
+        # CacheMeta.extra at write time). mtime sentinel pins this:
+        # if init_cache silently re-wrote, mtime would advance.
+        mtime_before = meta_path.stat().st_mtime_ns
         init_cache(tmp_path)
+        assert meta_path.stat().st_mtime_ns == mtime_before, (
+            "init_cache re-wrote meta.json on re-init; the idempotence "
+            "contract requires it to be a pure no-op when versions match."
+        )
         meta_again = read_meta(tmp_path)
         assert meta_again.extra == {"future_field": "future_value"}
+
+    def test_read_meta_corrupted_json_raises_data_error(self, tmp_path: Path) -> None:
+        # Pin the FileNotFoundError vs JSONDecodeError vs
+        # CacheSchemaMismatchError contract on read_meta:
+        #   - file absent → FileNotFoundError (caller wants idempotence
+        #     uses init_cache instead)
+        #   - file present but unparseable → CacheSchemaMismatchError
+        #     (data condition; cardinal #1)
+        init_cache(tmp_path)
+        (tmp_path / "meta.json").write_text("{not valid json")
+        with pytest.raises(CacheSchemaMismatchError, match="corrupted"):
+            read_meta(tmp_path)
+
+    def test_read_meta_missing_required_key_raises_data_error(self, tmp_path: Path) -> None:
+        # JSON-parses but is missing a required top-level key. Per
+        # cardinal #1, this is a data condition (the disk surprised
+        # us), not a programmer bug.
+        (tmp_path / "entries").mkdir()
+        (tmp_path / "meta.json").write_bytes(canonical_json_bytes({"cache_schema_version": "v1"}))
+        with pytest.raises(CacheSchemaMismatchError, match="corrupted or missing"):
+            read_meta(tmp_path)
+
+    def test_read_entry_corrupted_json_raises_data_error(self, tmp_path: Path) -> None:
+        # Pair to test_read_meta_corrupted_json: a corrupted entry
+        # surfaces as CacheSchemaMismatchError, not raw JSONDecodeError.
+        init_cache(tmp_path)
+        components = _components()
+        key = build_cache_key(components)
+        path = write_entry(tmp_path, key, _entry(components))
+        path.write_text("{not valid json")
+        with pytest.raises(CacheSchemaMismatchError, match="corrupted"):
+            read_entry(tmp_path, key)
