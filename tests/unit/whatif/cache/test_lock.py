@@ -90,8 +90,13 @@ override_started_at = sys.argv[4] if len(sys.argv) > 4 else None
 with acquire_cache_lock(cache_root) as lock:
     if override_started_at is not None:
         # Re-canonicalize the lock file with an overridden started_at.
-        # The kernel flock is held throughout; this is the same write
-        # path acquire_cache_lock used internally.
+        # Safe even though we're inside the `with` block: the kernel
+        # flock is held throughout, so no concurrent reader can observe
+        # a partial write. The parent test harness only reads .lock
+        # AFTER attempting acquire_cache_lock, which would itself block
+        # on the kernel lock. This is the same write path
+        # acquire_cache_lock uses internally for its own provenance
+        # write.
         from whatif.serialization import canonical_json_bytes
 
         lock.lock_path.write_bytes(
@@ -555,6 +560,31 @@ class TestHardenedEnvironment:
             acquire_cache_lock(tmp_path / "cache"),
         ):
             pass  # pragma: no cover
+
+
+class TestPackageReExport:
+    """The most-used lock surface is re-exported at the package level
+    so callers don't need to reach into `whatif.cache.lock`. Pin both
+    paths return the same objects, not parallel definitions.
+    """
+
+    def test_acquire_cache_lock_is_same_object(self) -> None:
+        from whatif import cache as pkg
+        from whatif.cache import lock as submodule
+
+        assert pkg.acquire_cache_lock is submodule.acquire_cache_lock
+
+    def test_cache_lock_is_same_class(self) -> None:
+        from whatif import cache as pkg
+        from whatif.cache import lock as submodule
+
+        assert pkg.CacheLock is submodule.CacheLock
+
+    def test_cache_locked_error_is_same_class(self) -> None:
+        from whatif import cache as pkg
+        from whatif.cache import lock as submodule
+
+        assert pkg.CacheLockedError is submodule.CacheLockedError
 
 
 class TestLockFileContentDataclass:

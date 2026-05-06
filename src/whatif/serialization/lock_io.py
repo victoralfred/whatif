@@ -19,15 +19,18 @@ the symmetry with `canonical_json_bytes`: writing canonical bytes
 lives in this package; reading them back lives next to it. A future
 broadening of the banned-import lint to cover all `json` usage outside
 serialization will find every `json` call already inside this package.
+
+The `LockFileContent` type lives in `whatif.cache._types` (extracted
+to break the runtime circular dependency between `whatif.cache.lock`
+and this module). External callers should still import the type from
+`whatif.cache.lock`, which re-exports it.
 """
 
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from whatif.cache.lock import LockFileContent
+from whatif.cache._types import LockFileContent
 
 
 def parse_lock_file_content(raw: str | bytes) -> LockFileContent | None:
@@ -43,11 +46,6 @@ def parse_lock_file_content(raw: str | bytes) -> LockFileContent | None:
     is the dataclass constructor; this helper raises nothing back to
     the caller — invalid input maps to `None`.
     """
-    # Local import to avoid circular dependency: lock module imports
-    # from this module at module-load time; the dataclass type only
-    # needs to be available inside this function body.
-    from whatif.cache.lock import LockFileContent
-
     if not raw:
         return None
     try:

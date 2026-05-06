@@ -19,4 +19,26 @@ Versioned packages (`keying.v1`, `storage.v1`) carry the
 `CACHE_KEY_VERSION` and `CACHE_SCHEMA_VERSION` constants. PRs touching
 these directories MUST bump the version — the cache-version-bump test
 asserts this, and a stale version is the cache-poisoning footgun.
+
+The most-used surface (`acquire_cache_lock`, `CacheLock`,
+`CacheLockedError`) is re-exported here so callers can write
+`from whatif.cache import acquire_cache_lock` instead of reaching
+into the submodule. The submodule (`whatif.cache.lock`) remains
+the source of truth and is what tooling will rename if the lock
+implementation is ever swapped (e.g., for a network-coordinated v0.3
+multi-tenant lock).
 """
+
+from whatif.cache.lock import (
+    LOCK_FAILURE_CODE,
+    CacheLock,
+    CacheLockedError,
+    acquire_cache_lock,
+)
+
+__all__ = (
+    "LOCK_FAILURE_CODE",
+    "CacheLock",
+    "CacheLockedError",
+    "acquire_cache_lock",
+)
