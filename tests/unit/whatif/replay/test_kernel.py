@@ -39,19 +39,23 @@ from whatif.replay.tool_cache import make_strict_tool_cache
 _TEST_TRACE_ID = "t-1"
 
 
-def _input() -> TraceInput:
+@pytest.fixture
+def trace_input() -> TraceInput:
     return TraceInput(user_message="hello")
 
 
-def _config() -> ReplayConfig:
+@pytest.fixture
+def config() -> ReplayConfig:
     return ReplayConfig(system_prompt="be helpful")
 
 
-def _empty_strict_cache() -> ToolCache:
+@pytest.fixture
+def empty_strict_cache() -> ToolCache:
     return make_strict_tool_cache({}, trace_id=_TEST_TRACE_ID)
 
 
-def _empty_loose_cache() -> ToolCache:
+@pytest.fixture
+def empty_loose_cache() -> ToolCache:
     return ToolCache(cache={}, policy="use-original")
 
 
@@ -61,22 +65,27 @@ def _empty_loose_cache() -> ToolCache:
 
 
 class TestSuccess:
-    def test_clean_runner_returns_replay_success(self) -> None:
+    def test_clean_runner_returns_replay_success(
+        self,
+        trace_input: TraceInput,
+        config: ReplayConfig,
+        empty_loose_cache: ToolCache,
+    ) -> None:
         def runner(ti: TraceInput, cfg: ReplayConfig, tc: ToolCache) -> ReplayOutput:
             return ReplayOutput(text=f"echo: {ti.user_message}")
 
         result = replay_one_trace(
             trace_id=_TEST_TRACE_ID,
             cohort="failure",
-            trace_input=_input(),
-            config=_config(),
-            tool_cache=_empty_loose_cache(),
+            trace_input=trace_input,
+            config=config,
+            tool_cache=empty_loose_cache,
             runner=runner,
             timeout_seconds=2.0,
         )
 
         assert isinstance(result, ReplaySuccess)
-        assert result.trace_id == "t-1"
+        assert result.trace_id == _TEST_TRACE_ID
         assert result.cohort == "failure"
         assert result.output.text == "echo: hello"
 
@@ -87,7 +96,12 @@ class TestSuccess:
 
 
 class TestCacheMissClassification:
-    def test_cache_miss_produces_typed_failure(self) -> None:
+    def test_cache_miss_produces_typed_failure(
+        self,
+        trace_input: TraceInput,
+        config: ReplayConfig,
+        empty_strict_cache: ToolCache,
+    ) -> None:
         # Runner calls into a strict cache that has no matching
         # entry. CacheMissError escapes the runner; kernel converts.
         def runner(ti: TraceInput, cfg: ReplayConfig, tc: ToolCache) -> ReplayOutput:
@@ -97,16 +111,16 @@ class TestCacheMissClassification:
         result = replay_one_trace(
             trace_id=_TEST_TRACE_ID,
             cohort="failure",
-            trace_input=_input(),
-            config=_config(),
-            tool_cache=_empty_strict_cache(),
+            trace_input=trace_input,
+            config=config,
+            tool_cache=empty_strict_cache,
             runner=runner,
             timeout_seconds=2.0,
         )
 
         assert isinstance(result, ReplayFailure)
         assert result.code == "tool_cache_miss"
-        assert result.trace_id == "t-1"
+        assert result.trace_id == _TEST_TRACE_ID
         assert result.cohort == "failure"
         assert result.details["tool_name"] == "get_weather"
 
@@ -117,7 +131,12 @@ class TestCacheMissClassification:
 
 
 class TestTimeoutClassification:
-    def test_slow_runner_produces_runner_timeout(self) -> None:
+    def test_slow_runner_produces_runner_timeout(
+        self,
+        trace_input: TraceInput,
+        config: ReplayConfig,
+        empty_loose_cache: ToolCache,
+    ) -> None:
         # Runner sleeps past the timeout. The kernel returns the
         # typed failure immediately; the leaked thread runs to
         # completion in the background (Python can't kill threads).
@@ -129,9 +148,9 @@ class TestTimeoutClassification:
         result = replay_one_trace(
             trace_id=_TEST_TRACE_ID,
             cohort="failure",
-            trace_input=_input(),
-            config=_config(),
-            tool_cache=_empty_loose_cache(),
+            trace_input=trace_input,
+            config=config,
+            tool_cache=empty_loose_cache,
             runner=runner,
             timeout_seconds=0.1,
         )
@@ -139,8 +158,15 @@ class TestTimeoutClassification:
 
         assert isinstance(result, ReplayFailure)
         assert result.code == "runner_timeout"
-        assert result.trace_id == "t-1"
-        assert result.details["timeout_seconds"] == 0.1
+        assert result.trace_id == _TEST_TRACE_ID
+        # Schema-type pin: timeout_seconds emitted as float, NOT
+        # int. The kernel's _timeout_failure converts via
+        # `float(timeout_seconds)` for shape consistency. A future
+        # contributor reverting to "int when whole, else float"
+        # would fail this isinstance check.
+        ts = result.details["timeout_seconds"]
+        assert isinstance(ts, float)
+        assert ts == 0.1
         # The kernel must not block past the timeout — pin a
         # generous upper bound (10x) so a future regression that
         # accidentally waits for the runner to finish surfaces here.
@@ -156,16 +182,21 @@ class TestTimeoutClassification:
 
 
 class TestExceptionClassification:
-    def test_runner_exception_produces_typed_failure(self) -> None:
+    def test_runner_exception_produces_typed_failure(
+        self,
+        trace_input: TraceInput,
+        config: ReplayConfig,
+        empty_loose_cache: ToolCache,
+    ) -> None:
         def runner(ti: TraceInput, cfg: ReplayConfig, tc: ToolCache) -> ReplayOutput:
             raise ValueError("upstream service unreachable")
 
         result = replay_one_trace(
             trace_id=_TEST_TRACE_ID,
             cohort="failure",
-            trace_input=_input(),
-            config=_config(),
-            tool_cache=_empty_loose_cache(),
+            trace_input=trace_input,
+            config=config,
+            tool_cache=empty_loose_cache,
             runner=runner,
             timeout_seconds=2.0,
         )
@@ -175,7 +206,12 @@ class TestExceptionClassification:
         assert result.details["exception_type"] == "ValueError"
         assert "upstream service unreachable" in result.details["message"]
 
-    def test_long_exception_message_truncated(self) -> None:
+    def test_long_exception_message_truncated(
+        self,
+        trace_input: TraceInput,
+        config: ReplayConfig,
+        empty_loose_cache: ToolCache,
+    ) -> None:
         # Defense: a runner that raises with a giant message must
         # not bloat the report. The kernel truncates at 2048 chars.
         big = "x" * 5000
@@ -186,9 +222,9 @@ class TestExceptionClassification:
         result = replay_one_trace(
             trace_id=_TEST_TRACE_ID,
             cohort="failure",
-            trace_input=_input(),
-            config=_config(),
-            tool_cache=_empty_loose_cache(),
+            trace_input=trace_input,
+            config=config,
+            tool_cache=empty_loose_cache,
             runner=runner,
             timeout_seconds=2.0,
         )
@@ -206,7 +242,12 @@ class TestExceptionClassification:
 
 
 class TestOrderCorrect:
-    def test_cache_miss_is_not_misclassified_as_runner_exception(self) -> None:
+    def test_cache_miss_is_not_misclassified_as_runner_exception(
+        self,
+        trace_input: TraceInput,
+        config: ReplayConfig,
+        empty_strict_cache: ToolCache,
+    ) -> None:
         # Defense against catch-order regression: if a future
         # refactor moved the bare-Exception catch BEFORE the
         # CacheMissError catch, a cache miss would be mis-classified
@@ -218,9 +259,9 @@ class TestOrderCorrect:
         result = replay_one_trace(
             trace_id=_TEST_TRACE_ID,
             cohort="failure",
-            trace_input=_input(),
-            config=_config(),
-            tool_cache=_empty_strict_cache(),
+            trace_input=trace_input,
+            config=config,
+            tool_cache=empty_strict_cache,
             runner=runner,
             timeout_seconds=2.0,
         )
@@ -237,7 +278,12 @@ class TestOrderCorrect:
 
 
 class TestNeverRaises:
-    def test_kernel_propagates_base_exception(self) -> None:
+    def test_kernel_propagates_base_exception(
+        self,
+        trace_input: TraceInput,
+        config: ReplayConfig,
+        empty_loose_cache: ToolCache,
+    ) -> None:
         # Cardinal #1 covers EXPECTED failures (cache miss, timeout,
         # runner exception). It does NOT cover programmer-bug exit
         # signals — `KeyboardInterrupt` and `SystemExit` inherit from
@@ -252,14 +298,19 @@ class TestNeverRaises:
             replay_one_trace(
                 trace_id=_TEST_TRACE_ID,
                 cohort="failure",
-                trace_input=_input(),
-                config=_config(),
-                tool_cache=_empty_loose_cache(),
+                trace_input=trace_input,
+                config=config,
+                tool_cache=empty_loose_cache,
                 runner=runner,
                 timeout_seconds=2.0,
             )
 
-    def test_kernel_does_not_raise_for_expected_failures(self) -> None:
+    def test_kernel_does_not_raise_for_expected_failures(
+        self,
+        trace_input: TraceInput,
+        config: ReplayConfig,
+        empty_loose_cache: ToolCache,
+    ) -> None:
         # Pin the cardinal #1 boundary: a runner that raises a
         # plain Exception subclass returns a typed failure, not a
         # propagated exception. The classification-shape tests cover
@@ -271,9 +322,9 @@ class TestNeverRaises:
         result = replay_one_trace(
             trace_id=_TEST_TRACE_ID,
             cohort="failure",
-            trace_input=_input(),
-            config=_config(),
-            tool_cache=_empty_loose_cache(),
+            trace_input=trace_input,
+            config=config,
+            tool_cache=empty_loose_cache,
             runner=runner,
             timeout_seconds=2.0,
         )
