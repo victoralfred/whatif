@@ -63,6 +63,21 @@ from whatif.types.policy import ScorerCacheMode
 # GITHUB_ACTIONS=true, etc."). The list is non-exhaustive by design —
 # any of these being truthy flips the inference; absent all of them,
 # resolution falls through to interactive defaults.
+#
+# Truthy convention notes:
+# - CI / GITHUB_ACTIONS / GITLAB_CI / BUILDKITE follow a boolean
+#   convention (`true` / `1` to indicate active; `false` / `0` to
+#   opt out).
+# - JENKINS_URL is intentionally different — Jenkins exports the
+#   URL of the controller (e.g., `https://jenkins.example.com/`)
+#   rather than a boolean. The truthy check below
+#   (`value and value.lower() not in ("false", "0")`) accepts ANY
+#   non-empty non-opt-out string, so the URL form works without a
+#   per-var special case. The cost is that pathological values like
+#   `JENKINS_URL=anything` would also flip; this is acceptable
+#   because operators don't set CI env vars to misleading values
+#   in practice, and the alternative (per-var format validation)
+#   adds complexity without a real failure mode it prevents.
 _CI_ENV_VARS = ("CI", "GITHUB_ACTIONS", "GITLAB_CI", "BUILDKITE", "JENKINS_URL")
 
 
