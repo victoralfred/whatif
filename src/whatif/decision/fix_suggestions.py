@@ -143,17 +143,19 @@ _REGISTRY_BUILDER: dict[str, FixSuggestion] = {
             "bootstrap raised an unexpected error.",
             "If the reason is sample size: increase the cohort selection limit in `whatif.config.yaml` "
             "so more traces are evaluated, or relax the `selection.<cohort>.filter` if it's too narrow.",
-            "If you accept verdict-without-CI for this run (e.g., a known small-sample experiment), pass "
-            "`--accept-no-ci` on the CLI. The opt-out is recorded in the manifest and the report's "
-            "methodology block.",
+            "Per V0_1_DECISION_RECORD §6 there is no escape-hatch flag for accepting verdict-without-CI "
+            "in v0.1 — the run will produce Inconclusive. Persistent acceptance mechanisms are deferred "
+            "to v1.0 as a coherent unit. To accept WIDER (but computable) CIs, raise `policy.max_ci_width` "
+            "or set it to None — that lever operates on the policy side via the deferred `ci_meaningful` "
+            "guard (cascade-tracked) and does not bypass structural CI-uncomputable cases.",
             "If the reason is `zero_variance` or `computation_failed`: investigate the scored traces "
             "directly. Identical deltas on every trace suggest a scoring bug; computation failures point "
             "at the bootstrap implementation.",
         ),
         description=(
             "CI unavailable on a required cohort. Cardinal #10 stance: verdicts that depend on cohort-"
-            "level uncertainty cannot ship without it. The `--accept-no-ci` flag is the v0.1 escape "
-            "hatch when sample-too-small is the diagnosed cause."
+            "level uncertainty cannot ship without it. Per V0_1_DECISION_RECORD §6 there is no v0.1 "
+            "escape hatch — `policy.max_ci_width` is the lever for accepting wider but computable CIs."
         ),
     ),
     "cohort_systemic_failure": FixSuggestion(

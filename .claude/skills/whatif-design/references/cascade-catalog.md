@@ -811,6 +811,8 @@ Recommend option 2 (ContextVar) when concurrent or embedded runs become a real u
 
 **Source decision:** Skill-alignment pass (2026-05-05) restored the `CohortResult` CI split per V0_1_DECISION_RECORD §2: `ci_computable` (structural, read by `ci_availability_guard`) vs `ci_meaningful` (policy-quality, defaults True). The width-vs-`policy.max_ci_width` check that populates `ci_meaningful=False` is not yet wired — `max_ci_width` defaults to None today, and there is no guard that consults the field.
 
+**Status note (2026-05-06, post-PR #35):** Phase 3 (cache subsystem) closed without this guard landing. The original entry's "Phase 3 (cache + stats layer)" trigger conflated two distinct subsystems — Phase 3.1–3.5 covered cache only. The stats layer that produces `ci_lower`/`ci_upper`/`median_delta` is implicit in Phase 6 (replay pipeline) or wherever bootstrap CI lands; phases.md does not yet locate it explicitly. Trigger updated below.
+
 **Rippled to:**
 - Phase 3 stats layer: when `ci_computable=True`, compute the CI width (`ci_upper - ci_lower`) as float; if `policy.max_ci_width is not None and width > max_ci_width`, set `ci_meaningful=False`.
 - New guard `ci_meaningful_guard` (or fold into a generalized `ci_quality_guard`) at policy severity `blocks_ship` (NOT `blocks_all` — meaningfulness is policy quality, not structural). Emits a finding code like `ci_too_wide_for_required_cohort`.
@@ -819,7 +821,9 @@ Recommend option 2 (ContextVar) when concurrent or embedded runs become a real u
 
 **Status:** open
 
-**Resolution:** Phase 3 (cache + stats layer) wires the width computation; the policy guard lands in the same PR or immediately after. Test: a cohort with `ci_computable=True, ci_meaningful=False` produces `DontShip`, not `Inconclusive`.
+**Resolution:** the stats layer that produces `ci_lower`/`ci_upper` wires the width computation when `ci_computable=True`; the policy guard lands in the same PR or immediately after. Test: a cohort with `ci_computable=True, ci_meaningful=False` produces `DontShip`, not `Inconclusive`. The stats layer's phase-plan home is TBD — currently implicit in Phase 6 replay pipeline; phases.md should pin this explicitly when Phase 4/5/6 sequencing is finalized.
+
+**Trigger for resolution:** the PR that introduces bootstrap CI computation (wherever in the phase plan that lands).
 
 ## Resolved cascades
 
