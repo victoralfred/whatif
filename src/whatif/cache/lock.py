@@ -420,5 +420,9 @@ def _build_locked_error(lock_path: Path) -> CacheLockedError:
             "`whatif cache unlock` if the holding process is no longer "
             "active, or `whatif cache rebuild --force` to reset."
         )
+        # `raise ... from diag_err` isn't usable here because this
+        # function RETURNS the exception (the caller raises). Setting
+        # __cause__ manually is the only way to chain a `raise ... from`
+        # equivalent on a returned-but-not-yet-raised exception object.
         err.__cause__ = diag_err
         return err

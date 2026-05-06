@@ -446,6 +446,67 @@ class TestShouldTakeover:
         assert not _should_takeover(recorded, stale_after_seconds=0, allow_age_takeover=True)
 
 
+class TestUnsupportedFilesystem:
+    """`fcntl.flock` returns `ENOLCK`/`EOPNOTSUPP` on filesystems that
+    don't support advisory locking (most NFS clients, some FUSE mounts).
+    Surface as a typed `CacheLockedError` with a clear hint, not a raw
+    `OSError`. Cardinal #1: DATA condition (environmental, not a bug).
+    """
+
+    def test_enolck_surfaces_typed_error_with_nfs_hint(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import errno as _errno
+
+        def _flock_fails_enolck(fd: int, op: int) -> None:
+            raise OSError(_errno.ENOLCK, "No locks available")
+
+        monkeypatch.setattr("whatif.cache.lock.fcntl.flock", _flock_fails_enolck)
+
+        with (
+            pytest.raises(CacheLockedError, match="NFS"),
+            acquire_cache_lock(tmp_path / "cache"),
+        ):
+            pass  # pragma: no cover
+
+    def test_eopnotsupp_surfaces_typed_error_with_nfs_hint(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import errno as _errno
+
+        def _flock_fails_eopnotsupp(fd: int, op: int) -> None:
+            raise OSError(_errno.EOPNOTSUPP, "Operation not supported")
+
+        monkeypatch.setattr("whatif.cache.lock.fcntl.flock", _flock_fails_eopnotsupp)
+
+        with (
+            pytest.raises(CacheLockedError, match="NFS"),
+            acquire_cache_lock(tmp_path / "cache"),
+        ):
+            pass  # pragma: no cover
+
+    def test_unrelated_oserror_propagates(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Pin the boundary: only ENOLCK/EOPNOTSUPP get the NFS-hint
+        # treatment. An unrelated OSError (e.g., EBADF) propagates as
+        # a generic OSError — that's a programmer bug or genuinely
+        # unexpected condition, not a "filesystem doesn't support
+        # locking" data condition.
+        import errno as _errno
+
+        def _flock_fails_ebadf(fd: int, op: int) -> None:
+            raise OSError(_errno.EBADF, "Bad file descriptor")
+
+        monkeypatch.setattr("whatif.cache.lock.fcntl.flock", _flock_fails_ebadf)
+
+        with (
+            pytest.raises(OSError, match="Bad file descriptor"),
+            acquire_cache_lock(tmp_path / "cache"),
+        ):
+            pass  # pragma: no cover
+
+
 class TestHardenedEnvironment:
     """`_build_lock_content` calls `psutil.Process(self).create_time()`,
     which can raise `AccessDenied` in hardened containers (no
