@@ -299,8 +299,10 @@ def _process_dead_or_recycled(recorded: LockFileContent) -> bool:
 
 
 def _lock_age_exceeded(recorded: LockFileContent, stale_after_seconds: int) -> bool:
+    # Python 3.11+ (project minimum) parses the `Z` suffix natively;
+    # no `.replace("Z", "+00:00")` workaround needed.
     try:
-        started = datetime.fromisoformat(recorded.started_at.replace("Z", "+00:00"))
+        started = datetime.fromisoformat(recorded.started_at)
     except ValueError:
         # Malformed timestamp — treat as not-aged-out so we surface the
         # CacheLockedError rather than silently taking over.

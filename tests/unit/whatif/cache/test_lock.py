@@ -200,6 +200,14 @@ class TestStaleTakeover:
     def test_takeover_on_corrupted_lock_file(self, tmp_path: Path) -> None:
         # An empty or unparseable lock file is treated as stale — no
         # provenance to respect.
+        #
+        # Note: this test does NOT hold a competing fcntl lock — the
+        # file exists with garbage content but no kernel lock is held.
+        # acquire_cache_lock's flock would succeed without invoking
+        # the stale-detection path at all in this scenario; the test
+        # primarily verifies that a corrupted FILE doesn't break the
+        # acquire flow. For real single-writer contention, see
+        # `TestSingleWriter::test_two_real_processes_cannot_both_acquire`.
         cache_root = tmp_path / "cache"
         cache_root.mkdir()
         (cache_root / ".lock").write_text("{not valid json")
@@ -207,6 +215,9 @@ class TestStaleTakeover:
             pass
 
     def test_takeover_on_empty_lock_file(self, tmp_path: Path) -> None:
+        # Same as above: file exists, no flock contested. Verifies
+        # the acquire flow tolerates a zero-byte lock file (e.g.,
+        # crashed-during-write residue) without breaking.
         cache_root = tmp_path / "cache"
         cache_root.mkdir()
         (cache_root / ".lock").write_text("")
@@ -312,7 +323,7 @@ class TestLockProvenance:
             assert abs(lock.content.process_start_time - actual_create) < 1.0
             # started_at is well-formed ISO-8601 UTC.
             assert lock.content.started_at.endswith("Z")
-            datetime.fromisoformat(lock.content.started_at.replace("Z", "+00:00"))
+            datetime.fromisoformat(lock.content.started_at)
 
     def test_locked_error_names_holder(self, tmp_path: Path) -> None:
         cache_root = tmp_path / "cache"
