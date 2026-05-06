@@ -33,6 +33,8 @@ from whatif.report.models_v01 import (
     VerdictState,
 )
 from whatif.types.cohort import CohortResult
+from whatif.types.failure import FailureRecord
+from whatif.types.finding import DecisionFinding
 from whatif.types.manifest import EnvironmentFingerprint, RunManifest
 from whatif.types.policy import (
     DecisionPolicy,
@@ -174,24 +176,35 @@ def _runtime() -> RunManifest:
 
 
 def _report(
+    *,
     verdict_state: VerdictState = "ship",
-    **overrides: object,
+    cohort_results: list[CohortResult] | None = None,
+    failures: list[FailureRecord] | None = None,
+    decision_findings: list[DecisionFinding] | None = None,
 ) -> ReportV01:
-    base: dict[str, object] = {
-        "schema_version": REPORT_SCHEMA_VERSION,
-        "schema_uri": REPORT_SCHEMA_URI,
-        "verdict_state": verdict_state,
-        "cohort_results": [_cohort("failure"), _cohort("baseline")],
-        "failures": [],
-        "decision_findings": [],
-        "cache_summary": _cache_summary(),
-        "trust_floor": _trust_floor(),
-        "decision_policy": _decision_policy(),
-        "methodology": _methodology(),
-        "runtime": _runtime(),
-    }
-    base.update(overrides)
-    return ReportV01(**base)  # type: ignore[arg-type]
+    """Build a fully-typed `ReportV01` fixture.
+
+    Explicit keyword args (rather than the previous **dict[str, object]
+    pattern) so mypy strict catches wrong-type fixture errors at
+    test-write time. The four overridable fields cover what existing
+    tests vary; if a future test needs to override more, add a kwarg
+    — don't drop the typing.
+    """
+    return ReportV01(
+        schema_version=REPORT_SCHEMA_VERSION,
+        schema_uri=REPORT_SCHEMA_URI,
+        verdict_state=verdict_state,
+        cohort_results=cohort_results
+        if cohort_results is not None
+        else [_cohort("failure"), _cohort("baseline")],
+        failures=failures if failures is not None else [],
+        decision_findings=decision_findings if decision_findings is not None else [],
+        cache_summary=_cache_summary(),
+        trust_floor=_trust_floor(),
+        decision_policy=_decision_policy(),
+        methodology=_methodology(),
+        runtime=_runtime(),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -262,30 +275,49 @@ class TestReportV01Frozen:
             report.verdict_state = "dont_ship"  # type: ignore[misc]
 
     def test_no_dict_str_any_fields(self) -> None:
-        # Cardinal #6: every field on ReportV01 is a typed
-        # dataclass / sealed literal / list-of-typed / etc. None
-        # are dict[str, Any] — at any depth. A future field like
-        # `list[dict[str, Any]]` or `tuple[Mapping[str, Any], ...]`
-        # would slip past a top-level-only check, so this test
-        # walks recursively through every generic alias's args.
+        # Cardinal #6: every field on ReportV01 — AND on every
+        # dataclass it composes — must be typed. No `dict[..., Any]`
+        # at any depth. The walker:
+        #   - recurses through generic-alias args (list[X],
+        #     tuple[X, ...], Union[...], etc.);
+        #   - descends into dataclass sub-shapes by reading THEIR
+        #     `typing.get_type_hints`, so a future
+        #     `CohortResult.metadata: dict[str, Any]` slips would be
+        #     caught here. `_seen` tracks visited dataclasses to break
+        #     reference cycles cheaply.
+        seen: set[type] = set()
         hints = typing.get_type_hints(ReportV01)
         for name, hint in hints.items():
-            self._assert_no_any_dict(name, hint)
+            self._assert_no_any_dict(f"ReportV01.{name}", hint, seen)
 
-    def _assert_no_any_dict(self, field_name: str, hint: object) -> None:
-        """Recursively assert no `dict[..., Any]` lurks in `hint`."""
+    def _assert_no_any_dict(self, location: str, hint: object, seen: set[type]) -> None:
         origin = typing.get_origin(hint)
         args = typing.get_args(hint)
         if origin is dict and len(args) == 2 and args[1] is typing.Any:
             raise AssertionError(
-                f"ReportV01.{field_name} contains dict[..., Any] in its "
-                "type annotation — cardinal #6 forbids untyped boundaries "
+                f"{location} contains dict[..., Any] in its type "
+                "annotation — cardinal #6 forbids untyped boundaries "
                 "on the public schema, at any depth."
             )
-        # Recurse into every generic-alias argument (handles list[X],
-        # tuple[X, ...], dict[K, V], Mapping[K, V], Union[...], etc.).
+        # Recurse through every generic-alias argument first (lists,
+        # tuples, unions, etc. all surface their inner types here).
         for arg in args:
-            self._assert_no_any_dict(field_name, arg)
+            self._assert_no_any_dict(location, arg, seen)
+        # Then descend into dataclass sub-shapes. The frozen, slot
+        # dataclasses we use throughout don't carry forward refs that
+        # would break here, but `seen` cycle-protects regardless.
+        target = origin if origin is not None else hint
+        if isinstance(target, type) and dataclasses.is_dataclass(target):
+            if target in seen:
+                return
+            seen.add(target)
+            sub_hints = typing.get_type_hints(target)
+            for sub_name, sub_hint in sub_hints.items():
+                self._assert_no_any_dict(
+                    f"{location}::{target.__name__}.{sub_name}",
+                    sub_hint,
+                    seen,
+                )
 
 
 # ---------------------------------------------------------------------------

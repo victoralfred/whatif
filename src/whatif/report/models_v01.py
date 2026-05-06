@@ -99,6 +99,17 @@ literal strings but not Python sealed unions, so the wire shape
 flattens.
 """
 
+# Type-level pins for schema_version / schema_uri: callers cannot
+# construct a `ReportV01` with a stale or wrong version. mypy strict
+# catches assignments of any other string literal at type-check time;
+# the schema-validation pass at read time catches the rare runtime
+# `cast(...)` bypass. v0.2 will introduce a `ReportV02` module with
+# its own constants; a future `whatif report-migrate` consumes the
+# wire JSON without instantiating the typed dataclass, so this pin
+# does not block migration paths.
+_SchemaVersion = Literal["0.1"]
+_SchemaUri = Literal["https://whatif.codes/schema/report/v0.1.json"]
+
 
 @dataclass(frozen=True, slots=True)
 class ReportV01:
@@ -130,8 +141,8 @@ class ReportV01:
     inputs produce byte-identical JSON for the deterministic subset.
     """
 
-    schema_version: str
-    schema_uri: str
+    schema_version: _SchemaVersion
+    schema_uri: _SchemaUri
 
     verdict_state: VerdictState
 
