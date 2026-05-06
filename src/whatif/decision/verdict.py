@@ -47,20 +47,14 @@ structure plus the operational CI-availability check):
 
 `cache_staleness_guard` is deferred to Phase 3 (cache subsystem).
 
-## accept_no_ci handling — Phase 2.6c work
+## CI unavailability handling
 
-`DecisionPolicy.accept_no_ci` is the v0.1 single-flag escape hatch for
-the case where CI is unavailable but the user wants to ship anyway
-(documented small-sample experiments). Phase 2.6c will implement:
-- Filter out `ci_unavailable_for_required_cohort` findings from
-  `blocking_findings` when `policy.accept_no_ci=True`
-- Emit a separate `info` finding noting the acceptance was used
-- Both the original finding AND the acceptance are recorded in the
-  manifest so the audit trail is complete
-
-For Phase 2.6a, `accept_no_ci` is NOT consulted — the guard's emission
-is unconditional. Tests pin both behaviors so Phase 2.6c can flip the
-existing assertions cleanly.
+Per V0_1_DECISION_RECORD §6, v0.1 has no `--accept-no-ci` escape hatch.
+`ci_availability_guard` emits `ci_unavailable_for_required_cohort` at
+`blocks_all` severity unconditionally; the verdict is `Inconclusive`.
+The policy lever for accepting wider (but computable) CIs is
+`policy.max_ci_width`, read by the deferred `ci_meaningful` policy
+check (see cascade-catalog "ci_meaningful policy-guard wiring").
 """
 
 from __future__ import annotations

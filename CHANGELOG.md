@@ -12,6 +12,16 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+### Changed (BREAKING) — Skill-alignment pass (post Phase 2.6b)
+
+A skill-vs-implementation audit surfaced three doctrine drifts. All three resolved here. See `whatif-private/V0_1_DECISION_RECORD.md` 2026-05-05 addendum.
+
+- `CohortResult.ci_available: bool` renamed to `ci_computable: bool` and a new `ci_meaningful: bool = True` field added per V0_1_DECISION_RECORD §2's CI-status split. `ci_computable` is the structural fact (bootstrap successful?) read by `ci_availability_guard`; `ci_meaningful` is the policy-quality assessment (CI width below `policy.max_ci_width`?) read by a deferred guard. `__post_init__` enforces that `ci_meaningful=False` requires `ci_computable=True`. Cascade entry "ci_meaningful policy-guard wiring" tracks the deferred Phase 3 wiring.
+- `DecisionPolicy.accept_no_ci: bool` removed per V0_1_DECISION_RECORD §6 ("`--accept-no-ci` removed in favor of CI-as-policy reclassification"). The field had been shipped as a placeholder with Phase 2.6c TODO — that was a doctrine breach. CI unavailability remains `blocks_all` (forces Inconclusive); the policy lever for accepting wider CIs is `policy.max_ci_width`. `test_accept_no_ci_can_be_enabled` deleted.
+- V0_1_DECISION_RECORD §2's `Ship` type amended to include `findings: list[DecisionFinding]` (matching the implementation; observational/info findings are non-blocking by construction since `compute_verdict` would have downgraded the verdict otherwise).
+
+Skill references updated: `type-model.md` (CohortResult split + accept_no_ci removed), `phases.md` (2.6 sub-phase decomposition), `cascade-catalog.md` (Phase 2.5 deferred-guards bullets re-scoped; new "ci_meaningful policy-guard wiring" entry).
+
 ### Added — Phase 2.6b (configurable primary_endpoint_guard)
 
 - `src/whatif/decision/guards/primary_endpoint.py` — `primary_endpoint_guard`. Reads `policy.primary_endpoints` and dispatches by `EndpointDirection`: `improvement_above_threshold` evaluates against `policy.min_failure_improvement_ratio`; `non_regression_below_threshold` evaluates against `policy.max_baseline_regression_ratio`. Emits the existing finding codes (`failure_improvement_below_threshold`, `baseline_regression_above_threshold`) — no new registry entries needed. Boundary semantics preserved from Phase 2.5b: strict `<` for improvement, strict `>` for regression. Findings emit in `policy.primary_endpoints` order, not cohort discovery order. Multi-metric (one primary metric per cohort today; v0.2 adds Holm correction) is `MethodologyDisclosure.multiplicity`'s concern, not this guard's.

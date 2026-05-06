@@ -28,7 +28,7 @@ def _passing_failure_cohort(
         selected=max(scored, 10),
         replayed=max(scored, 10),
         scored=max(scored, 10),
-        ci_available=True,
+        ci_computable=True,
         ci_unavailable_reason=None,
         median_delta=DecimalString(median_delta),
         ci_lower=DecimalString("0.180"),
@@ -45,7 +45,7 @@ def _passing_baseline_cohort(
     improved: int = 2,
     unchanged: int = 8,
     regressed: int = 0,
-    ci_available: bool = True,
+    ci_computable: bool = True,
 ) -> CohortResult:
     scored = improved + unchanged + regressed
     return CohortResult(
@@ -53,11 +53,11 @@ def _passing_baseline_cohort(
         selected=max(scored, 10),
         replayed=max(scored, 10),
         scored=max(scored, 10),
-        ci_available=ci_available,
-        ci_unavailable_reason=None if ci_available else "sample_too_small",
+        ci_computable=ci_computable,
+        ci_unavailable_reason=None if ci_computable else "sample_too_small",
         median_delta=DecimalString("0.000"),
-        ci_lower=DecimalString("-0.020") if ci_available else None,
-        ci_upper=DecimalString("0.020") if ci_available else None,
+        ci_lower=DecimalString("-0.020") if ci_computable else None,
+        ci_upper=DecimalString("0.020") if ci_computable else None,
         floor_passed=True,
         improved_count=improved,
         unchanged_count=unchanged,
@@ -161,7 +161,7 @@ class TestComputeVerdictFloorFails:
                 selected=10,
                 replayed=10,
                 scored=3,  # floor fails
-                ci_available=True,
+                ci_computable=True,
                 ci_unavailable_reason=None,
                 median_delta=DecimalString("0.000"),
                 ci_lower=DecimalString("-0.010"),
@@ -187,7 +187,7 @@ class TestComputeVerdictFloorFails:
                 selected=10,
                 replayed=10,
                 scored=2,  # floor fails
-                ci_available=True,
+                ci_computable=True,
                 ci_unavailable_reason=None,
                 median_delta=DecimalString("0.310"),
                 ci_lower=DecimalString("0.180"),
@@ -222,7 +222,7 @@ class TestComputeVerdictFloorFails:
                 selected=10,
                 replayed=10,
                 scored=2,  # floor fails: scored < min 5
-                ci_available=True,
+                ci_computable=True,
                 ci_unavailable_reason=None,
                 median_delta=DecimalString("0.020"),  # also magnitude-floor concern
                 ci_lower=DecimalString("-0.010"),
@@ -269,7 +269,7 @@ class TestComputeVerdictBlocksAll:
         catastrophe at the policy level)."""
         cohorts = [
             _passing_failure_cohort(),
-            _passing_baseline_cohort(ci_available=False),
+            _passing_baseline_cohort(ci_computable=False),
         ]
         verdict = compute_verdict(cohorts, TrustFloor(), DecisionPolicy())
         assert isinstance(verdict, Inconclusive)
@@ -286,7 +286,7 @@ class TestComputeVerdictBlocksAll:
             # CI unavailable on baseline → blocks_all
             # AND failure improvement below threshold → blocks_ship
             _passing_failure_cohort(improved=3, unchanged=4, regressed=3),
-            _passing_baseline_cohort(ci_available=False),
+            _passing_baseline_cohort(ci_computable=False),
         ]
         verdict = compute_verdict(cohorts, TrustFloor(), DecisionPolicy())
         assert isinstance(verdict, Inconclusive)

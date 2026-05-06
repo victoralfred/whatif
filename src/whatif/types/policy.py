@@ -141,9 +141,10 @@ class DecisionPolicy:
     is sealed to a literal set; `storage_profile` controls what's
     persisted (cardinal #5 redaction defaults to `normalized_result_only`).
 
-    `accept_no_ci` is the v0.1 single-flag escape hatch for the case
-    where confidence intervals couldn't be computed but everything else
-    passed (per recaliberation deliberation). Persistent acceptance is
+    Per V0_1_DECISION_RECORD §6, v0.1 has NO `--accept-no-ci` escape
+    hatch: CI unavailability forces Inconclusive (blocks_all severity).
+    The policy lever for accepting wider CIs is `max_ci_width` (raise
+    or set None to disable). Persistent acceptance mechanisms are
     deferred to v1.0 as a coherent unit.
     """
 
@@ -169,6 +170,3 @@ class DecisionPolicy:
     scorer_cache_warn_after_days: int = 30
     scorer_cache_block_after_days: int = 90
     scorer_cache_storage_profile: ScorerCacheStorageProfile = "normalized_result_only"
-
-    # Acceptance (v1.0+ for full mechanism; v0.1 only supports --accept-no-ci)
-    accept_no_ci: bool = False

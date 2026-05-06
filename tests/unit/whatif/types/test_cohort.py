@@ -54,7 +54,7 @@ class TestCohortResult:
             selected=20,
             replayed=20,
             scored=20,
-            ci_available=True,
+            ci_computable=True,
             ci_unavailable_reason=None,
             median_delta=DecimalString("0.020"),
             ci_lower=DecimalString("-0.010"),
@@ -65,7 +65,7 @@ class TestCohortResult:
     def test_construction_all_pass(self) -> None:
         c = self._all_pass()
         assert c.name == "baseline"
-        assert c.ci_available is True
+        assert c.ci_computable is True
         assert c.ci_unavailable_reason is None
         assert c.floor_passed is True
         assert c.floor_failures == []
@@ -76,7 +76,7 @@ class TestCohortResult:
             selected=8,
             replayed=5,
             scored=3,
-            ci_available=False,
+            ci_computable=False,
             ci_unavailable_reason="sample_too_small",
             median_delta=DecimalString("0.050"),
             ci_lower=None,
@@ -99,7 +99,7 @@ class TestCohortResult:
         )
         assert c.floor_passed is False
         assert len(c.floor_failures) == 2
-        assert c.ci_available is False
+        assert c.ci_computable is False
         assert c.ci_unavailable_reason == "sample_too_small"
 
     def test_ci_unavailable_with_reason_but_no_bounds(self) -> None:
@@ -110,7 +110,7 @@ class TestCohortResult:
             selected=8,
             replayed=5,
             scored=3,
-            ci_available=False,
+            ci_computable=False,
             ci_unavailable_reason="sample_too_small",
             median_delta=DecimalString("0.050"),
             ci_lower=None,
@@ -132,7 +132,7 @@ class TestCohortResult:
             selected=1,
             replayed=1,
             scored=1,
-            ci_available=False,
+            ci_computable=False,
             ci_unavailable_reason=reason,
             median_delta=None,
             ci_lower=None,
@@ -177,7 +177,7 @@ class TestRateCountInvariant:
             selected=10,
             replayed=10,
             scored=scored,
-            ci_available=True,
+            ci_computable=True,
             ci_unavailable_reason=None,
             median_delta=None,
             ci_lower=None,

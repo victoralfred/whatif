@@ -157,9 +157,9 @@ _REGISTRY_BUILDER: dict[str, FindingCodeSpec] = {
             "cohort (sample too small, zero variance, computation failed). "
             "Pairs with FAILURE_CODE_REGISTRY['ci_uncomputable_for_required_cohort']. "
             "Forces Inconclusive — verdicts that depend on cohort-level "
-            "uncertainty cannot be rendered without it. The companion "
-            "DecisionPolicy.accept_no_ci escape hatch (v0.1) is the "
-            "configured opt-out; absent that, the floor blocks Ship."
+            "uncertainty cannot be rendered without it. Per "
+            "V0_1_DECISION_RECORD §6, v0.1 has no escape hatch; "
+            "policy.max_ci_width is the lever for accepting wider CIs."
         ),
     ),
     "cohort_systemic_failure": FindingCodeSpec(
