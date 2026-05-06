@@ -843,6 +843,37 @@ Recommend option 2 (ContextVar) when concurrent or embedded runs become a real u
 
 **Trigger for resolution:** the first user-facing report that exhibits a missing-cohort case AND the operator complains about the loss of structured floor-failure data, OR the v0.2 schema-bump cycle that revisits ReportV01 fields.
 
+### Serialization ↔ report ↔ cache import cycle
+
+**Source decision:** Phase 5.3 (PR #39) lands `WhatifJSONEncoder` in `whatif/serialization/encoder.py`. The encoder needs to reference `ReportV01` from `whatif.report.models_v01` (for `encode_report_v01`'s typed signature). This produces a runtime cycle:
+
+```
+whatif.serialization.encoder
+  → whatif.report.models_v01 (for ReportV01 annotation)
+  → whatif.cache.summary (CacheSummary on ReportV01)
+  → whatif.cache.__init__ (re-exports lock surface)
+  → whatif.cache.lock (uses canonical_json_bytes for lock-file writes)
+  → whatif.serialization (back to start)
+```
+
+**v0.1 mitigation pattern:** `TYPE_CHECKING` for type-annotation-only imports; function-level imports inside method bodies for runtime references. Two confirmed sites in v0.1:
+
+1. `whatif/serialization/encoder.py::encode_report_v01` — TYPE_CHECKING import for the `ReportV01` annotation, lazy import inside the function body for the runtime `isinstance` guard.
+2. `whatif/contract/__init__.py::ToolCache._key` — lazy import of `canonical_json_bytes` inside `_key()`. A top-level import on `whatif.contract` cycles through `whatif.serialization.lock_io → whatif.cache._types → whatif.cache.lock → whatif.serialization`.
+
+The cycle is broken at import time because `TYPE_CHECKING` is False at runtime; lazy imports at call time run after all modules finish loading.
+
+**Rippled to:**
+- Future Phase 5.4 (`assert_no_unredacted_sensitive` graph walk) will face the same cycle and use the same pattern.
+- Future Phase 5.5 (schema generation) will read `ReportV01`'s type signature; same TYPE_CHECKING approach.
+- A v0.2 reorganization that moved `whatif.cache.lock` off `canonical_json_bytes` (via inlining or a new dependency direction) would break the cycle structurally and let the imports be straightforward; this is the cleanest end-state but not v0.1 scope.
+
+**Status:** open (acceptable workaround for v0.1).
+
+**Resolution:** v0.2 architectural cleanup PR that re-evaluates the layering. The cycle exists because cache/lock writes lock files via the centralized canonical encoder; one option is to inline canonical-JSON in lock.py (small duplication but clean layering), another is to introduce a `whatif.serialization.boundaries` module that holds the type-only annotations.
+
+**Trigger for resolution:** v0.2 layering audit, or sooner if the TYPE_CHECKING + lazy-import pattern becomes a maintenance burden (multiple Phase 5 sub-phases needing the same workaround).
+
 ## Resolved cascades
 
 ### Banned-import lint scope: cache keying canonical JSON (resolved 2026-05-05)

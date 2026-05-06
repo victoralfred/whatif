@@ -30,7 +30,6 @@ Then on the command line:
 
 from __future__ import annotations
 
-import json
 from typing import Any, Literal, Protocol, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -117,7 +116,32 @@ class ToolCache(BaseModel):
 
     @staticmethod
     def _key(tool_name: str, args: dict[str, Any]) -> str:
-        return f"{tool_name}::{json.dumps(args, sort_keys=True)}"
+        # Hash-input canonical encoding via the centralized helper.
+        # Same pattern as `whatif/cache/keying/v1.py`: hash inputs go
+        # through `whatif/serialization/canonical.py::canonical_json_bytes`
+        # so the Phase 5 banned-import lint sees zero `json.dumps`
+        # outside the serialization package.
+        #
+        # Lazy import: a top-level
+        # `from whatif.serialization import canonical_json_bytes`
+        # cycles through `whatif.serialization.lock_io` →
+        # `whatif.cache._types` → `whatif.cache.lock` →
+        # `whatif.serialization`. The function-level import resolves
+        # at call time, after all modules finish loading. Documented
+        # in cascade-catalog "Serialization ↔ report ↔ cache import
+        # cycle" — this is the same workaround used by
+        # `whatif.serialization.encoder` for its TYPE_CHECKING
+        # ReportV01 reference.
+        #
+        # Per-call overhead: negligible. Python caches the resolved
+        # module in `sys.modules` after the first load; subsequent
+        # `from whatif.serialization import ...` statements are dict
+        # lookups (microsecond-scale), not re-imports. ToolCache._key
+        # is called once per cache lookup; the cost is invisible
+        # against the surrounding I/O.
+        from whatif.serialization import canonical_json_bytes
+
+        return f"{tool_name}::{canonical_json_bytes(args).decode('ascii')}"
 
 
 # ---------------------------------------------------------------------------

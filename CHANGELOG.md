@@ -12,6 +12,13 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+### Added — Phase 5.3 (WhatifJSONEncoder + banned-import lint)
+
+- `src/whatif/serialization/encoder.py::WhatifJSONEncoder` — `json.JSONEncoder` subclass with `default()` dispatch on the project's typed shapes: `Sensitive[T]` raises `UnredactedSensitiveError` (cardinal #5 last line of defense — graph walk in 5.4 is primary; this is fail-loud fallback), frozen dataclasses dispatch via shallow `{name: getattr}` (avoids `dataclasses.asdict`'s deep-copy choking on `MappingProxyType`), `Mapping`/`MappingProxyType` cast to dict, `frozenset`/`set` to sorted lists (determinism), unknown types fall through to stdlib `TypeError` (cardinal #1).
+- `encode_report_v01(report: ReportV01) -> bytes` — typed entry point stamping canonical kwargs (`sort_keys=True`, `separators=(",", ":")`, `ensure_ascii=True`). Same input → byte-identical output across platforms.
+- `tests/unit/whatif/serialization/test_banned_imports.py` — AST-walk lint for `enforcement.md` row 2. Walks every `.py` under `src/whatif/`, parses each, finds every `json.dumps(...)` call (handles all import forms: `json.dumps`, `from json import dumps`, `from json import dumps as alias`), asserts zero violations outside `whatif.serialization.*`. Sanity-checks the boundary itself uses `json.dumps` so the test isn't vacuously passing. Module-name resolution defended against `__init__.py` and prefix-trap edge cases.
+- Refactored `whatif/contract/__init__.py::ToolCache._key` from inline `json.dumps(args, sort_keys=True)` to use `canonical_json_bytes` — same hash-input pattern as Phase 3.1 keying. Removed the now-unused `import json` from contract module.
+
 ### Added — Phase 5.2 (projection: internal Verdict → ReportV01)
 
 - `src/whatif/report/projection.py::project_to_report_v01(verdict, *, failures, cache_summary, methodology, runtime) -> ReportV01`. Flattens internal types into the v0.1 wire format. Cardinal #2 enforcement at the type level: the function takes the sealed `Verdict` union (`Ship | DontShip | Inconclusive`) — the only path to obtain a `Ship` is through `compute_verdict`/`evaluate_floor` which produce and consume `FloorPassedProof`. A `verdict_state: str` parameter would re-open the bypass; the `Verdict` input is the structural chokepoint.
