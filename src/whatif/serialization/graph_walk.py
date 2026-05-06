@@ -83,6 +83,8 @@ from typing import Any
 
 from whatif.types.sensitive import Sensitive, UnredactedSensitiveError
 
+__all__ = ["assert_no_unredacted_sensitive"]
+
 
 def assert_no_unredacted_sensitive(obj: Any, *, path: str = "<root>") -> None:
     """Walk `obj` recursively; raise `UnredactedSensitiveError` if any
