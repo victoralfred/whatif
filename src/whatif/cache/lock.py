@@ -346,11 +346,32 @@ def _lock_age_exceeded(recorded: LockFileContent, stale_after_seconds: int) -> b
 
 
 def _build_lock_content() -> LockFileContent:
-    """Capture the current process's identity for the lock file."""
+    """Capture the current process's identity for the lock file.
+
+    `psutil.Process(self).create_time()` can raise `AccessDenied` in
+    hardened containers (no `CAP_SYS_PTRACE`, namespaced /proc, or
+    AppArmor/SELinux profiles that block self-introspection). Without
+    a readable create_time we cannot establish PID-reuse defense for
+    our own lock, so we surface this as a typed `CacheLockedError`
+    (DATA condition; environmental, recoverable by changing the
+    container profile) rather than letting an untyped `psutil` error
+    leak out.
+    """
     pid = os.getpid()
+    try:
+        process_start_time = psutil.Process(pid).create_time()
+    except psutil.AccessDenied as e:
+        raise CacheLockedError(
+            f"Cannot acquire cache lock: psutil.Process({pid}).create_time() "
+            f"raised AccessDenied. The current container/sandbox does not "
+            "permit reading the process's own create_time, which the lock's "
+            "PID-reuse defense requires. Run with CAP_SYS_PTRACE, an "
+            "unrestricted /proc, or a less-restrictive AppArmor/SELinux "
+            "profile. (DATA condition: environmental, not a programmer bug.)"
+        ) from e
     return LockFileContent(
         pid=pid,
-        process_start_time=psutil.Process(pid).create_time(),
+        process_start_time=process_start_time,
         hostname=socket.gethostname(),
         started_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
     )

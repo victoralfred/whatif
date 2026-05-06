@@ -446,6 +446,33 @@ class TestShouldTakeover:
         assert not _should_takeover(recorded, stale_after_seconds=0, allow_age_takeover=True)
 
 
+class TestHardenedEnvironment:
+    """`_build_lock_content` calls `psutil.Process(self).create_time()`,
+    which can raise `AccessDenied` in hardened containers (no
+    CAP_SYS_PTRACE, namespaced /proc, restrictive LSM profiles).
+    Surface as typed `CacheLockedError` rather than letting the raw
+    psutil exception leak; cardinal #1 (DATA condition, environmental).
+    """
+
+    def test_access_denied_on_self_create_time_surfaces_typed_error(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        class _DeniedProc:
+            def create_time(self) -> float:
+                raise psutil.AccessDenied(pid=os.getpid())
+
+        def _fake_process(pid: int) -> _DeniedProc:
+            return _DeniedProc()
+
+        monkeypatch.setattr("whatif.cache.lock.psutil.Process", _fake_process)
+
+        with (
+            pytest.raises(CacheLockedError, match="AccessDenied"),
+            acquire_cache_lock(tmp_path / "cache"),
+        ):
+            pass  # pragma: no cover
+
+
 class TestLockFileContentDataclass:
     def test_immutable(self) -> None:
         c = LockFileContent(
