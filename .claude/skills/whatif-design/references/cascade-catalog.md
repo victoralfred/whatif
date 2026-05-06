@@ -125,6 +125,20 @@ Initial registry (catalog from doctrine):
 
 **Resolution:** Phase 1 (types) implements wrapper; Phase 4 (adapters) wraps adapter outputs; Phase 5 (serialization) implements graph walk.
 
+### Artifact-write call-site sequencing for graph walk
+
+**Source decision:** `assert_no_unredacted_sensitive(report)` is layer (b) of cardinal #5 and MUST run at every artifact-write site BEFORE `encode_report_v01(report)`. The encoder's `default()` raise is the last-line fallback, not the primary defense — bypassing the graph walk reduces the three-layer guarantee to two.
+
+**Rippled to:**
+- `whatif/cli.py` — `whatif fork` artifact-write path (Phase 8) calls `assert_no_unredacted_sensitive` immediately before `encode_report_v01`
+- Any future artifact-write site (cache-entry persistence, diff output, replay-snapshot dump) follows the same sequence
+- Integration test (Phase 9): inject an unwrapped Sensitive into a stub report graph and assert the artifact-write fails at the graph walk, NOT the encoder fallback (proves layer (b) is wired, not skipped)
+- Doc: `docs/runner-contract.md` (Phase 10) names the sequence so adapter authors don't reinvent the call site
+
+**Status:** open
+
+**Resolution:** Phase 8 wires the CLI call site; Phase 9 integration test pins the sequencing.
+
 ### Witness-token pattern for Ship
 
 **Source decision:** `Ship` cannot be constructed without `FloorPassedProof` token; only `evaluate_floor()` produces tokens.
