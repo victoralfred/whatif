@@ -123,11 +123,15 @@ class TestEveryComponentAffectsKey:
             ("judge_provider", "openai"),
             ("judge_model_id", "claude-opus-4-7"),
             ("judge_model_snapshot", "20260101"),
-            ("rendered_prompt_hash", "ee" * 32),
-            ("rubric_hash", "ff" * 32),
-            ("scoring_parameters_hash", "ee" * 32),
+            # Distinct hex sentinels per hash field so the test's
+            # diagnostic output makes it obvious which field's mutation
+            # is being tested. The values differ from each other AND
+            # from the baseline _SAMPLE values (aa/bb/cc/dd).
+            ("rendered_prompt_hash", "e1" * 32),
+            ("rubric_hash", "e2" * 32),
+            ("scoring_parameters_hash", "e3" * 32),
             ("score_case_serialization_version", "v2"),
-            ("score_case_hash", "ee" * 32),
+            ("score_case_hash", "e4" * 32),
         ],
     )
     def test_mutating_field_changes_key(self, field: str, mutated: object) -> None:
