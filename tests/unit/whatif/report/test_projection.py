@@ -32,11 +32,13 @@ import pytest
 from whatif.decision.failure_codes import make_failure_record
 from whatif.report.models_v01 import REPORT_SCHEMA_URI, REPORT_SCHEMA_VERSION
 from whatif.report.projection import _flatten_verdict, project_to_report_v01
+from whatif.types.failure import FailureRecord
 from whatif.types.verdict import DontShip, Inconclusive, Ship
 
 from ._fixtures import (
     cache_summary,
     dont_ship,
+    dont_ship_with_observation,
     inconclusive,
     methodology,
     runtime,
@@ -94,17 +96,23 @@ class TestFlattenVerdict:
         assert findings == s.findings
 
     def test_dont_ship_produces_full_findings_not_blocking_only(self) -> None:
-        # Verdict carries findings + blocking_findings (subset). The wire
-        # format only includes findings; consumers derive blocking via
-        # severity filter.
-        ds = dont_ship()
+        # Pin the wire contract: `decision_findings` contains the
+        # verdict's full `findings` list, NOT the derived
+        # `blocking_findings` subset. Use the
+        # `dont_ship_with_observation` fixture which has TWO findings
+        # (one info, one blocks_ship) so the assertion is load-bearing
+        # — `findings != blocking_findings` here.
+        ds = dont_ship_with_observation()
+        assert ds.findings != ds.blocking_findings  # fixture invariant
+        assert len(ds.findings) == 2 and len(ds.blocking_findings) == 1
+
         state, _cohorts, findings = _flatten_verdict(ds)
         assert state == "dont_ship"
-        # findings holds the full list (which here happens to equal
-        # blocking_findings because the test fixture has only one
-        # blocks_ship finding); the contract is "wire = findings, not
-        # blocking_findings."
+        # The flatten contract: take `findings`, NOT `blocking_findings`.
+        # If projection accidentally narrowed to blocking_findings, the
+        # info-severity observation would be lost from the wire.
         assert findings == ds.findings
+        assert findings != ds.blocking_findings
 
     def test_inconclusive_state(self) -> None:
         inc = inconclusive()
@@ -266,7 +274,7 @@ class TestFailuresAsData:
     """
 
     @pytest.fixture
-    def failure(self):  # type: ignore[no-untyped-def]
+    def failure(self) -> FailureRecord:
         return make_failure_record(
             "cache_lock_unavailable",
             id="fail-1",
@@ -279,7 +287,7 @@ class TestFailuresAsData:
             },
         )
 
-    def test_ship_with_failures(self, failure) -> None:  # type: ignore[no-untyped-def]
+    def test_ship_with_failures(self, failure: FailureRecord) -> None:
         report = project_to_report_v01(
             ship(),
             failures=(failure,),
@@ -290,7 +298,7 @@ class TestFailuresAsData:
         assert isinstance(report.failures, list)
         assert report.failures == [failure]
 
-    def test_dont_ship_with_failures(self, failure) -> None:  # type: ignore[no-untyped-def]
+    def test_dont_ship_with_failures(self, failure: FailureRecord) -> None:
         report = project_to_report_v01(
             dont_ship(),
             failures=(failure,),
@@ -301,7 +309,7 @@ class TestFailuresAsData:
         assert isinstance(report.failures, list)
         assert report.failures == [failure]
 
-    def test_inconclusive_with_failures(self, failure) -> None:  # type: ignore[no-untyped-def]
+    def test_inconclusive_with_failures(self, failure: FailureRecord) -> None:
         report = project_to_report_v01(
             inconclusive(),
             failures=(failure,),

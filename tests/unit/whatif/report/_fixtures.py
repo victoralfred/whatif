@@ -140,6 +140,24 @@ def methodology() -> MethodologyDisclosure:
 
 
 def runtime() -> RunManifest:
+    """Build a known-good `RunManifest` for tests.
+
+    Fields with defaults are intentionally OMITTED here, taking
+    `RunManifest`'s declared defaults:
+
+    - `agent_identity` defaults to `None` (no operator-attribution
+      override).
+    - `redaction` defaults to `{}` (empty redaction metadata; tests
+      that exercise redaction explicitly populate this).
+    - `sensitive_unwraps` defaults to `[]` (no Sensitive[T] unwraps
+      occurred during the simulated run; tests that exercise the
+      audit trail populate this).
+
+    If a future `RunManifest` change makes any of these REQUIRED, the
+    constructor call here will fail loudly with a missing-arg error
+    — that's the right surface for catching the drift, rather than
+    silently defaulting them in this fixture.
+    """
     return RunManifest(
         experiment_id="exp-001",
         started_at="2026-05-06T10:00:00Z",
@@ -207,6 +225,34 @@ def dont_ship() -> DontShip:
     return DontShip(
         cohort_results=[cohort("failure"), cohort("baseline")],
         findings=[blocking],
+        blocking_findings=[blocking],
+    )
+
+
+def dont_ship_with_observation() -> DontShip:
+    """`DontShip` whose `findings` contains BOTH a non-blocking
+    observation AND a blocking finding, so `findings != blocking_findings`.
+
+    Used to make the projection-flatten contract ("wire =
+    findings, NOT blocking_findings subset") load-bearing rather
+    than vacuously true on a single-finding fixture. The
+    `improvement_observed` finding is `info`-severity (does NOT
+    appear in `blocking_findings`); the regression finding is
+    `blocks_ship` (does).
+    """
+    observation = make_decision_finding(
+        "improvement_observed",
+        message="failure cohort showed improvement",
+        details={"median_delta": "0.200", "threshold": "0.050"},
+    )
+    blocking = make_decision_finding(
+        "baseline_regression_above_threshold",
+        message="baseline cohort regressed",
+        details={"observed": "0.150", "threshold": "0.100"},
+    )
+    return DontShip(
+        cohort_results=[cohort("failure"), cohort("baseline")],
+        findings=[observation, blocking],
         blocking_findings=[blocking],
     )
 
