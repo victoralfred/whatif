@@ -12,6 +12,12 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+### Internal / Docs — Phase 0 closure (0.2 + 0.4)
+
+- `docs/concepts.md`: filled the missing sections (verdict states, floor-vs-policy, evidence/audit bundle); glossary now includes `ci_computable`, `ci_meaningful`, primary endpoint; §4 spells out the sticky-manifest guarantee operates at write AND read time.
+- `enforcement.md`: two new explicit rows surfacing implemented-but-untracked structural claims — "`ci_computable=False` on a required cohort cannot Ship" and "Floor vs policy concerns are partitioned on `CohortResult`." Both were mechanism-backed in code already; the audit just made them explicit in the canonical table for the schema-freeze gate.
+- Phase 0 gate now closed (0.1 walkthroughs ✅, 0.2 conceptual model ✅, 0.3 audience-distribution ✅, 0.4 enforcement audit ✅). Phase 3 (cache subsystem) is the next substantive phase.
+
 ### Changed (BREAKING) — Skill-alignment pass (post Phase 2.6b)
 
 A skill-vs-implementation audit surfaced three doctrine drifts. All three resolved here. See `whatif-private/V0_1_DECISION_RECORD.md` 2026-05-05 addendum.
