@@ -12,6 +12,17 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+### Added — Phase 3.2 (cache storage)
+
+- `src/whatif/cache/storage/v1.py` — file layout + entry I/O for the scorer cache. Layout: `.whatif/cache/entries/<digest[0:2]>/<digest>.json` (sharded by first 2 hex chars; `v1:` prefix excluded from filename per Windows compat). Public surface: `init_cache(root) -> CacheMeta` (idempotent; refuses mismatched on-disk schema version), `write_entry(root, key, entry) -> Path` (refuses entries with mismatched `cache_schema_version`), `read_entry(root, key) -> CacheEntry | None` (None on miss; raises `CacheSchemaMismatchError` on disk-version mismatch), `read_meta(root) -> CacheMeta`.
+- `CacheEntry` typed dataclass per `references/contracts.md` §"Entry format": `cache_key_version`, `cache_schema_version`, `created_at`, `key_components` (provenance — full asdict of `CacheKeyComponents`), `result: CacheResult`. `CacheResult` carries `score_delta`/`confidence` as `DecimalString` strings (cardinal #4 cross-platform stability), `verdict`, `flags`, optional `rationale`.
+- `CacheSchemaMismatchError` — typed failure; callers convert to `FailureRecord` per cardinal #1. Used at three boundaries: init-time meta-version check, write-time entry-version check, read-time on-disk-version check, and key-prefix mismatch (`v2:` key against v1 storage).
+- Profile gating on `rationale` is the CALLER'S responsibility — storage writes whatever entry it gets. The cardinal #5 boundary is preserved by upstream invariants (`CacheKeyComponents` hex-validation; `canonical_json_bytes` Sensitive guard).
+- Entries written via `canonical_json_bytes` so two caches given the same input produce byte-identical files (cache verify can diff bytes).
+- `tests/unit/whatif/cache/storage/test_v1.py` — 14 tests across init idempotence, round-trip integrity (with and without rationale), cache miss → None, sharding pin (`<digest[0:2]>/<digest>.json`; no `:` in filename), schema mismatch on write/read/init, v2-key rejection, byte-identical on-disk encoding via monkeypatched timestamp, meta round-trip.
+
+`CACHE_SCHEMA_VERSION = "v1"`. PRs touching `whatif/cache/storage/` MUST bump version. The cache-version-bump CI test (Phase 3 gate) asserts this.
+
 ### Added — Phase 3.1 (cache key construction)
 
 - `src/whatif/cache/keying/v1.py` — `CacheKeyComponents` dataclass + `build_cache_key(components) -> str`. Deterministic SHA-256 over canonical JSON of the full required component set per `references/contracts.md`: whatif schema version, scorer adapter version, scorer type/package, judge provider/model/snapshot, rendered-prompt hash, rubric hash, scoring-parameters hash, score-case serialization version, per-case content hash. Output format: `v1:<64-char hex digest>`. The version prefix is part of the key contract — storage layout uses it to split entries across versions.
