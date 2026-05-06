@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from whatif.decision.guards.ci_availability import ci_availability_guard
-from whatif.types.cohort import CohortResult
+from whatif.types.cohort import CIUnavailableReason, CohortResult
 from whatif.types.policy import DecisionPolicy
 
 
@@ -11,7 +11,7 @@ def _cohort(
     name: str,
     *,
     ci_computable: bool = True,
-    ci_unavailable_reason: str | None = None,
+    ci_unavailable_reason: CIUnavailableReason | None = None,
 ) -> CohortResult:
     return CohortResult(
         name=name,
@@ -19,7 +19,7 @@ def _cohort(
         replayed=10,
         scored=10,
         ci_computable=ci_computable,
-        ci_unavailable_reason=ci_unavailable_reason,  # type: ignore[arg-type]
+        ci_unavailable_reason=ci_unavailable_reason,
         median_delta=None,
         ci_lower=None,
         ci_upper=None,
