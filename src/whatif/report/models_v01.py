@@ -97,6 +97,21 @@ strings; the witness-token machinery (cardinal #2) operates on the
 internal union, not on the wire format. JSON schema can express
 literal strings but not Python sealed unions, so the wire shape
 flattens.
+
+## Cardinal #2 contract for projection.py implementers
+
+When `whatif/report/projection.py` lands (Phase 5.2), the
+`project_to_report_v01(...)` function MUST take an internal `Verdict`
+(union of `Ship | DontShip | Inconclusive`) as input — not a bare
+`VerdictState` string and not the components of a Ship. The reason is
+structural: the only way to get a `Ship` instance is to have called
+`evaluate_floor()` and consumed its `FloorPassedProof` token. By
+making projection accept `Verdict` rather than `verdict_state: str`,
+the caller is forced through that witness-token path. A `Verdict`
+input → `verdict_state="ship"` output mapping is then trivially
+sound. Any other shape (e.g., `project_to_report_v01(verdict_state:
+str, ...)`) re-opens the cardinal #2 bypass that the witness pattern
+exists to close.
 """
 
 # Type-level pins for schema_version / schema_uri: callers cannot

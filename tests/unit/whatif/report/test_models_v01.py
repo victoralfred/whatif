@@ -285,6 +285,15 @@ class TestReportV01Frozen:
         #     `CohortResult.metadata: dict[str, Any]` slips would be
         #     caught here. `_seen` tracks visited dataclasses to break
         #     reference cycles cheaply.
+        #
+        # Forward-reference note: typing.get_type_hints resolves PEP
+        # 563 string annotations at call time. If a future sub-shape
+        # introduces unresolvable forward refs (e.g., a TYPE_CHECKING-
+        # only import used in an annotation that survives to runtime),
+        # this test will fail loudly with NameError. The right fix is
+        # to add the missing TYPE_CHECKING guard or move the import
+        # to runtime — NOT to silently disable this test, which is the
+        # cardinal #6 boundary defense for the wire format.
         seen: set[type] = set()
         hints = typing.get_type_hints(ReportV01)
         for name, hint in hints.items():
@@ -398,6 +407,59 @@ class TestSubshapesAcceptInternalTypes:
 # ---------------------------------------------------------------------------
 # Mapping-import pin (defensive)
 # ---------------------------------------------------------------------------
+
+
+class TestSchemaConstantEnforcement:
+    """The `_SchemaVersion` and `_SchemaUri` Literal types are the
+    enforcement layer for schema-stamp correctness — a stale
+    `schema_version="0.5"` cannot be supplied without a `cast(...)`
+    or `# type: ignore`.
+
+    Python doesn't enforce Literal at runtime (the constructor accepts
+    any string), so the runtime test below documents the actual
+    semantics: the type system is the enforcement layer; bypassing it
+    requires explicit, reviewable opt-out. Operators reading this
+    test learn that the guarantee is type-level, not runtime, and
+    that bypassing requires a `cast` they can't sneak past code
+    review.
+    """
+
+    def test_runtime_accepts_anything_with_explicit_cast(self) -> None:
+        # `cast` documents the bypass — a code reviewer sees "you are
+        # asserting this is correct against the type system" and can
+        # push back. mypy strict catches the bypass at type-check
+        # time; this runtime test confirms there is no second
+        # enforcement layer for the curious reader.
+        from typing import cast
+
+        from whatif.report.models_v01 import _SchemaUri, _SchemaVersion
+
+        # The cast lies to the type-checker — at runtime, Python
+        # accepts the string regardless. mypy's enforcement is what
+        # prevents this from happening accidentally in real code.
+        bad_version = cast(_SchemaVersion, "0.99")
+        bad_uri = cast(_SchemaUri, "https://malicious.example/schema.json")
+        # Must construct without raising: the type system is the gate;
+        # __post_init__ does not duplicate the check.
+        report = _report()
+        # Replace via dataclasses.replace which preserves the typed shape.
+        mutated = dataclasses.replace(
+            report,
+            schema_version=bad_version,
+            schema_uri=bad_uri,
+        )
+        assert mutated.schema_version == "0.99"
+        # Pin the design choice: enforcement is at type-check time, not
+        # construction time. A future contributor wanting runtime
+        # validation must add __post_init__ guards AND update this test.
+
+    def test_normal_construction_uses_module_constants(self) -> None:
+        # The fixture path picks up the constants; if a future refactor
+        # diverged the test fixtures from REPORT_SCHEMA_VERSION, this
+        # would surface as a constants/fixture mismatch.
+        report = _report()
+        assert report.schema_version == REPORT_SCHEMA_VERSION
+        assert report.schema_uri == REPORT_SCHEMA_URI
 
 
 class TestImportShape:
