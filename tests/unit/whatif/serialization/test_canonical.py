@@ -91,9 +91,21 @@ class TestSensitiveRejection:
             canonical_json_bytes(s)
 
     def test_nested_sensitive_raises_via_stdlib(self) -> None:
-        # Nested-in-dict: stdlib json.dumps raises TypeError because
-        # Sensitive has no __json__ hook. This is the fallback layer
-        # before Phase 5's graph walk lands.
+        # TODO(phase-5): re-review this test when
+        # `assert_no_unredacted_sensitive` (graph walk) and
+        # `WhatifJSONEncoder.default()` land. At that point the
+        # expected exception flips from a generic stdlib TypeError to
+        # a domain-specific `UnredactedSensitiveError` raised by the
+        # graph walk BEFORE the encoder is reached. The grep-marker
+        # `TODO(phase-5)` is the deletion/update trigger.
+        #
+        # Current v0.1 fallback: stdlib json.dumps raises TypeError
+        # because Sensitive has no __json__ hook. This is best-effort
+        # — a future Sensitive variant that gained a JSON hook
+        # returning its redacted repr would silently leak it past
+        # this test. The full structural defense is Phase 5's
+        # graph walk; until then, the pre-hash contract on
+        # CacheKeyComponents is the load-bearing protection.
         s = Sensitive("password123", classification="user_secret")
         with pytest.raises(TypeError):
             canonical_json_bytes({"creds": s})
