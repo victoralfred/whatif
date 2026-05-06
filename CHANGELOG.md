@@ -12,6 +12,12 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+### Added — Phase 5.4 (`assert_no_unredacted_sensitive` graph walk)
+
+- `src/whatif/serialization/graph_walk.py::assert_no_unredacted_sensitive(obj, *, path="<root>") -> None` — layer (b) of the cardinal #5 three-layer defense per `enforcement.md` row 2 (type-level → graph walk → encoder fallback). Recursive walk over frozen dataclasses (via `dataclasses.fields`), `Mapping` keys AND values (a `Sensitive` in a key is just as bad as in a value), `list`/`tuple` elements, `set`/`frozenset` elements; primitives short-circuit. Raises `UnredactedSensitiveError` on any reachable `Sensitive[T]` with a path breadcrumb (e.g. `<root>.runtime.sensitive_unwraps[3].location`) and the offending classification. `seen: set[int]` cycle guard keeps the walk total even on a future cycle (the wire shape is acyclic by design, but the walk is robust).
+- Re-exported from `whatif.serialization` package so the artifact-write path imports `assert_no_unredacted_sensitive` alongside `encode_report_v01`.
+- `tests/unit/whatif/serialization/test_graph_walk.py` — pins clean-graph silent pass on a real `ReportV01`, detection across every container shape (dataclass field, list, tuple, dict value, dict KEY, `MappingProxyType`, set, frozenset, deeply nested combinations), path breadcrumb in error messages, classification in error message, custom `path` override, and cycle protection (self-referential list and dict terminate; cycle-with-Sensitive still raises so the cycle guard never masks a leak).
+
 ### Added — Phase 5.3 (WhatifJSONEncoder + banned-import lint)
 
 - `src/whatif/serialization/encoder.py::WhatifJSONEncoder` — `json.JSONEncoder` subclass with `default()` dispatch on the project's typed shapes: `Sensitive[T]` raises `UnredactedSensitiveError` (cardinal #5 last line of defense — graph walk in 5.4 is primary; this is fail-loud fallback), frozen dataclasses dispatch via shallow `{name: getattr}` (avoids `dataclasses.asdict`'s deep-copy choking on `MappingProxyType`), `Mapping`/`MappingProxyType` cast to dict, `frozenset`/`set` to sorted lists (determinism), unknown types fall through to stdlib `TypeError` (cardinal #1).
