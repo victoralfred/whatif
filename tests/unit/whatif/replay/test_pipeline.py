@@ -132,6 +132,15 @@ class TestConcurrency:
         # peak <= max_workers assertion is the right load-bearing
         # check, and an off-by-one in the streaming layer's slide
         # logic would surface here as runner concurrency violation.
+        #
+        # NOTE on OS-thread count vs runner concurrency: the
+        # double-executor pattern means peak OS threads can reach
+        # 2 * max_workers (one outer streaming worker + one inner
+        # kernel-timeout worker per concurrent kernel). This test
+        # does NOT assert against thread count — it asserts against
+        # the user-facing concurrency contract. Don't conflate the
+        # two: an off-by-one in OS-thread bookkeeping would NOT
+        # fail this test.
         active = 0
         peak = 0
         lock = threading.Lock()
@@ -201,6 +210,19 @@ class TestStreaming:
         # bound (`<= max_workers + 1`) so a future change to the
         # priming logic surfaces immediately rather than hiding
         # behind a generous `<100` upper bound.
+        # Race-condition note: the priming step submits N bundles
+        # (each pulls from the iterator) and the wait+slide step
+        # pulls one more after a completion. Under normal
+        # scheduling `pulled` lands at exactly `workers + 1` when
+        # the first result arrives. If a future scheduling change
+        # causes the priming submit to overlap with the first
+        # completion such that the slide pulls before the first
+        # `next()` returns, `pulled` could in principle be
+        # `workers + 2`. Currently neither path appears in
+        # practice, but if this test flakes intermittently in CI,
+        # widening to `workers + 2` is the right adjustment — NOT
+        # falling back to a loose `< 100` bound that hides real
+        # priming-logic regressions.
         assert pulled <= workers + 1, (
             f"streaming layer drained {pulled} bundles before "
             f"yielding the first result; sliding-window bound is "
