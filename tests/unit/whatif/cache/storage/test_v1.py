@@ -261,6 +261,27 @@ class TestVersionMismatch:
         with pytest.raises(InvariantViolationError, match="no `<version>:` prefix"):
             read_entry(tmp_path, "a" * 64)
 
+    def test_lookup_rejects_empty_digest_as_bug(self, tmp_path: Path) -> None:
+        # `v1:` (correct prefix, empty digest) would otherwise produce
+        # a path of `entries//.json` — meaningless filesystem state.
+        # Pin: digest length+shape is validated.
+        init_cache(tmp_path)
+        with pytest.raises(InvariantViolationError, match="64 lowercase hex chars"):
+            read_entry(tmp_path, "v1:")
+
+    def test_lookup_rejects_short_digest_as_bug(self, tmp_path: Path) -> None:
+        # Truncated digest: correct prefix but not 64 chars.
+        init_cache(tmp_path)
+        with pytest.raises(InvariantViolationError, match="64 lowercase hex chars"):
+            read_entry(tmp_path, "v1:" + "a" * 32)
+
+    def test_lookup_rejects_uppercase_hex_as_bug(self, tmp_path: Path) -> None:
+        # Uppercase hex: case sensitivity matters; canonical form is
+        # lowercase per Phase 3.1's hashlib hexdigest output.
+        init_cache(tmp_path)
+        with pytest.raises(InvariantViolationError, match="64 lowercase hex chars"):
+            read_entry(tmp_path, "v1:" + "A" * 64)
+
     # ----- Data-condition paths (CacheSchemaMismatchError) -----
 
     def test_read_rejects_mismatched_on_disk_version_as_data(self, tmp_path: Path) -> None:
@@ -274,6 +295,35 @@ class TestVersionMismatch:
         raw["cache_schema_version"] = "v0"
         path.write_bytes(canonical_json_bytes(raw))
         with pytest.raises(CacheSchemaMismatchError, match="v0"):
+            read_entry(tmp_path, key)
+
+    def test_read_rejects_unexpected_key_components_field_as_data(self, tmp_path: Path) -> None:
+        # On-disk entry has an unexpected key in key_components (e.g.,
+        # a v2 keying schema field accidentally written into a v1
+        # entry). Surfaces as CacheSchemaMismatchError, not raw
+        # TypeError from the kwargs splat. Cardinal #1 split: the disk
+        # surprised us → data condition → wrappable as FailureRecord.
+        init_cache(tmp_path)
+        components = _components()
+        key = build_cache_key(components)
+        path = write_entry(tmp_path, key, _entry(components))
+        raw = json.loads(path.read_text())
+        raw["key_components"]["unexpected_v2_field"] = "value"
+        path.write_bytes(canonical_json_bytes(raw))
+        with pytest.raises(CacheSchemaMismatchError, match="key_components shape"):
+            read_entry(tmp_path, key)
+
+    def test_read_rejects_missing_key_components_field_as_data(self, tmp_path: Path) -> None:
+        # On-disk entry is missing a required key_components field.
+        # Same classification as the unexpected-field case.
+        init_cache(tmp_path)
+        components = _components()
+        key = build_cache_key(components)
+        path = write_entry(tmp_path, key, _entry(components))
+        raw = json.loads(path.read_text())
+        del raw["key_components"]["rubric_hash"]
+        path.write_bytes(canonical_json_bytes(raw))
+        with pytest.raises(CacheSchemaMismatchError, match="key_components shape"):
             read_entry(tmp_path, key)
 
     def test_init_cache_rejects_mismatched_meta_as_data(self, tmp_path: Path) -> None:

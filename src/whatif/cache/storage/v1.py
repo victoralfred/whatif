@@ -71,19 +71,35 @@ Tests run against `tmp_path`; no shared state.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeAlias
 
 from whatif.cache.keying import CACHE_KEY_VERSION, CacheKeyComponents
 from whatif.exceptions import InvariantViolationError
 from whatif.serialization import canonical_json_bytes
+from whatif.types.primitives import JsonPrimitive
 
 CACHE_SCHEMA_VERSION = "v1"
 
 _ENTRIES_DIRNAME = "entries"
 _META_FILENAME = "meta.json"
+
+# v1 keying emits SHA-256 hex digests (64 lowercase hex chars). v1
+# storage validates this exact length on lookup. v2 storage paired
+# with a different keying algorithm would loosen or change this
+# pattern.
+_DIGEST_RE = re.compile(r"^[0-9a-f]{64}$")
+
+# Forward-compat opaque JSON-roundtrippable value. Used for
+# `CacheMeta.extra` so unknown keys in `meta.json` preserve their shape
+# across read/write without forcing this module to know what they
+# mean. Tighter than `Any` (per cardinal #6 typed-boundary discipline);
+# inner list/dict values stay `Any` because a recursive alias would
+# add type-checker friction without strengthening the contract.
+JsonValue: TypeAlias = JsonPrimitive | list[Any] | dict[str, Any]
 
 # Known top-level keys in `meta.json`. Any key NOT in this set lands in
 # `CacheMeta.extra` (forward-compat round-trip per `CacheMeta` docstring).
@@ -178,7 +194,7 @@ class CacheMeta:
     cache_schema_version: str
     cache_key_version: str
     created_at: str
-    extra: dict[str, Any] = field(default_factory=dict)
+    extra: dict[str, JsonValue] = field(default_factory=dict)
 
 
 def init_cache(root: Path) -> CacheMeta:
@@ -284,11 +300,29 @@ def read_entry(root: Path, key: str) -> CacheEntry | None:
             f"{CACHE_SCHEMA_VERSION!r}. Migration is not automatic in v0.1."
         )
     result = raw["result"]
+    # Reconstruct CacheKeyComponents from the on-disk dict. Wrap the
+    # kwarg splat in a domain-specific exception: a corrupted or
+    # version-skewed entry whose key_components shape doesn't match
+    # the current dataclass surfaces as `CacheSchemaMismatchError`
+    # (data condition; cardinal #1) rather than a raw `TypeError` from
+    # the dataclass constructor. Catch both TypeError (unexpected/
+    # missing kwargs) and KeyError (top-level "key_components" key
+    # absent entirely).
+    try:
+        key_components = CacheKeyComponents(**raw["key_components"])
+    except (TypeError, KeyError) as e:
+        raise CacheSchemaMismatchError(
+            f"Entry {entry_path} has a key_components shape this storage "
+            f"module cannot reconstruct: {e}. The on-disk dict does not "
+            "match the v1 CacheKeyComponents fields. Likely cause: a v2 "
+            "keying schema written into a v1 entry by a future code path, "
+            "or on-disk corruption."
+        ) from e
     return CacheEntry(
         cache_key_version=raw["cache_key_version"],
         cache_schema_version=raw["cache_schema_version"],
         created_at=raw["created_at"],
-        key_components=CacheKeyComponents(**raw["key_components"]),
+        key_components=key_components,
         result=CacheResult(
             score_delta=result["score_delta"],
             verdict=result["verdict"],
@@ -302,11 +336,14 @@ def read_entry(root: Path, key: str) -> CacheEntry | None:
 def _digest_from_key(key: str) -> str:
     """Strip the `<version>:` prefix and return the digest portion.
 
-    The key MUST be of the form `<version>:<hex>` where `<version>`
-    matches `CACHE_KEY_VERSION` (currently `"v1"`). Anything else —
-    a bare digest, a `v2:` prefix, an empty string — is a programmer
-    bug (the caller built the key wrong), so this raises
-    `InvariantViolationError`, NOT `CacheSchemaMismatchError`.
+    The key MUST be of the form `<version>:<64-char-lowercase-hex>`
+    where `<version>` matches `CACHE_KEY_VERSION` (currently `"v1"`).
+    Anything else — a bare digest, a `v2:` prefix, an empty string,
+    a too-short or non-hex digest — is a programmer bug (the caller
+    built the key wrong), so this raises `InvariantViolationError`,
+    NOT `CacheSchemaMismatchError`. The digest-shape check defends
+    against `"v1:"` (empty digest, would otherwise produce a path of
+    `entries//.json`).
     """
     if ":" not in key:
         raise InvariantViolationError(
@@ -322,6 +359,13 @@ def _digest_from_key(key: str) -> str:
             "A v2 key cannot be looked up in v1 storage. "
             "(Programmer bug; the caller passed a key from a different "
             "keying version.)"
+        )
+    if not _DIGEST_RE.match(digest):
+        raise InvariantViolationError(
+            f"Cache key digest {digest!r} is not 64 lowercase hex chars. "
+            f"v1 keying emits SHA-256 hex digests; this is the only shape "
+            f"v1 storage accepts. (Programmer bug; key was malformed before "
+            "reaching the cache.)"
         )
     return digest
 
