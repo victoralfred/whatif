@@ -66,6 +66,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from whatif.decision.failure_codes import FAILURE_CODE_REGISTRY
 from whatif.types.primitives import JsonPrimitive
 
 if TYPE_CHECKING:
@@ -122,15 +123,6 @@ class ReplayFailure:
     details: Mapping[str, JsonPrimitive] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        # Lazy import: `whatif.decision.failure_codes` imports from
-        # `whatif.types`, which is fine; but keeping the registry
-        # behind a function-level import means a Phase 6 unit test
-        # can construct a `ReplayFailure` without dragging the full
-        # decision module into the import graph if the test mocks
-        # the registry. Costs: one dict lookup post-load (cached in
-        # sys.modules); negligible.
-        from whatif.decision.failure_codes import FAILURE_CODE_REGISTRY
-
         spec = FAILURE_CODE_REGISTRY.get(self.code)
         if spec is None:
             raise ValueError(

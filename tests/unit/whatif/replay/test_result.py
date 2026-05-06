@@ -46,6 +46,17 @@ class TestReplaySuccess:
         with pytest.raises(AttributeError):
             s.trace_id = "t-2"  # type: ignore[misc]
 
+    def test_no_dict_no_arbitrary_attribute(self) -> None:
+        # slots=True positive assertion: no __dict__, novel attribute
+        # set fails. Matches the project convention in
+        # tests/unit/whatif/types/test_failure.py — accept any of the
+        # three error types because the dataclass __setattr__ /
+        # slots interaction varies across Python versions.
+        s = ReplaySuccess(trace_id="t-1", cohort="failure", output=_output())
+        assert not hasattr(s, "__dict__")
+        with pytest.raises((AttributeError, TypeError)):
+            s.smuggled = "extra"  # type: ignore[attr-defined]
+
 
 # ---------------------------------------------------------------------------
 # ReplayFailure — registry validation (cardinal #1)
@@ -133,6 +144,18 @@ class TestReplayFailureShape:
         )
         with pytest.raises(AttributeError):
             f.code = "runner_timeout"  # type: ignore[misc]
+
+    def test_no_dict_no_arbitrary_attribute(self) -> None:
+        f = ReplayFailure(
+            trace_id="t-1",
+            cohort="failure",
+            code="tool_cache_miss",
+            message="x",
+            details={"tool_name": "x"},
+        )
+        assert not hasattr(f, "__dict__")
+        with pytest.raises((AttributeError, TypeError)):
+            f.smuggled = "extra"  # type: ignore[attr-defined]
 
     def test_details_defaults_to_empty(self) -> None:
         # Required-details validation lives at projection time
