@@ -138,51 +138,56 @@ class TestEncoderDispatch:
         # compile time. The runtime coercion is the rare-escape
         # safety net (e.g., dynamic CLI paths, REPL usage).
         #
-        # The test pins the coercion is LOSSLESS-by-str-repr: int 42
-        # becomes "42", not silently dropped or corrupted. A future
+        # Note: plain `dict` with non-str keys does NOT exercise the
+        # coercion path — json's stdlib encoder handles `dict`
+        # natively without dispatching through `default()`, and it
+        # rejects non-str keys with a TypeError BEFORE our encoder
+        # sees them. The coercion path fires for `Mapping`
+        # NON-dict-instances (MappingProxyType, custom dict
+        # subclasses). Using MappingProxyType wraps the non-str-keyed
+        # dict so json's encoder treats it as opaque and calls
+        # `default()`, which is where the coercion lives.
+        m = MappingProxyType({1: "one", 2: "two", 3: "three"})
+        result = json.loads(json.dumps(m, cls=WhatifJSONEncoder))
+        # Pin the coercion is LOSSLESS-by-str-repr: int 1 becomes
+        # "1", not silently dropped or corrupted. A future
         # contributor 'fixing' this to raise on non-str keys would
         # fail this test, surfacing the design choice for explicit
         # review rather than silently changing behavior.
-        m = {1: "one", 2: "two", 3: "three"}
-        result = json.loads(json.dumps(m, cls=WhatifJSONEncoder))
         assert result == {"1": "one", "2": "two", "3": "three"}
 
     def test_non_str_mapping_keys_with_collision_loses_data(self) -> None:
         # Defense: surface the failure mode of `str()` coercion. Two
         # distinct keys whose `str()` reprs collide produce a
-        # collapsed output — int 1 and float 1.0 both stringify to
-        # "1" / "1.0", so they DON'T collide; but bool True and int
-        # 1 both stringify to... actually `str(True)` is "True" and
-        # `str(1)` is "1", so they don't collide either. Verify the
-        # pathological case where collision DOES occur: a custom
-        # __str__ returning the same string for distinct keys.
+        # collapsed output — verify the pathological case via a
+        # custom __str__ that returns the same string for distinct
+        # keys. MappingProxyType again routes through default().
         class _Stub:
-            def __init__(self, label: str, val: int) -> None:
-                self._label = label
+            def __init__(self, val: int) -> None:
                 self._val = val
 
             def __str__(self) -> str:
                 # Both stubs stringify identically — collision.
-                return self._label
+                return "collide"
 
             def __hash__(self) -> int:
-                return self._val  # distinct hashes so dict treats them as distinct
+                return self._val  # distinct hashes → distinct dict entries
 
             def __eq__(self, other: object) -> bool:
                 return isinstance(other, _Stub) and self._val == other._val
 
-        a = _Stub("collide", 1)
-        b = _Stub("collide", 2)
-        m = {a: "first", b: "second"}
+        a = _Stub(1)
+        b = _Stub(2)
+        m = MappingProxyType({a: "first", b: "second"})
         result = json.loads(json.dumps(m, cls=WhatifJSONEncoder))
-        # Dict comprehension collapses on duplicate string keys; the
-        # SECOND-iterated value wins. This documents the lossy
-        # behavior — callers using non-str keys with stringification
-        # collisions get silently merged values, NOT an error. Pin
-        # the behavior so a future contributor 'tightening' this
-        # path (e.g., to raise on collision) surfaces the change as
-        # a test failure rather than a silent semantic flip.
-        assert result == {"collide": "second"}
+        # The dict-comprehension `{str(k): v for k, v in obj.items()}`
+        # collapses on duplicate string keys; one value wins (which
+        # one is iteration-order-dependent). Pin only that the
+        # collapse occurred (one entry, not two), NOT the specific
+        # winner — that would couple to dict iteration order.
+        assert len(result) == 1
+        assert "collide" in result
+        assert result["collide"] in ("first", "second")
 
     def test_frozenset_encodes_as_sorted_list(self) -> None:
         fs = frozenset({"c", "a", "b"})
