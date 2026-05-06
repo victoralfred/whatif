@@ -31,6 +31,7 @@ import pytest
 
 from whatif.decision.failure_codes import make_failure_record
 from whatif.decision.floor import FloorFailureSet, evaluate_floor
+from whatif.decision.verdict import compute_verdict
 from whatif.report.models_v01 import REPORT_SCHEMA_URI, REPORT_SCHEMA_VERSION
 from whatif.report.projection import _flatten_verdict, project_to_report_v01
 from whatif.types.cohort import CohortResult
@@ -39,6 +40,7 @@ from whatif.types.verdict import DontShip, Inconclusive, Ship
 
 from ._fixtures import (
     cache_summary,
+    decision_policy,
     dont_ship,
     dont_ship_with_observation,
     inconclusive,
@@ -399,16 +401,46 @@ class TestFloorFailureNeverProjectsToShip:
         )
 
     def test_failing_floor_runs_through_inconclusive_not_ship(self) -> None:
-        # Link #2 + #3: a run that fails the floor produces an
-        # Inconclusive (cannot produce Ship without FloorPassedProof,
-        # which evaluate_floor declined to issue), and projection of
-        # that Inconclusive flattens to verdict_state="inconclusive",
-        # NOT "ship". The compute_verdict layer (test_verdict.py)
-        # pins the Verdict-construction half; this test pins the
-        # projection-flatten half end-to-end with a real failing
-        # input.
+        # Links #2 + #3 via the REAL pipeline (no fixture shortcut):
+        # build a failing cohort, run compute_verdict (which calls
+        # evaluate_floor internally and constructs Inconclusive when
+        # the floor returns FloorFailureSet), then project. The wire
+        # state must be "inconclusive", never "ship". Each link runs
+        # against actual production code:
+        #
+        #   evaluate_floor(bad cohort) → FloorFailureSet (link #1)
+        #   compute_verdict(...) → Inconclusive (link #2; cannot be
+        #                                       Ship without proof)
+        #   project_to_report_v01(...) → verdict_state="inconclusive"
+        #                                (link #3)
+        bad_cohort = CohortResult(
+            name="failure",
+            selected=2,  # below floor's min_selected=5
+            replayed=2,
+            scored=2,
+            ci_computable=True,
+            ci_unavailable_reason=None,
+            median_delta=None,
+            ci_lower=None,
+            ci_upper=None,
+            floor_passed=False,
+        )
+        verdict = compute_verdict(
+            [bad_cohort],
+            trust_floor(),
+            decision_policy(),
+        )
+        # compute_verdict for a failing floor MUST produce Inconclusive
+        # (the only Verdict variant available without FloorPassedProof).
+        assert isinstance(verdict, Inconclusive), (
+            f"link #2 broken: bad cohort produced {type(verdict).__name__}, "
+            "expected Inconclusive (Ship is structurally unavailable when "
+            "evaluate_floor returns FloorFailureSet)"
+        )
+        # Project the Inconclusive — link #3 must flatten to
+        # verdict_state="inconclusive".
         report = project_to_report_v01(
-            inconclusive(),
+            verdict,
             failures=[],
             cache_summary=cache_summary(),
             methodology=methodology(),
