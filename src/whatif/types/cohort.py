@@ -59,11 +59,27 @@ class CohortResult:
     The unit of statistical inference per cardinal rule #10 — verdicts
     derive from per-cohort primary endpoints, not per-trace observations.
 
-    `ci_available` indicates whether bootstrap CI was computed for this
-    cohort. When False, `ci_unavailable_reason` carries the structured
-    reason so the renderer can produce specific text (e.g., "CI not
-    computed: sample too small") rather than a generic disclaimer. When
-    True, `ci_unavailable_reason` is None.
+    Per V0_1_DECISION_RECORD §2 the CI status is split into two fields:
+
+    - `ci_computable` (structural): whether bootstrap CI was computed
+      successfully. False when the bootstrap couldn't run (sample too
+      small, zero variance, computation failed). When False,
+      `ci_unavailable_reason` carries the structured reason. When
+      True, `ci_unavailable_reason` is None. `ci_availability_guard`
+      reads this and emits `blocks_all` for required cohorts.
+    - `ci_meaningful` (policy quality): whether the computed CI is
+      narrow enough to be actionable (width below
+      `policy.max_ci_width`). Defaults to True for v0.1; the
+      width-vs-threshold check is wired in a later phase (cache
+      subsystem + stats layer). False is only valid when
+      `ci_computable=True`. See cascade-catalog
+      "ci_meaningful policy-guard wiring".
+
+    The split keeps cardinal #2 honest: structural failures
+    (`ci_computable=False`) and policy-quality concerns
+    (`ci_meaningful=False`) live at different layers with different
+    severities. Conflating them into a single `ci_available` was the
+    v0.1 doctrine drift the skill-alignment pass corrects.
 
     Numeric fields in the determinism budget (`median_delta`, `ci_lower`,
     `ci_upper`) are typed `DecimalString` per cardinal rule #4. Float
@@ -90,7 +106,7 @@ class CohortResult:
     replayed: int
     scored: int
 
-    ci_available: bool
+    ci_computable: bool
     ci_unavailable_reason: CIUnavailableReason | None
 
     median_delta: DecimalString | None
@@ -104,6 +120,13 @@ class CohortResult:
     improved_count: int = 0
     unchanged_count: int = 0
     regressed_count: int = 0
+
+    # Policy-quality CI assessment (per V0_1_DECISION_RECORD §2 split).
+    # Only meaningful when ci_computable=True; the deferred policy guard
+    # populates False when CI width exceeds policy.max_ci_width. Defaults
+    # True so v0.1 construction sites that don't yet wire the check don't
+    # spuriously fail policy.
+    ci_meaningful: bool = True
 
     def __post_init__(self) -> None:
         # Per cardinal #1, structural integrity violations propagate as
@@ -129,4 +152,17 @@ class CohortResult:
                 f"CohortResult({self.name!r}) rate counts must be non-negative: "
                 f"improved={self.improved_count}, unchanged={self.unchanged_count}, "
                 f"regressed={self.regressed_count}."
+            )
+        # ci_meaningful is a quality assessment of a CI that exists.
+        # `ci_computable=False, ci_meaningful=False` is incoherent — there
+        # is nothing to assess for meaningfulness. Default `ci_meaningful=True`
+        # combined with `ci_computable=False` is a benign no-op (the guard
+        # never reads ci_meaningful for non-computable cohorts), but
+        # explicitly False against non-computable is a projection-layer bug.
+        if not self.ci_computable and not self.ci_meaningful:
+            raise InvariantViolationError(
+                f"CohortResult({self.name!r}) ci_meaningful=False requires "
+                "ci_computable=True. ci_meaningful is the quality assessment "
+                "of a computed CI; if no CI exists, meaningfulness is "
+                "undefined."
             )

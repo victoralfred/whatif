@@ -3,7 +3,7 @@
 Per cardinal rule #10's predeclared-cohort-endpoint doctrine, a verdict
 that depends on cohort-level uncertainty cannot be defensibly rendered
 when CI is unavailable on a required cohort. This guard reads
-`CohortResult.ci_available` for each cohort named in
+`CohortResult.ci_computable` for each cohort named in
 `policy.required_cohorts` and emits
 `ci_unavailable_for_required_cohort` (blocks_all) when CI is missing
 on any of them.
@@ -13,13 +13,12 @@ the failure record is the operational fact (bootstrap returned
 None / sample too small / zero variance); this finding is the policy
 conclusion (verdict cannot ship without it).
 
-The blocks_all severity forces Inconclusive. The companion
-`DecisionPolicy.accept_no_ci` flag (v0.1 single-flag escape hatch) is
-the configured opt-out — when set, the verdict layer (Phase 2.6) will
-suppress this finding's blocking effect. This guard does NOT consult
-`accept_no_ci`; emission is unconditional. Phase 2.6 does the
-acceptance arithmetic so the manifest can record both the finding AND
-the explicit acceptance.
+The blocks_all severity forces Inconclusive. Per V0_1_DECISION_RECORD §6,
+v0.1 has no `--accept-no-ci` escape hatch: CI unavailability is treated
+as a policy concern severe enough (blocks_all) to force Inconclusive.
+The policy lever for accepting wider CIs is `policy.max_ci_width` (read
+by the deferred `ci_meaningful` policy-quality check, not this guard;
+see cascade-catalog "ci_meaningful policy-guard wiring").
 
 Precondition: a cohort named in `policy.required_cohorts` exists in
 `cohort_results`. Missing cohorts are the floor's
@@ -52,7 +51,7 @@ def ci_availability_guard(
     policy: DecisionPolicy,
 ) -> list[DecisionFinding]:
     """Emit `ci_unavailable_for_required_cohort` for every required
-    cohort whose `ci_available` is False.
+    cohort whose `ci_computable` is False.
 
     One finding per affected cohort. Order matches the order of
     `policy.required_cohorts`; cohorts not present in `cohort_results`
@@ -68,13 +67,13 @@ def ci_availability_guard(
             # cohorts. This guard is above the floor; missing cohort
             # is structural, not a CI-availability concern.
             continue
-        if cohort.ci_available:
+        if cohort.ci_computable:
             continue
         # CI is unavailable. The reason field on CohortResult is
-        # CIUnavailableReason | None — when ci_available is False the
+        # CIUnavailableReason | None — when ci_computable is False the
         # reason should be populated, but we guard against None anyway
         # to keep the guard pure (no upstream-bug hiding; if reason is
-        # None when ci_available is False, that's a projection-layer bug
+        # None when ci_computable is False, that's a projection-layer bug
         # that surfaces as a "reason: unspecified" finding the renderer
         # makes visible).
         reason = cohort.ci_unavailable_reason or "unspecified"
@@ -83,7 +82,7 @@ def ci_availability_guard(
                 "ci_unavailable_for_required_cohort",
                 message=(f"CI unavailable for required cohort {cohort.name!r}: {reason}"),
                 details={"cohort": cohort.name, "reason": reason},
-                # TODO(phase-2.6): replace this placeholder with the
+                # TODO(phase-2.6c): replace this placeholder with the
                 # real failure-record IDs once Phase 2.6 plumbs failure
                 # records end-to-end through the verdict pipeline. See
                 # cascade-catalog "Phase 2.5 deferred guards" → bullet 4.

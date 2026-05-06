@@ -12,6 +12,66 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+### Added — Phase 3.4 (cache mode resolution)
+
+- `src/whatif/cache/policy.py::resolve_cache_mode(config_mode, env) -> CachePolicyResolution`. Resolves `DecisionPolicy.scorer_cache_mode` into a concrete `ScorerCacheMode`, honoring CI environment signals per `references/contracts.md` §"CI environment detection". Concrete inputs (`on`/`off`/`read_only`/`refresh`) pass through unchanged. `auto` + CI signal (`CI`/`GITHUB_ACTIONS`/`GITLAB_CI`/`BUILDKITE`/`JENKINS_URL`, lowercased-truthy-aware: accepts `true`/`1`, rejects `false`/`0`) → `on` with a `cache_mode_inferred` finding. `auto` + no CI → `auto` unchanged.
+- `CachePolicyResolution` typed dataclass (`mode`, `findings: tuple`) — frozen, slot, no `dict[str, Any]` boundary. Callers (Phase 2.6+ projection) splice `findings` into `decision_findings` and use `mode` for cache I/O.
+- New `cache_mode_inferred` info-severity finding code in `FINDING_CODE_REGISTRY`. Required details: `input_mode`, `resolved_mode`, `env_signal`. Cardinal #1: mode inference is structured data, not a log line — the manifest discloses what the user got even when they didn't pick it.
+- `whatif.cache.__init__` re-exports `resolve_cache_mode` and `CachePolicyResolution`.
+- `tests/unit/whatif/cache/test_policy.py` — 24 tests across five classes: concrete-input pass-through (parametrized × 4 modes + ignore-CI), `auto` + CI signal (parametrized × 5 env vars + finding details + first-match ordering + `1` truthy variant), `auto` interactive (`{}` / `false` / `0` / empty / unrelated env), `_detected_ci_signal` direct coverage (case-insensitive truthy boundary), structure pins (frozen, tuple-not-list, dataclass type).
+
+### Added — Phase 3.3 (cache lock)
+
+- `src/whatif/cache/lock.py` — `acquire_cache_lock(cache_root, *, stale_after_seconds=86400, allow_age_takeover=False)` context manager. Two layers of defense per `references/enforcement.md` row "Single-writer cache access": (1) OS-level `fcntl.flock(LOCK_EX | LOCK_NB)` on `<cache>/.lock` (kernel releases on process death — SIGKILL, OOM, kernel panic — including across SIGKILL), (2) stale-lock fallback that records `{pid, process_start_time, hostname, started_at}` and takes over when the recorded process is dead OR its `psutil.Process(pid).create_time()` mismatches `process_start_time` (PID-reuse defense).
+- `CacheLockedError` typed exception — DATA condition (a held lock is legitimate runtime state, not a programmer bug); callers convert to `FailureRecord` per cardinal #1. Error message names PID, hostname, started_at from the held lock so operators can decide between `whatif cache unlock` (CLI sub-command, Phase 8) and `whatif cache rebuild --force`.
+- `LockFileContent` and `CacheLock` typed dataclasses — typed boundaries per cardinal #6.
+- Age-based takeover (`allow_age_takeover=True`) is opt-in only. Default behavior takes over only on dead-process or PID-reuse evidence; age alone is a weak signal because long-running batches can legitimately hold locks for days.
+- NFS unsupported; documented in module docstring + clear error message naming NFS as the likely cause if `flock` returns `ENOLCK`/`EOPNOTSUPP`. Multi-tenant cache directories deferred to v0.3 (cascade entry).
+- New runtime dependency: `psutil>=6.0` (and `types-psutil` for mypy strict). Used for `Process.create_time()` PID-reuse defense.
+- `tests/unit/whatif/cache/test_lock.py` — 13 tests across five classes:
+  - `TestSingleWriter`: real-process contention via subprocess (NOT mocks; per Phase 3 gate); release on normal exit; release on exception (no orphan locks).
+  - `TestStaleTakeover`: takeover when recorded PID is dead (the scenario-5 recovery loop); takeover when PID was recycled (live process but `create_time` mismatch); no takeover when PID alive and matches; takeover on corrupted/empty lock file.
+  - `TestAgeTakeover`: default off (long-running batch not preempted); opt-in path reaches the age check (OS-level flock still primary defense, file-level age is advisory).
+  - `TestLockProvenance`: lock content records this process correctly; `CacheLockedError` message includes PID/hostname/started_at.
+  - `TestLockFileContentDataclass`: frozen-dataclass immutability.
+
+### Added — Phase 3.2 (cache storage)
+
+- `src/whatif/cache/storage/v1.py` — file layout + entry I/O for the scorer cache. Layout: `.whatif/cache/entries/<digest[0:2]>/<digest>.json` (sharded by first 2 hex chars; `v1:` prefix excluded from filename per Windows compat). Public surface: `init_cache(root) -> CacheMeta` (idempotent; refuses mismatched on-disk schema version), `write_entry(root, key, entry) -> Path` (refuses entries with mismatched `cache_schema_version`), `read_entry(root, key) -> CacheEntry | None` (None on miss; raises `CacheSchemaMismatchError` on disk-version mismatch), `read_meta(root) -> CacheMeta`.
+- `CacheEntry` typed dataclass per `references/contracts.md` §"Entry format": `cache_key_version`, `cache_schema_version`, `created_at`, `key_components` (provenance — full asdict of `CacheKeyComponents`), `result: CacheResult`. `CacheResult` carries `score_delta`/`confidence` as `DecimalString` strings (cardinal #4 cross-platform stability), `verdict`, `flags`, optional `rationale`.
+- `CacheSchemaMismatchError` — typed failure; callers convert to `FailureRecord` per cardinal #1. Used at three boundaries: init-time meta-version check, write-time entry-version check, read-time on-disk-version check, and key-prefix mismatch (`v2:` key against v1 storage).
+- Profile gating on `rationale` is the CALLER'S responsibility — storage writes whatever entry it gets. The cardinal #5 boundary is preserved by upstream invariants (`CacheKeyComponents` hex-validation; `canonical_json_bytes` Sensitive guard).
+- Entries written via `canonical_json_bytes` so two caches given the same input produce byte-identical files (cache verify can diff bytes).
+- `tests/unit/whatif/cache/storage/test_v1.py` — 14 tests across init idempotence, round-trip integrity (with and without rationale), cache miss → None, sharding pin (`<digest[0:2]>/<digest>.json`; no `:` in filename), schema mismatch on write/read/init, v2-key rejection, byte-identical on-disk encoding via monkeypatched timestamp, meta round-trip.
+
+`CACHE_SCHEMA_VERSION = "v1"`. PRs touching `whatif/cache/storage/` MUST bump version. The cache-version-bump CI test (Phase 3 gate) asserts this.
+
+### Added — Phase 3.1 (cache key construction)
+
+- `src/whatif/cache/keying/v1.py` — `CacheKeyComponents` dataclass + `build_cache_key(components) -> str`. Deterministic SHA-256 over canonical JSON of the full required component set per `references/contracts.md`: whatif schema version, scorer adapter version, scorer type/package, judge provider/model/snapshot, rendered-prompt hash, rubric hash, scoring-parameters hash, score-case serialization version, per-case content hash. Output format: `v1:<64-char hex digest>`. The version prefix is part of the key contract — storage layout uses it to split entries across versions.
+- `src/whatif/serialization/canonical.py` — `canonical_json_bytes(obj) -> bytes`. Canonical-JSON encoder for HASH inputs (sort_keys=True, separators=(",", ":"), ensure_ascii=True). Centralized in `whatif/serialization/` so the Phase 5 banned-import lint sees zero `json.dumps` calls outside the serialization package without needing per-file allowlists. Module docstring documents the load-bearing distinction: this helper is for hash inputs only, not artifact bytes; the artifact-path encoder (Phase 5) carries cardinal #5 redaction enforcement separately.
+- `src/whatif/cache/__init__.py` + `src/whatif/cache/keying/__init__.py` — package skeleton; `keying` re-exports `v1` so call sites import from the stable surface (`whatif.cache.keying`) rather than the versioned module directly.
+- `tests/unit/whatif/cache/keying/test_v1.py` — 19 tests pinning format/version prefix/hex digest, determinism against a known-input known-output digest literal (verified across the full CI matrix 3.11/3.12/3.13/3.14), per-field sensitivity parametrized over all 12 fields, `None`-vs-empty-string distinctness on `judge_model_snapshot`, field-order independence.
+- `tests/unit/whatif/serialization/test_canonical.py` — 9 tests pinning the canonical encoding contract: ASCII bytes, sorted keys (including nested dicts), whitespace-free, non-ASCII escaped, list order preserved, `None`/empty-string and int/float distinctness, deterministic across repeated calls.
+
+`CACHE_KEY_VERSION = "v1"`. Future PRs that change keying semantics MUST introduce `v2` rather than mutate `v1`. The cascade entry "Banned-import lint scope: cache keying canonical JSON" landed resolved.
+
+### Internal / Docs — Phase 0 closure (0.2 + 0.4)
+
+- `docs/concepts.md`: filled the missing sections (verdict states, floor-vs-policy, evidence/audit bundle); glossary now includes `ci_computable`, `ci_meaningful`, primary endpoint; §4 spells out the sticky-manifest guarantee operates at write AND read time.
+- `enforcement.md`: two new explicit rows surfacing implemented-but-untracked structural claims — "`ci_computable=False` on a required cohort cannot Ship" and "Floor vs policy concerns are partitioned on `CohortResult`." Both were mechanism-backed in code already; the audit just made them explicit in the canonical table for the schema-freeze gate.
+- Phase 0 gate now closed (0.1 walkthroughs ✅, 0.2 conceptual model ✅, 0.3 audience-distribution ✅, 0.4 enforcement audit ✅). Phase 3 (cache subsystem) is the next substantive phase.
+
+### Changed (BREAKING) — Skill-alignment pass (post Phase 2.6b)
+
+A skill-vs-implementation audit surfaced three doctrine drifts. All three resolved here. See `whatif-private/V0_1_DECISION_RECORD.md` 2026-05-05 addendum.
+
+- `CohortResult.ci_available: bool` renamed to `ci_computable: bool` and a new `ci_meaningful: bool = True` field added per V0_1_DECISION_RECORD §2's CI-status split. `ci_computable` is the structural fact (bootstrap successful?) read by `ci_availability_guard`; `ci_meaningful` is the policy-quality assessment (CI width below `policy.max_ci_width`?) read by a deferred guard. `__post_init__` enforces that `ci_meaningful=False` requires `ci_computable=True`. Cascade entry "ci_meaningful policy-guard wiring" tracks the deferred Phase 3 wiring.
+- `DecisionPolicy.accept_no_ci: bool` removed per V0_1_DECISION_RECORD §6 ("`--accept-no-ci` removed in favor of CI-as-policy reclassification"). The field had been shipped as a placeholder with Phase 2.6c TODO — that was a doctrine breach. CI unavailability remains `blocks_all` (forces Inconclusive); the policy lever for accepting wider CIs is `policy.max_ci_width`. `test_accept_no_ci_can_be_enabled` deleted.
+- V0_1_DECISION_RECORD §2's `Ship` type amended to include `findings: list[DecisionFinding]` (matching the implementation; observational/info findings are non-blocking by construction since `compute_verdict` would have downgraded the verdict otherwise).
+
+Skill references updated: `type-model.md` (CohortResult split + accept_no_ci removed), `phases.md` (2.6 sub-phase decomposition), `cascade-catalog.md` (Phase 2.5 deferred-guards bullets re-scoped; new "ci_meaningful policy-guard wiring" entry).
+
 ### Added — Phase 2.6b (configurable primary_endpoint_guard)
 
 - `src/whatif/decision/guards/primary_endpoint.py` — `primary_endpoint_guard`. Reads `policy.primary_endpoints` and dispatches by `EndpointDirection`: `improvement_above_threshold` evaluates against `policy.min_failure_improvement_ratio`; `non_regression_below_threshold` evaluates against `policy.max_baseline_regression_ratio`. Emits the existing finding codes (`failure_improvement_below_threshold`, `baseline_regression_above_threshold`) — no new registry entries needed. Boundary semantics preserved from Phase 2.5b: strict `<` for improvement, strict `>` for regression. Findings emit in `policy.primary_endpoints` order, not cohort discovery order. Multi-metric (one primary metric per cohort today; v0.2 adds Holm correction) is `MethodologyDisclosure.multiplicity`'s concern, not this guard's.

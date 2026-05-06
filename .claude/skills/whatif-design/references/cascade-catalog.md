@@ -84,9 +84,9 @@ Initial registry (catalog from doctrine):
 **Rippled to:**
 - `evaluate_floor()` no longer checks CI availability.
 - New policy guard `ci_availability_guard` produces `DecisionFinding(code="ci_uncomputable_for_required_cohort")`.
-- `--accept-no-ci` flag is a policy override, not a floor override.
+- Per V0_1_DECISION_RECORD §6 (and 2026-05-05 skill-alignment addendum), `--accept-no-ci` is removed; `policy.max_ci_width` is the lever for accepting wider CIs.
 - Doctrine docs updated: floor is about evidence existence, not evidence quality.
-- Cohort propagation: `CohortResult.ci_available` populated by stats stage, consumed by policy guard.
+- Cohort propagation: `CohortResult.ci_computable` populated by stats stage, consumed by policy guard.
 
 **Status:** open
 
@@ -304,10 +304,10 @@ Initial registry (catalog from doctrine):
 
 ### CI unavailability reason on CohortResult
 
-**Source decision:** Scenario 4 renders `(CI not computed: sample too small)` inline in the stats line for the baseline cohort. The current `CohortResult.ci_available: bool` flag captures *whether* CI was computed but not *why*. Without the reason, the renderer can't produce the right phrase — it can only say "CI not available" generically.
+**Source decision:** Scenario 4 renders `(CI not computed: sample too small)` inline in the stats line for the baseline cohort. The `ci_computable: bool` flag captures *whether* CI was computed but not *why*. Without the reason, the renderer can't produce the right phrase — it can only say "CI not available" generically.
 
 **Rippled to:**
-- Extend `CohortResult` with `ci_unavailable_reason: Literal["sample_too_small", "zero_variance", "computation_failed", None]` (None when `ci_available=True`)
+- Extend `CohortResult` with `ci_unavailable_reason: Literal["sample_too_small", "zero_variance", "computation_failed", None]` (None when `ci_computable=True`)
 - Stats stage populates the reason when computation skips
 - Renderer uses the reason to produce specific text: "sample too small" → "CI not computed: sample too small"; "zero_variance" → "CI not computed: all samples identical"; "computation_failed" → "CI computation failed; see manifest for details"
 - The `computation_failed` case also emits a `DecisionFinding(code="ci_computation_failed", severity="degrades_trust")`
@@ -550,6 +550,11 @@ Recommend option 2 (ContextVar) when concurrent or embedded runs become a real u
 
 **Rationale for deferral:** Most v0.1 users are single-team; multi-tenant is enterprise CI feature.
 
+**Rippled to (Phase 3 lock implications, recorded with PR #33):**
+- `whatif/cache/lock.py` is filesystem-local: `fcntl.flock` + lock-file PID/create_time provenance assume a single-host, single-filesystem cache directory. The module docstring documents this scope and refuses unsupported filesystems (NFS surfaces as `ENOLCK`/`EOPNOTSUPP` with a clear error message).
+- Multi-tenant resolution will require either: (a) per-tenant cache subdirectories under a shared root (still filesystem-local — extends naturally from the v0.1 primitive), or (b) a network-coordinated lock (Redis, etcd, or NFS-safe filesystem locking — note that `O_EXLOCK` is BSD/macOS-only and not available on Linux, so a portable NFS-safe path likely means a `lockf`/network-coordinated approach rather than `O_EXLOCK`). Option (a) preserves the v0.1 lock primitive; option (b) replaces it.
+- Whichever route, the `LockFileContent` shape (pid + process_start_time + hostname + started_at) generalizes: `hostname` is already recorded for cross-host diagnostics, and a v0.3 multi-tenant entry would add `tenant_id` via the `CacheMeta.extra` forward-compat path.
+
 **Trigger for resolution:** v0.3.
 
 ### Cluster bootstrap implementation
@@ -721,11 +726,11 @@ Recommend option 2 (ContextVar) when concurrent or embedded runs become a real u
 
 **Resolution plan:**
 1. ~~PR after #23: extend `CohortResult` with rate-count fields → land `baseline_regression_guard` + `failure_improvement_guard` together~~ → **resolved by Phase 2.5b**: both rate-based guards landed alongside the `improved_count`/`unchanged_count`/`regressed_count` extension on `CohortResult`. Framing cleanup applied: `practical_delta_guard`'s docstring now cross-references `failure_improvement_guard` as the load-bearing primary endpoint.
-2. ~~PR adding `ci_unavailable_for_required_cohort` to `FINDING_CODE_REGISTRY` + `FIX_SUGGESTION_REGISTRY` → land `ci_availability_guard`~~ → **resolved by Phase 2.5c**: finding code added (severity=blocks_all, derived_from_failures="always"); fix-suggestion entry added with `--accept-no-ci` escape-hatch guidance; `ci_availability_guard` lands and emits one finding per affected required cohort. Pending: failure-record plumbing (`derived_from_failures` placeholder used; real wiring in Phase 2.6 / projection layer).
+2. ~~PR adding `ci_unavailable_for_required_cohort` to `FINDING_CODE_REGISTRY` + `FIX_SUGGESTION_REGISTRY` → land `ci_availability_guard`~~ → **resolved by Phase 2.5c**: finding code added (severity=blocks_all, derived_from_failures="always"); fix-suggestion entry added; `ci_availability_guard` lands and emits one finding per affected required cohort. Pending: failure-record plumbing (`derived_from_failures` placeholder used; real wiring in Phase 2.6 / projection layer). Skill-alignment 2026-05-05: the entry's earlier `--accept-no-ci` escape-hatch guidance was removed — V0_1_DECISION_RECORD §6 forbids the flag.
 3. Phase 3 cache subsystem PRs → cache metadata reaches `CohortResult` via projection layer → land `cache_staleness_guard`.
 4. Phase 2.6 verdict computation PR → `primary_endpoint_guard` lands as part of the multi-endpoint resolution. Also: `ci_availability_guard`'s emitted findings need real `derived_from_failures` wiring once failure records are threaded end-to-end (placeholder `["pending_phase_2_6_plumbing"]` is in place today).
    - **Partial resolution by Phase 2.6b (PR after #26):** `primary_endpoint_guard` lands as a configurable rate-based guard that consolidates the Phase 2.5b `failure_improvement_guard` + `baseline_regression_guard` pair. Reads `policy.primary_endpoints` and dispatches by direction (`improvement_above_threshold`, `non_regression_below_threshold`); emits the existing finding codes (`failure_improvement_below_threshold`, `baseline_regression_above_threshold`) — no registry change. The two hardcoded Phase 2.5b guards are deleted; their tests migrate to `test_primary_endpoint.py`.
-   - **Remaining for Phase 2.6c:** real `derived_from_failures` wiring on `ci_availability_guard` (replace `_PHASE_2_6_PLACEHOLDER`); `accept_no_ci` arithmetic in `compute_verdict`.
+   - **Remaining for Phase 2.6c:** real `derived_from_failures` wiring on `ci_availability_guard` (replace `_PHASE_2_6_PLACEHOLDER`). The previously-tracked `accept_no_ci` arithmetic was removed in the 2026-05-05 skill-alignment pass — V0_1_DECISION_RECORD §6 forbids the flag, so 2.6c is just the failure-record plumbing.
 
 ### Guard pre-parse caching — Phase 2.6 verdict computation
 
@@ -802,7 +807,31 @@ Recommend option 2 (ContextVar) when concurrent or embedded runs become a real u
 
 **Trigger for resolution:** v0.2 minor release PR (concurrent with `regression_check` cohort expansion or other multi-cohort work).
 
+### `ci_meaningful` policy-guard wiring
+
+**Source decision:** Skill-alignment pass (2026-05-05) restored the `CohortResult` CI split per V0_1_DECISION_RECORD §2: `ci_computable` (structural, read by `ci_availability_guard`) vs `ci_meaningful` (policy-quality, defaults True). The width-vs-`policy.max_ci_width` check that populates `ci_meaningful=False` is not yet wired — `max_ci_width` defaults to None today, and there is no guard that consults the field.
+
+**Rippled to:**
+- Phase 3 stats layer: when `ci_computable=True`, compute the CI width (`ci_upper - ci_lower`) as float; if `policy.max_ci_width is not None and width > max_ci_width`, set `ci_meaningful=False`.
+- New guard `ci_meaningful_guard` (or fold into a generalized `ci_quality_guard`) at policy severity `blocks_ship` (NOT `blocks_all` — meaningfulness is policy quality, not structural). Emits a finding code like `ci_too_wide_for_required_cohort`.
+- Finding code + fix-suggestion entries land alongside the guard.
+- Cardinal #2 boundary preserved: `ci_computable` stays at `blocks_all` (Inconclusive); `ci_meaningful` stops at `blocks_ship` (DontShip).
+
+**Status:** open
+
+**Resolution:** Phase 3 (cache + stats layer) wires the width computation; the policy guard lands in the same PR or immediately after. Test: a cohort with `ci_computable=True, ci_meaningful=False` produces `DontShip`, not `Inconclusive`.
+
 ## Resolved cascades
+
+### Banned-import lint scope: cache keying canonical JSON (resolved 2026-05-05)
+
+**Source decision:** Phase 3.1 (PR #31) lands `whatif/cache/keying/v1.py` which needs to canonicalize `CacheKeyComponents` for SHA-256 hashing. `references/enforcement.md` row 2 documents that the banned-import lint will block `json.dumps` outside `whatif/serialization/` to enforce cardinal #5 (no accidental `Sensitive[T]` serialization on artifact paths). Two reconciliations were possible: helper centralized in `whatif/serialization/` (Option A) or per-file lint allowlist (Option B).
+
+**Resolved by:** Option A landed within PR #31 itself. `whatif/serialization/canonical.py::canonical_json_bytes(obj) -> bytes` carries the canonical encoding (`sort_keys=True, separators=(",", ":"), ensure_ascii=True`); cache keying imports it. The Phase 5 banned-import lint, when implemented, sees zero `json.dumps` calls outside `whatif/serialization/` — no allowlist needed. The module docstring on `canonical.py` documents the "hash input only — never artifact" boundary so future contributors don't conflate it with the artifact-path encoder.
+
+The v1 digest is preserved across the refactor: the canonical encoding contract is byte-for-byte identical, so the known-digest test in `test_v1.py::test_deterministic_against_known_digest` continues to pass without modification.
+
+
 
 ### Single Ship-construction site — `whatif/decision/verdict.py` (resolved 2026-05-05)
 
@@ -810,7 +839,7 @@ Recommend option 2 (ContextVar) when concurrent or embedded runs become a real u
 
 **Rippled to / refactor protection:**
 - A future contributor MUST NOT add a second Ship-construction site. Doing so would either (a) bypass the floor (impossible — `Ship.__init__` requires a `FloorPassedProof`, and only `evaluate_floor` makes them) or (b) replicate the verdict-computation surface, which is duplication.
-- The verdict layer's contract surface is `compute_verdict(cohort_results, floor, policy, *, guards=None) -> Verdict`. Any new verdict-affecting concern (multi-endpoint primary, accept_no_ci arithmetic, aggregation roll-up) lands by extending this function or the guard chain it composes — not by introducing parallel Ship constructors.
+- The verdict layer's contract surface is `compute_verdict(cohort_results, floor, policy, *, guards=None) -> Verdict`. Any new verdict-affecting concern (multi-endpoint primary, ci_meaningful policy guard, aggregation roll-up) lands by extending this function or the guard chain it composes — not by introducing parallel Ship constructors.
 - Tests pin both halves:
   - `tests/unit/whatif/decision/test_verdict.py::TestCardinalTwoTrustChain::test_ship_carries_proof_from_evaluate_floor` — the proof on Ship comes from `evaluate_floor`.
   - `tests/unit/whatif/decision/test_floor.py::TestExternalConstructionBlocked` — `FloorPassedProof` cannot be constructed externally.

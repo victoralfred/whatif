@@ -16,6 +16,8 @@ classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Operating System :: POSIX :: Linux",
+  "Operating System :: MacOS",
   "Topic :: Software Development :: Testing",
   "Topic :: Software Development :: Quality Assurance",
 ]
@@ -27,6 +29,12 @@ dependencies = [
   "anyio>=4.3",
   "pyyaml>=6.0",
   "rich>=15.0.0",
+  # psutil is gated to non-Windows platforms: the cache lock module
+  # imports it via fcntl-guarded code, and the Windows guard in
+  # whatif/cache/lock.py refuses module load before any psutil call.
+  # Marking it here makes the platform constraint visible at install
+  # time and avoids a useless dependency on Windows.
+  "psutil>=6.0; sys_platform != 'win32'",
 ]
 
 [project.optional-dependencies]
@@ -41,6 +49,7 @@ dev = [
   "mypy>=1.20.2",
   "hypothesis>=6.152.4",
   "pre-commit>=4.4.1",
+  "types-psutil>=6.0",
 ]
 
 [project.scripts]

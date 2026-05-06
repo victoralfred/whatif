@@ -246,8 +246,13 @@ Each guard is a pure function `(ExperimentResult, DecisionPolicy) -> list[Decisi
 
 ### 2.6 — Verdict computation
 
-`whatif/decision/policy.py`:
-- `compute_verdict(result, floor, policy) -> Verdict`
+Implementation lands as three sub-phases (one PR each):
+
+- **2.6a** — `whatif/decision/verdict.py::compute_verdict(cohort_results, floor, policy, *, guards=None) -> Verdict`. Single Ship-construction site; closure-captured `FloorPassedProof`; default guard chain composes the registered guards. (Resolved by PR #26.)
+- **2.6b** — `primary_endpoint_guard` consolidation. Replaces the Phase 2.5b `failure_improvement_guard` + `baseline_regression_guard` pair with a configurable dispatcher reading `policy.primary_endpoints`; emits the existing finding codes by direction. The default guard chain shrinks from 5 to 4 guards; behavior on default policy is identical. (Resolved by PR #27.)
+- **2.6c** — Real `derived_from_failures` wiring on `ci_availability_guard` (replace `_PHASE_2_6_PLACEHOLDER` with failure-record IDs threaded through projection). Per V0_1_DECISION_RECORD §6 there is no `accept_no_ci` work in 2.6c; the flag was removed in the 2026-05-05 skill-alignment pass.
+
+Common to all three:
 - Implements the guard chain pattern from `references/practices.md`
 - All findings collected; verdict derived from worst severity present
 - Floor-failure case returns `Inconclusive` regardless of findings

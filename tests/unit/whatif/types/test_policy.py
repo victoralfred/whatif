@@ -144,7 +144,6 @@ class TestDecisionPolicy:
         assert p.scorer_cache_warn_after_days == 30
         assert p.scorer_cache_block_after_days == 90
         assert p.scorer_cache_storage_profile == "normalized_result_only"
-        assert p.accept_no_ci is False
 
     def test_default_primary_endpoints_match_v0_1_design(self) -> None:
         p = DecisionPolicy()
@@ -178,11 +177,6 @@ class TestDecisionPolicy:
     def test_max_ci_width_can_be_set(self) -> None:
         p = DecisionPolicy(max_ci_width=0.30)
         assert p.max_ci_width == 0.30
-
-    def test_accept_no_ci_can_be_enabled(self) -> None:
-        # The v0.1 single-flag acceptance escape hatch.
-        p = DecisionPolicy(accept_no_ci=True)
-        assert p.accept_no_ci is True
 
     def test_cache_storage_profile_literal(self) -> None:
         p = DecisionPolicy(scorer_cache_storage_profile="full_judge_io")

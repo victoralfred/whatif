@@ -90,6 +90,23 @@ _REGISTRY_BUILDER: dict[str, FindingCodeSpec] = {
             "self-describing for the renderer."
         ),
     ),
+    "cache_mode_inferred": FindingCodeSpec(
+        severity="info",
+        message_template=(
+            "scorer cache mode resolved to {resolved_mode} from input {input_mode} "
+            "based on environment signal {env_signal}"
+        ),
+        required_details=("input_mode", "resolved_mode", "env_signal"),
+        derived_from_failures_expectation="never",
+        description=(
+            "User config left the cache mode at `auto` and the resolution "
+            "logic inferred a concrete mode from the environment (e.g., "
+            "CI=true → on). Emitted so CI runs disclose the mode they "
+            "actually used; cardinal #1 (failures-as-data) extends to "
+            "config-resolution decisions — the manifest should never "
+            "imply the user picked a mode they didn't pick."
+        ),
+    ),
     # ----- blocks_ship severity (DontShip) --------------------------------
     "baseline_regression_above_threshold": FindingCodeSpec(
         severity="blocks_ship",
@@ -157,9 +174,9 @@ _REGISTRY_BUILDER: dict[str, FindingCodeSpec] = {
             "cohort (sample too small, zero variance, computation failed). "
             "Pairs with FAILURE_CODE_REGISTRY['ci_uncomputable_for_required_cohort']. "
             "Forces Inconclusive — verdicts that depend on cohort-level "
-            "uncertainty cannot be rendered without it. The companion "
-            "DecisionPolicy.accept_no_ci escape hatch (v0.1) is the "
-            "configured opt-out; absent that, the floor blocks Ship."
+            "uncertainty cannot be rendered without it. Per "
+            "V0_1_DECISION_RECORD §6, v0.1 has no escape hatch; "
+            "policy.max_ci_width is the lever for accepting wider CIs."
         ),
     ),
     "cohort_systemic_failure": FindingCodeSpec(

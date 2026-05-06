@@ -72,8 +72,9 @@ class DecisionPolicy:
     scorer_cache_block_after_days: int = 90
     scorer_cache_storage_profile: Literal["normalized_result_only", "full_judge_io"] = "normalized_result_only"
 
-    # Acceptance (v1.0+; v0.1 only supports --accept-no-ci)
-    accept_no_ci: bool = False
+    # Per V0_1_DECISION_RECORD §6, v0.1 has no --accept-no-ci flag.
+    # CI unavailability forces Inconclusive (blocks_all). max_ci_width
+    # above is the lever for accepting wider but computable CIs.
 ```
 
 ## FailureRecord
@@ -196,12 +197,23 @@ class CohortResult:
     selected: int
     replayed: int
     scored: int
-    ci_available: bool
+    # Per V0_1_DECISION_RECORD §2 the CI status is split: ci_computable is
+    # the structural fact (was the bootstrap successful?), ci_meaningful
+    # is the policy-quality assessment (is the width below max_ci_width?).
+    # ci_unavailable_reason is populated when ci_computable=False.
+    ci_computable: bool
+    ci_unavailable_reason: Literal[
+        "sample_too_small", "zero_variance", "computation_failed", None
+    ]
     median_delta: DecimalString | None  # "0.310" not 0.31, see determinism notes
     ci_lower: DecimalString | None
     ci_upper: DecimalString | None
     floor_passed: bool
     floor_failures: list[FloorFailure]
+    improved_count: int = 0
+    unchanged_count: int = 0
+    regressed_count: int = 0
+    ci_meaningful: bool = True  # populated False by deferred policy guard
 ```
 
 `DecimalString` is a `NewType` over `str` for fields that cross the determinism boundary. Float arithmetic happens internally; emission is via `format(value, '.3f')` which is platform-stable.
