@@ -12,6 +12,16 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+### Added — Phase 3.5 (CacheSummary — closes Phase 3)
+
+- `src/whatif/cache/summary.py::CacheSummary` — typed dataclass that becomes the `cache_summary` field on `ReportV01`. Required fields per `references/contracts.md` §"Cache disclosure content spec": `schema_version`, `key_version`, `mode`, `storage_profile`, `storage_path`, `hits`, `misses`, `writes`, `stale_hits`, `corrupted_entries`, `policy`, `policy_violations`. Optional: `oldest_hit_age_days: int | None`, `models_distribution: Mapping[str, int]` (defaults `MappingProxyType({})`).
+- `CachePolicySnapshot` — captures the runtime cache-policy fields from `DecisionPolicy` (`mode`, `warn_after_days`, `block_after_days`, `storage_profile`) so the manifest carries policy-at-run-time without cross-referencing.
+- `PolicyViolationRecord` — typed structured-record shape parallel to `FloorFailure` (`rule`, `observed: int | float | str`, `threshold: int | float`). Cardinal #6: structured records, not free-form strings; the deferred `cache_staleness_guard` emits these.
+- `whatif.cache.__init__` re-exports `CacheSummary`, `CachePolicySnapshot`, `PolicyViolationRecord`.
+- `tests/unit/whatif/cache/test_summary.py` — 16 tests across five classes: construction (minimal/optional defaults/full), frozen-dataclass immutability (summary, snapshot, violation), tuple-not-list / `Mapping`-not-dict pins, `PolicyViolationRecord` shape (int/float/string observed, value equality), `CachePolicySnapshot` field set + equality, cardinal #6 boundary pins via `typing.get_type_hints` (origin checks on `tuple` and `collections.abc.Mapping`).
+
+Phase 3 complete (3.1 keying / 3.2 storage / 3.3 lock / 3.4 mode resolution / 3.5 summary). Schema validation enforcing `cache_summary` presence on `ReportV01` lands with Phase 5.
+
 ### Added — Phase 3.4 (cache mode resolution)
 
 - `src/whatif/cache/policy.py::resolve_cache_mode(config_mode, env) -> CachePolicyResolution`. Resolves `DecisionPolicy.scorer_cache_mode` into a concrete `ScorerCacheMode`, honoring CI environment signals per `references/contracts.md` §"CI environment detection". Concrete inputs (`on`/`off`/`read_only`/`refresh`) pass through unchanged. `auto` + CI signal (`CI`/`GITHUB_ACTIONS`/`GITLAB_CI`/`BUILDKITE`/`JENKINS_URL`, lowercased-truthy-aware: accepts `true`/`1`, rejects `false`/`0`) → `on` with a `cache_mode_inferred` finding. `auto` + no CI → `auto` unchanged.

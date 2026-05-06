@@ -36,12 +36,20 @@ from whatif.cache.lock import (
     acquire_cache_lock,
 )
 from whatif.cache.policy import CachePolicyResolution, resolve_cache_mode
+from whatif.cache.summary import (
+    CachePolicySnapshot,
+    CacheSummary,
+    PolicyViolationRecord,
+)
 
 __all__ = (
     "LOCK_FAILURE_CODE",
     "CacheLock",
     "CacheLockedError",
     "CachePolicyResolution",
+    "CachePolicySnapshot",
+    "CacheSummary",
+    "PolicyViolationRecord",
     "acquire_cache_lock",
     "resolve_cache_mode",
 )
