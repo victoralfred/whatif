@@ -19,11 +19,13 @@ contracts.
 from whatif.serialization.canonical import canonical_json_bytes
 from whatif.serialization.decimal import FieldLabel, parse_decimal_string
 from whatif.serialization.encoder import WhatifJSONEncoder, encode_report_v01
+from whatif.serialization.graph_walk import assert_no_unredacted_sensitive
 from whatif.serialization.lock_io import parse_lock_file_content
 
 __all__ = [
     "FieldLabel",
     "WhatifJSONEncoder",
+    "assert_no_unredacted_sensitive",
     "canonical_json_bytes",
     "encode_report_v01",
     "parse_decimal_string",

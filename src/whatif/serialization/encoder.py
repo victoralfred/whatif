@@ -185,6 +185,14 @@ def encode_report_v01(report: ReportV01) -> bytes:
     Tests that need to encode partial structures use
     `WhatifJSONEncoder()` directly with their own kwargs.
     """
+    # TODO(phase8): every caller of `encode_report_v01` must first run
+    # `assert_no_unredacted_sensitive(report)` (graph_walk.py — cardinal
+    # #5 layer (b)). The encoder's `default()` raise is the last-line
+    # fallback, NOT the primary defense. The CLI artifact-write path
+    # (`whatif fork`) wires the sequence in Phase 8; the Phase 9
+    # integration test pins it. See cascade-catalog entry
+    # "Artifact-write call-site sequencing for graph walk".
+
     # Lazy import to avoid the encoder/report/cache circular load.
     # Documented at the module top where the TYPE_CHECKING import lives.
     from whatif.report.models_v01 import ReportV01 as _ReportV01
