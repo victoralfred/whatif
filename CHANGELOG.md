@@ -12,6 +12,13 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+### Added — Phase 6.1 (replay-stage result types)
+
+- `src/whatif/replay/result.py` — `ReplaySuccess(trace_id, cohort, output: ReplayOutput)`, `ReplayFailure(trace_id, cohort, code, message, details)`, sealed union `ReplayResult = ReplaySuccess | ReplayFailure`. Frozen + slotted; `ReplayOutput` referenced via TYPE_CHECKING to keep `whatif.replay` import-time-cheap.
+- `ReplayFailure.__post_init__` validates `code` against `FAILURE_CODE_REGISTRY` with `stage="replay"` (cardinal #1: closed-set codes; typos at the call site fail loudly, not at report-assembly time when the trace context is gone). Required-details enforcement is deferred to projection via `make_failure_record` per the registry-knows-best discipline.
+- `tests/unit/whatif/replay/test_result.py` — pins construction, registry validation (all three replay codes accepted; unknown code rejected; non-replay-stage codes rejected with clear stage-mismatch message), frozen behavior, default empty-details, and the sealed-union shape (a future variant addition surfaces for explicit review).
+- Module docstring documents the in-pipeline shape vs `FailureRecord` distinction: `ReplayFailure` is light routing state for the pipeline; projection to the report-level `FailureRecord` happens at aggregation (Phase 2.7 / Phase 9) where stable ids are assigned and required-details validation runs through the registry.
+
 ### Added — Phase 5.5 (JSON Schema generation + byte-stable `v0.1.schema.json`)
 
 - `scripts/generate_schema.py` — derives JSON Schema from `ReportV01` by walking `dataclasses.fields` + `typing.get_type_hints` recursively. Type-to-schema mapping handles `str`/`int`/`float`/`bool`/`None`, `Literal[...]` → `enum`, `Union`/`A | B` → `oneOf`, `list[T]`/`tuple[T, ...]` → array, `Mapping[str, T]`/`dict[str, T]` → object with `additionalProperties`, frozen dataclasses → `$ref` into `$defs`. NewType (`DecimalString`) unwraps to its supertype. Variadic-tuples-only enforced (fixed-length raises). Non-str mapping keys raise (cardinal #6 boundary). CLI: default writes the canonical file; `--stdout` prints (used by drift test).
