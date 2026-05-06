@@ -25,7 +25,6 @@ from whatif.contract import ReplayConfig, ReplayOutput, ToolCache, TraceInput
 from whatif.replay import (
     ReplayFailure,
     ReplayInputBundle,
-    ReplayResult,
     ReplaySuccess,
     replay_stream,
 )
@@ -175,19 +174,74 @@ class TestStreaming:
 
         # Pull just the first result.
         first = next(stream)
-        assert isinstance(first, ReplayResult)  # type: ignore[misc,arg-type]
+        # ReplayResult is a Union[ReplaySuccess, ReplayFailure];
+        # `isinstance` against the Union itself is vacuous in
+        # Python. Assert against the concrete variants instead.
+        assert isinstance(first, (ReplaySuccess, ReplayFailure))
 
-        # Generator should NOT have drained 100 inputs by now.
-        # Conservative bound: max_workers (prime) + a few more
-        # the streaming layer may have advanced through. <100
-        # is the load-bearing assertion.
-        assert pulled < 100, (
+        # Sliding-window invariant: at the moment the first result
+        # is yielded, at most `max_workers` bundles have been
+        # primed plus one slide for the just-completed slot. Tight
+        # bound (`<= max_workers + 1`) so a future change to the
+        # priming logic surfaces immediately rather than hiding
+        # behind a generous `<100` upper bound.
+        max_workers = 3
+        assert pulled <= max_workers + 1, (
             f"streaming layer drained {pulled} bundles before "
-            "yielding the first result — should be lazy"
+            f"yielding the first result; sliding-window bound is "
+            f"max_workers + 1 = {max_workers + 1}"
         )
 
         # Drain the rest so the executor shuts down cleanly.
         list(stream)
+
+    def test_max_workers_one_processes_all_bundles_sequentially(self) -> None:
+        # Regression guard: max_workers=1 is the boundary value of
+        # the >= 1 check. Confirms the priming + sliding-window
+        # logic doesn't accidentally require max_workers >= 2.
+        bundles = [_bundle(f"t-{i}", _echo_runner) for i in range(5)]
+        results = list(replay_stream(bundles, max_workers=1, timeout_seconds=2.0))
+        assert len(results) == 5
+        assert {r.trace_id for r in results} == {f"t-{i}" for i in range(5)}
+
+    def test_timeout_in_one_bundle_does_not_block_others(self) -> None:
+        # A single timing-out bundle in a stream must not block the
+        # rest. Pin: with max_workers=2, a slow runner on bundle 0
+        # still allows the fast bundles to yield. The slow one
+        # eventually surfaces as a runner_timeout failure.
+        def slow_runner(ti: TraceInput, cfg: ReplayConfig, tc: ToolCache) -> ReplayOutput:
+            time.sleep(2.0)  # past the 0.1s timeout below
+            return ReplayOutput(text="never returned")
+
+        bundles = [
+            _bundle("slow-0", slow_runner),
+            _bundle("fast-1", _echo_runner),
+            _bundle("fast-2", _echo_runner),
+            _bundle("fast-3", _echo_runner),
+        ]
+
+        start = time.monotonic()
+        results = {
+            r.trace_id: r for r in replay_stream(bundles, max_workers=2, timeout_seconds=0.1)
+        }
+        elapsed = time.monotonic() - start
+
+        # All four bundles produced a result.
+        assert set(results.keys()) == {"slow-0", "fast-1", "fast-2", "fast-3"}
+        # Three fast bundles are successes; the slow one is a
+        # runner_timeout failure.
+        assert isinstance(results["slow-0"], ReplayFailure)
+        assert results["slow-0"].code == "runner_timeout"
+        for fast_id in ("fast-1", "fast-2", "fast-3"):
+            assert isinstance(results[fast_id], ReplaySuccess)
+        # Stream completes in well under the 2s the slow runner
+        # takes — the timeout doesn't serialize behind the leaked
+        # thread. Allow generous headroom for test-runner overhead.
+        assert elapsed < 1.5, (
+            f"stream blocked for {elapsed:.2f}s — timeout serialized "
+            "behind the leaked runner thread (cascade-catalog "
+            "constraint violated)"
+        )
 
 
 # ---------------------------------------------------------------------------

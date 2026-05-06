@@ -86,6 +86,18 @@ class ReplayInputBundle:
     plus cohort identify the trace within the run; the rest is the
     runner-call surface (`trace_input`, `config`, `tool_cache`,
     `runner`).
+
+    ## Sensitive-data discipline (cardinal #5)
+
+    `trace_input.user_message` (and any `metadata` keys) carry raw
+    user content from the production trace. The ADAPTER (Phase 4)
+    is responsible for wrapping any sensitive fields as
+    `Sensitive[T]` BEFORE constructing the bundle. The bundle
+    itself does not enforce or re-wrap; it relies on the adapter
+    boundary. The pre-serialization graph walk
+    (`assert_no_unredacted_sensitive`, Phase 5.4) is the runtime
+    safety net that catches any unwrapped `Sensitive[T]` reaching
+    the artifact-write path.
     """
 
     trace_id: str
@@ -161,9 +173,10 @@ def _call_kernel(bundle: ReplayInputBundle, timeout_seconds: float) -> ReplayRes
     """Trampoline from the streaming layer's executor into the
     kernel's per-call executor.
 
-    Kept as a free function (not a lambda) so it pickles for
-    debugging and so the closure shape is explicit. The double-
-    executor pattern is documented at module top.
+    Kept as a free function (not a lambda) so the closure shape
+    is explicit and stack traces name `_call_kernel` rather than
+    `<lambda>` for easier debugging. The double-executor pattern
+    is documented at module top.
     """
     return replay_one_trace(
         trace_id=bundle.trace_id,
