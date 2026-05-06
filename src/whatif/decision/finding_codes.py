@@ -90,6 +90,23 @@ _REGISTRY_BUILDER: dict[str, FindingCodeSpec] = {
             "self-describing for the renderer."
         ),
     ),
+    "cache_mode_inferred": FindingCodeSpec(
+        severity="info",
+        message_template=(
+            "scorer cache mode resolved to {resolved_mode} from input {input_mode} "
+            "based on environment signal {env_signal}"
+        ),
+        required_details=("input_mode", "resolved_mode", "env_signal"),
+        derived_from_failures_expectation="never",
+        description=(
+            "User config left the cache mode at `auto` and the resolution "
+            "logic inferred a concrete mode from the environment (e.g., "
+            "CI=true → on). Emitted so CI runs disclose the mode they "
+            "actually used; cardinal #1 (failures-as-data) extends to "
+            "config-resolution decisions — the manifest should never "
+            "imply the user picked a mode they didn't pick."
+        ),
+    ),
     # ----- blocks_ship severity (DontShip) --------------------------------
     "baseline_regression_above_threshold": FindingCodeSpec(
         severity="blocks_ship",
