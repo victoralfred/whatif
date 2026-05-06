@@ -816,6 +816,23 @@ Recommend option 2 (ContextVar) when concurrent or embedded runs become a real u
 
 **Resolution:** Phase 3 (cache + stats layer) wires the width computation; the policy guard lands in the same PR or immediately after. Test: a cohort with `ci_computable=True, ci_meaningful=False` produces `DontShip`, not `Inconclusive`.
 
+### Banned-import lint scope: cache keying canonical JSON
+
+**Source decision:** Phase 3.1 (PR #31) lands `whatif/cache/keying/v1.py` which uses `json.dumps` to canonicalize `CacheKeyComponents` for SHA-256 hashing. `references/enforcement.md` row 2 documents that the banned-import lint will block `json.dumps` outside `whatif/serialization/` to enforce cardinal #5 (no accidental `Sensitive[T]` serialization on artifact paths). The cache keying module is not an artifact path — its `json.dumps` output is a hash input that never leaves the function — but the lint, when implemented, will not know that distinction without explicit guidance.
+
+**Rippled to:**
+
+- Phase 5 introduces the banned-import lint (ruff custom rule or AST grep). The lint's scope MUST handle `whatif/cache/keying/v1.py` in one of two ways:
+  - **Option A (helper):** add `canonical_json_bytes(obj) -> bytes` to `whatif/serialization/` that performs the same canonical encoding, document it as "for hash inputs only — never artifact bytes." Cache keying imports it.
+  - **Option B (allowlist):** lint config explicitly allowlists `whatif/cache/keying/v1.py`. Module docstring already documents why (hash input, no `Sensitive[T]` exposure, output never escapes the function).
+- Either choice should preserve the v1 digest (the test pins it against a known literal); a different canonical encoder would invalidate every existing cache entry.
+
+**Status:** open
+
+**Resolution:** Phase 5 (serialization + lint config) PR makes the choice. Recommend Option A: a single source of truth for canonical JSON encoding in `whatif/serialization/canonical.py` that both cache keying and any future hash-input-canonicalization use. Module docstring on the helper documents the "hash input only — never artifact" boundary. The lint then has a single allowlisted call site (or zero, if the helper is the only `json.dumps` user inside `whatif/`).
+
+**Trigger for resolution:** Phase 5 PR introducing `whatif/serialization/`.
+
 ## Resolved cascades
 
 ### Single Ship-construction site — `whatif/decision/verdict.py` (resolved 2026-05-05)

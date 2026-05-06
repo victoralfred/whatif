@@ -69,11 +69,27 @@ class TestBuildCacheKey:
         assert all(c in "0123456789abcdef" for c in digest)
 
     def test_deterministic_against_known_digest(self) -> None:
-        # Recorded the known-input known-output pair so a future
-        # change that broke determinism (canonical-JSON shape, encoder
-        # choice, hash algorithm) fails with a diff against this
-        # literal. Recompute by running this test once with a print
-        # and then pinning.
+        # Recorded the known-input known-output pair so a future change
+        # that broke determinism (canonical-JSON shape, encoder choice,
+        # hash algorithm) fails with a diff against this literal.
+        #
+        # Recording context:
+        #   - CPython 3.14 (CI matrix runs 3.11/3.12/3.13/3.14)
+        #   - hashlib.sha256 from stdlib (mathematically defined; no
+        #     Python-version dependency)
+        #   - json.dumps with sort_keys=True, separators=(",", ":"),
+        #     ensure_ascii=True (CPython contract stable since 2.6+)
+        #
+        # This digest SHOULD be invariant across all supported Python
+        # versions and platforms. If a future stdlib change shifted
+        # json.dumps output (whitespace, key ordering, ASCII handling)
+        # this test fails with a clear diff pointing at the regression.
+        # If the digest changes intentionally, every existing cache
+        # entry is invalidated — the right response is to bump
+        # CACHE_KEY_VERSION to v2, not update this literal in place.
+        #
+        # Recompute by running this test once with `print(key)` and
+        # then pinning the new digest in a v2 module.
         key = build_cache_key(_SAMPLE)
         assert key == ("v1:96fd8933a0b54f3bd917ecb3bdc709b0348db8b130f61262db697607a277ed90")
 
