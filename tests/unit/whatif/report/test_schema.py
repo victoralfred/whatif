@@ -49,6 +49,21 @@ def schema() -> dict:
     return json.loads(_SCHEMA_FILE.read_bytes())
 
 
+@pytest.fixture(scope="module")
+def encoded_ship_report() -> dict:
+    """Encoded `ReportV01` from the `ship()` fixture, parsed back to
+    dict. Module-scoped so the projection + encode pair runs once
+    across the smoke tests rather than per-test."""
+    report = project_to_report_v01(
+        ship(),
+        failures=[],
+        cache_summary=cache_summary(),
+        methodology=methodology(),
+        runtime=runtime(),
+    )
+    return json.loads(encode_report_v01(report))
+
+
 # ---------------------------------------------------------------------------
 # Drift detection
 # ---------------------------------------------------------------------------
@@ -177,28 +192,16 @@ class TestEncodedFixtureMatchesSchema:
     integration (the dep isn't pulled in for unit tests here).
     """
 
-    def test_encoded_ship_has_all_required_top_level_keys(self, schema: dict) -> None:
-        report = project_to_report_v01(
-            ship(),
-            failures=[],
-            cache_summary=cache_summary(),
-            methodology=methodology(),
-            runtime=runtime(),
-        )
-        encoded = json.loads(encode_report_v01(report))
+    def test_encoded_ship_has_all_required_top_level_keys(
+        self, schema: dict, encoded_ship_report: dict
+    ) -> None:
         for key in schema["required"]:
-            assert key in encoded, f"encoded report missing required key: {key}"
+            assert key in encoded_ship_report, f"encoded report missing required key: {key}"
 
-    def test_encoded_verdict_state_is_in_enum(self, schema: dict) -> None:
+    def test_encoded_verdict_state_is_in_enum(
+        self, schema: dict, encoded_ship_report: dict
+    ) -> None:
         # The wire-format verdict_state literal must be one of the
         # three documented strings (cardinal #2 contract).
-        report = project_to_report_v01(
-            ship(),
-            failures=[],
-            cache_summary=cache_summary(),
-            methodology=methodology(),
-            runtime=runtime(),
-        )
-        encoded = json.loads(encode_report_v01(report))
         verdict_enum = schema["properties"]["verdict_state"]["enum"]
-        assert encoded["verdict_state"] in verdict_enum
+        assert encoded_ship_report["verdict_state"] in verdict_enum

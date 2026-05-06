@@ -178,6 +178,14 @@ def _dataclass_to_schema(cls: type, defs: dict[str, dict[str, Any]]) -> dict[str
         "additionalProperties": False,
     }
     if required:
+        # `required` is sorted alphabetically because JSON Schema treats
+        # it as a SET (order is semantically irrelevant), and a sorted
+        # list is byte-stable across Python versions / dataclass field
+        # reorderings. `properties` is left in dataclass-declaration
+        # order — the top-level `json.dumps(..., sort_keys=True)` in
+        # `render_schema_bytes` re-sorts it alphabetically at emit
+        # time, so the wire bytes stay deterministic regardless of the
+        # in-memory dict order.
         schema["required"] = sorted(required)
     return schema
 

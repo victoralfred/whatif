@@ -139,6 +139,22 @@ Initial registry (catalog from doctrine):
 
 **Resolution:** Phase 8 wires the CLI call site; Phase 9 integration test pins the sequencing.
 
+### Schema-file artifact contract (generated, drift-tested)
+
+**Source decision:** `src/whatif/report/schema/v0.1.schema.json` is a derived artifact mirroring `whatif/report/models_v01.py::ReportV01`. The committed bytes match the output of `scripts/generate_schema.py`; a drift test (`tests/unit/whatif/report/test_schema.py::TestSchemaDrift`) re-runs the generator and asserts byte equality. Cardinal #6 ("public schema hand-written") is satisfied by hand-writing the Python dataclass; the JSON file follows mechanically.
+
+**Rippled to:**
+- `whatif/report/models_v01.py` — every field shape change requires a regenerate. The drift test fails CI otherwise.
+- `whatif/report/projection.py` — projection output must match the generated schema (encoded fixture key-coverage test pins it).
+- Phase 6 replay pipeline — produces `ReplaySuccess`/`ReplayFailure` that flow into `cohort_results` / `failures`; any new field surfaces here as a schema bump.
+- Phase 8 CLI — `whatif report-migrate` stub references the committed schema as the v0.1 baseline; v0.2 migration logic reads the file at the published URI.
+- Phase 9 integration — full `jsonschema`-library validation of golden reports (the unit-level smoke test only checks required-key coverage).
+- Phase 10 release — schema published at `https://whatif.codes/schema/report/v0.1.json`; `$id` in the file already points at this URI.
+
+**Status:** open
+
+**Resolution:** drift test in place from Phase 5.5. Phase 9 adds `jsonschema`-library validation. Phase 10 publishes to the public URI. Schema-version bump (v0.1 → v0.2) requires regenerating into `v0.2.schema.json` plus a `whatif report-migrate` stub.
+
 ### Witness-token pattern for Ship
 
 **Source decision:** `Ship` cannot be constructed without `FloorPassedProof` token; only `evaluate_floor()` produces tokens.
