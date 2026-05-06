@@ -107,7 +107,17 @@ class TestReplayFailureRegistry:
     def test_non_replay_stage_code_rejected(self) -> None:
         # `scorer_unavailable` is registered with stage="score". The
         # replay pipeline must not emit it — that's the scorer's job.
-        with pytest.raises(ValueError, match="stage='score'"):
+        # Decoupled from the literal stage string: the test asserts
+        # the rejection message names the actual registered stage,
+        # so a future stage rename in the registry remains caught
+        # for the right reason. (A bare `match="stage='score'"`
+        # would silently pass if `scorer_unavailable`'s stage were
+        # changed to e.g. "decision" — wrong-reason green test.)
+        from whatif.decision.failure_codes import FAILURE_CODE_REGISTRY
+
+        registered_stage = FAILURE_CODE_REGISTRY["scorer_unavailable"].stage
+        assert registered_stage != "replay"  # premise of this test
+        with pytest.raises(ValueError, match=f"stage={registered_stage!r}"):
             ReplayFailure(
                 trace_id="t-1",
                 cohort="failure",
@@ -117,8 +127,13 @@ class TestReplayFailureRegistry:
             )
 
     def test_decision_stage_code_rejected(self) -> None:
-        # Same defense for decision-stage codes.
-        with pytest.raises(ValueError, match="stage='decision'"):
+        # Same defense for decision-stage codes; same decoupling
+        # rationale as the score-stage test above.
+        from whatif.decision.failure_codes import FAILURE_CODE_REGISTRY
+
+        registered_stage = FAILURE_CODE_REGISTRY["ci_uncomputable_for_required_cohort"].stage
+        assert registered_stage != "replay"
+        with pytest.raises(ValueError, match=f"stage={registered_stage!r}"):
             ReplayFailure(
                 trace_id="t-1",
                 cohort="failure",
