@@ -43,6 +43,24 @@ unrelated process, the recorded `process_start_time` mismatches and
 takeover proceeds. A naive PID-only check would refuse takeover
 because the PID is "alive" — it just isn't the same process.
 
+## TOCTOU note on stale takeover
+
+When `flock` initially refuses, we read the recorded lock-file
+content, decide it's stale, and re-attempt `flock`. Between those
+steps a different process could *also* read the file and *also*
+decide stale — but `flock(LOCK_EX | LOCK_NB)` is atomic, so only one
+of the contenders can hold it at a time. The losing contender gets
+`BlockingIOError` on its re-flock and surfaces `CacheLockedError`
+naming us as the new holder; the winner proceeds to truncate and
+rewrite the lock file. The window during which the on-disk file
+still names the *previous* (stale) holder, while we hold the kernel
+flock and are about to overwrite it, is brief and harmless: any
+operator-visible inspection of `.lock` during that window resolves on
+re-read after our `fsync`. No data is lost; the only observable
+artifact is a momentary mismatch between the kernel-truth (us) and
+the file-truth (previous holder), which is a diagnostic anomaly, not
+a correctness one.
+
 ## What this module does NOT do
 
 - **NFS-safe locking.** `fcntl.flock` semantics on NFS are

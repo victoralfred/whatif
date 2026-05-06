@@ -188,26 +188,13 @@ class TestStaleTakeover:
             actual_create = psutil.Process(os.getpid()).create_time()
             assert abs(lock.content.process_start_time - actual_create) < 1.0
 
-    def test_no_takeover_when_pid_alive_and_matches(self, tmp_path: Path) -> None:
-        # Record a lock against THIS process's actual identity. Even
-        # though the lock file says it's held, fcntl will refuse our
-        # own attempt to acquire from a different fd-context… actually
-        # in this test we only check the stale-detection path, which
-        # would say "not stale" because PID alive + create_time
-        # matches. Set up a held flock first via subprocess to drive
-        # the failure path.
-        cache_root = tmp_path / "cache"
-        ready_file = tmp_path / "child_ready"
-        proc = subprocess.Popen(
-            [sys.executable, "-c", _HOLD_LOCK_SCRIPT, str(cache_root), str(ready_file), "5"],
-        )
-        try:
-            _wait_for_ready(ready_file)
-            with pytest.raises(CacheLockedError), acquire_cache_lock(cache_root):
-                pass  # pragma: no cover
-        finally:
-            proc.terminate()
-            proc.wait(timeout=10)
+    # Removed: test_no_takeover_when_pid_alive_and_matches.
+    # The original test launched a subprocess holder and asserted the
+    # parent gets CacheLockedError — but that's exactly what
+    # TestSingleWriter::test_two_real_processes_cannot_both_acquire
+    # already covers. The new TestShouldTakeover::test_alive_and_matching_not_stale_by_default
+    # is the proper isolated test of the "alive + matching → not stale"
+    # decision branch. Keeping both was redundant.
 
 
 # ---------------------------------------------------------------------------
