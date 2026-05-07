@@ -287,6 +287,28 @@ class TestVerify:
         assert good not in result.corrupted
         assert len(result.corrupted) == 1
 
+    def test_non_file_in_bucket_counted(self, tmp_path: Path) -> None:
+        # verify mirrors rebuild's non_file_skipped_in_bucket so
+        # the two operations describe the same shape of anomalies.
+        # Without this, a stray subdirectory inside a bucket would
+        # be silently ignored by verify while rebuild reports it.
+        entries = tmp_path / "entries"
+        bucket = entries / "aa"
+        bucket.mkdir(parents=True)
+        # One real entry file
+        entry = bucket / ("aa" + "a" * 62 + "-x.json")
+        entry.write_text(
+            json.dumps({"key": "v1:x", "value": {}, "metadata": {}}),
+            encoding="utf-8",
+        )
+        # Plus an unexpected nested subdirectory
+        (bucket / "unexpected_subdir").mkdir()
+
+        result = verify(tmp_path)
+        assert result.total == 1
+        assert result.valid == 1
+        assert result.non_file_skipped_in_bucket == 1
+
     def test_missing_required_field_flagged(self, tmp_path: Path) -> None:
         # Parses as valid JSON but lacks the `value` field — verify
         # treats this as corrupted because it can't be reconstructed

@@ -127,6 +127,12 @@ class VerifyResult:
     this counter, verify would silently ignore them while rebuild
     reports them — closing that operational gap so the two
     operations describe the same anomalies.
+
+    `non_file_skipped_in_bucket` mirrors
+    `RebuildResult.non_file_skipped_in_bucket`: counts non-file
+    children INSIDE bucket directories (e.g., nested subdirs
+    that shouldn't exist with the v0.1 storage layout). Same
+    gap-closing rationale as `non_bucket_skipped`.
     """
 
     total: int
@@ -134,6 +140,7 @@ class VerifyResult:
     corrupted: tuple[Path, ...]
     vacuous: bool = False
     non_bucket_skipped: int = 0
+    non_file_skipped_in_bucket: int = 0
 
 
 def rebuild(cache_root: Path, *, force: bool) -> RebuildResult:
@@ -280,6 +287,7 @@ def verify(cache_root: Path) -> VerifyResult:
     valid = 0
     corrupted: list[Path] = []
     non_bucket_skipped = 0
+    non_file_skipped_in_bucket = 0
     for bucket in entries_dir.iterdir():
         if not bucket.is_dir():
             # Stray file directly under entries/ — same anomaly
@@ -290,6 +298,12 @@ def verify(cache_root: Path) -> VerifyResult:
             continue
         for entry_file in bucket.iterdir():
             if not entry_file.is_file():
+                # Non-file inside a bucket (e.g., nested subdir).
+                # Same rationale as rebuild's
+                # non_file_skipped_in_bucket: surface the count
+                # so verify and rebuild describe the same shape
+                # of unexpected state.
+                non_file_skipped_in_bucket += 1
                 continue
             total += 1
             if _is_valid_entry(entry_file):
@@ -301,6 +315,7 @@ def verify(cache_root: Path) -> VerifyResult:
         valid=valid,
         corrupted=tuple(corrupted),
         non_bucket_skipped=non_bucket_skipped,
+        non_file_skipped_in_bucket=non_file_skipped_in_bucket,
     )
 
 
