@@ -12,6 +12,14 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+### Added — Phase 6.3c (async runner kernel)
+
+- `whatif.contract.AsyncRunner` Protocol — `__call__(...) -> Awaitable[ReplayOutput]`. Runtime-checkable; sibling to the existing `Runner` (sync) protocol. Sync and async runners are NOT interchangeable; the user picks one and uses the matching kernel/stream entry point.
+- `src/whatif/replay/kernel_async.py::replay_one_trace_async(*, ...) -> ReplayResult` — async per-trace kernel. Same three failure classifications as the sync kernel (cache_miss / runner_timeout / runner_exception), different concurrency primitive: a coroutine awaited under `asyncio.wait_for(timeout=...)`. Re-exported from `whatif.replay` as `replay_one_trace_async`.
+- **No leaked-thread workaround:** unlike the sync path, async cancellation IS portable. `wait_for` schedules a `CancelledError` into the running task on expiry; the runner's `try/finally` and async-context-manager cleanup runs at the next `await`. Pinned by `test_cancellation_runs_runner_cleanup` (asserts the runner's `finally` ran after timeout fires).
+- **External-cancellation discipline:** when the caller cancels the kernel's own task from outside the timeout, `CancelledError` propagates as-is — NOT swept into `runner_exception`. Cardinal #1 covers expected failures; `CancelledError` inherits `BaseException` (Python 3.8+) for exactly this signal-propagation purpose. `test_external_cancellation_propagates` pins this.
+- `tests/unit/whatif/replay/test_kernel_async.py` — 7 async tests mirroring the sync kernel suite (success / cache miss via lookup / direct CacheMissError / timeout-with-cleanup / runner exception / external cancellation propagates).
+
 ### Added — Phase 6.3b (streaming pipeline `replay_stream`)
 
 - `src/whatif/replay/pipeline.py::replay_stream(bundles, *, max_workers=4, timeout_seconds=60.0) -> Iterator[ReplayResult]` — bounded-concurrency wrapper over `replay_one_trace`. Sliding-window submit pattern: prime `max_workers` initial bundles, yield each completion, submit one more. Bounded memory (O(max_workers)), lazy input consumption (large iterables don't materialize), streaming yield (results emitted as they complete; completion order, NOT input order — the report aggregator sorts by trace_id at assembly).

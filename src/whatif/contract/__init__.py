@@ -30,6 +30,7 @@ Then on the command line:
 
 from __future__ import annotations
 
+from collections.abc import Awaitable
 from typing import Any, Literal, Protocol, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -216,7 +217,7 @@ class ScoreCase(BaseModel):
 
 @runtime_checkable
 class Runner(Protocol):
-    """The shape `whatif` expects when invoking your - target`.
+    """The shape `whatif` expects when invoking your - target` (sync).
 
     Implement a function (or callable) matching this signature, then point
      - target` at it via the `python:module.path:attr` syntax:
@@ -232,7 +233,34 @@ class Runner(Protocol):
     ) -> ReplayOutput: ...
 
 
+@runtime_checkable
+class AsyncRunner(Protocol):
+    """Async variant of `Runner`. Implement when your agent is built
+    on `httpx.AsyncClient`, `asyncio` primitives, or otherwise wants
+    to express I/O-bound replay as native coroutines.
+
+    The whatif async kernel (`whatif.replay.kernel_async.
+    replay_one_trace_async`) consumes this protocol with portable
+    cancellation: `asyncio.wait_for(timeout=...)` cancels the Task
+    on expiry — no leaked-thread workaround needed (unlike the sync
+    path).
+
+    Sync and async runners are NOT interchangeable; the sync kernel
+    runs sync runners in a thread pool, the async kernel awaits
+    coroutines directly. The user picks one and uses the matching
+    kernel/stream entry point.
+    """
+
+    def __call__(
+        self,
+        trace_input: TraceInput,
+        config: ReplayConfig,
+        tool_cache: ToolCache,
+    ) -> Awaitable[ReplayOutput]: ...
+
+
 __all__ = [
+    "AsyncRunner",
     "ReplayConfig",
     "ReplayOutput",
     "Runner",
