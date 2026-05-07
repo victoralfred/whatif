@@ -51,6 +51,7 @@ from whatif.render import (
     render_full_report,
     render_summary,
 )
+from whatif.render._constants import VERDICT_LABEL
 
 from ._walkthrough_fixtures import SCENARIOS
 
@@ -95,7 +96,6 @@ class TestAllFormatsRender:
     def test_ci_status_renders(self, scenario) -> None:
         line = render_ci_status(scenario["report"])
         assert isinstance(line, str)
-        assert len(line) <= 80
 
     def test_summary_renders(self, scenario) -> None:
         out = render_summary(scenario["report"])
@@ -109,21 +109,37 @@ class TestAllFormatsRender:
 
 
 # ---------------------------------------------------------------------------
-# Three-format consistency: verdict label appears in all three
+# CI-status-specific format contract
 # ---------------------------------------------------------------------------
 
 
-_VERDICT_LABEL = {
-    "ship": "Ship",
-    "dont_ship": "Don't Ship",
-    "inconclusive": "Inconclusive",
-}
+class TestCIStatusFormat:
+    """CI-status-specific format properties.
+
+    Separated from TestAllFormatsRender because the 80-char ceiling
+    is a CI-status format contract, not a property shared with
+    summary or full report. Future CI-status format pins (e.g.,
+    ASCII-only or no embedded newlines) belong here.
+    """
+
+    def test_ci_status_within_80_char_budget(self, scenario) -> None:
+        line = render_ci_status(scenario["report"])
+        assert len(line) <= 80, f"CI status line {len(line)} chars: {line!r}"
+
+
+# ---------------------------------------------------------------------------
+# Three-format consistency: verdict label appears in all three
+# ---------------------------------------------------------------------------
 
 
 class TestThreeFormatConsistency:
     def test_verdict_label_appears_in_all_formats(self, scenario) -> None:
         report = scenario["report"]
-        label = _VERDICT_LABEL[report.verdict_state]
+        # Source of truth for the verdict label is in
+        # `whatif.render._constants.VERDICT_LABEL`. Importing it
+        # here avoids drift if a future label change updates the
+        # render module without touching test expectations.
+        label = VERDICT_LABEL[report.verdict_state]
         ci = render_ci_status(report)
         summary = render_summary(report)
         full = render_full_report(report)

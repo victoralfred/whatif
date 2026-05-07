@@ -68,6 +68,9 @@ from whatif.render._constants import (
 from whatif.render._constants import (
     SEVERITY_RANK as _SEVERITY_RANK,
 )
+from whatif.render._constants import (
+    VERDICT_LABEL as _LABEL,
+)
 
 if TYPE_CHECKING:
     from whatif.report.models_v01 import ReportV01
@@ -85,15 +88,10 @@ _GLYPH = {
     "inconclusive": "⚠",
 }
 
-_LABEL = {
-    "ship": "Ship",
-    "dont_ship": "Don't Ship",
-    "inconclusive": "Inconclusive",
-}
-
-# Cohort-name and severity-rank constants are imported from
-# `whatif.render._constants` (single source of truth across all
-# Phase 7 renderers).
+# Glyph, label, cohort-name, and severity-rank constants are
+# imported from `whatif.render._constants` (single source of truth
+# across all Phase 7 renderers). `_LABEL` is the alias bound at
+# the import block above.
 
 
 def render_ci_status(report: ReportV01) -> str:

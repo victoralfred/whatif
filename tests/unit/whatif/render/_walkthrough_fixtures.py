@@ -371,7 +371,17 @@ def scenario_4_inconclusive_insufficient_sample():
 
 
 def scenario_5_inconclusive_cache_corruption():
-    """Inconclusive: scorer cache locked by stale process."""
+    """Inconclusive: scorer cache locked by stale process.
+
+    NOTE: this Inconclusive is FINDING-DRIVEN, not floor-driven.
+    `cache_lock_unavailable` is a `blocks_all` finding (registered
+    in FINDING_CODE_REGISTRY); it makes the verdict Inconclusive
+    even though `floor_failures=[]` because no cohorts were
+    evaluated (scoring stage couldn't run). This is NOT a cardinal-
+    rule-#2 bypass — the floor wasn't bypassed; it was never
+    reached. `Inconclusive.blocking_findings` is the load-bearing
+    field here, not `floor_failures`.
+    """
     from whatif.report.projection import project_to_report_v01
     from whatif.types.verdict import Inconclusive
 
@@ -414,9 +424,17 @@ def scenario_6_rerun_after_fix() -> ReportV01:
     Structurally similar to scenario 1 (clean Ship), but represents
     the recovery path from a previous Inconclusive run. Distinguished
     via the runtime's `experiment_id` so tests that assert on the
-    walkthrough identity (vs scenario 1) have a discriminator. If
-    scenario 6's walkthrough later diverges in stats, this builder
-    is the place to override.
+    walkthrough identity (vs scenario 1) have a discriminator.
+
+    RISK: this builder DELEGATES to scenario_1_clean_ship() and
+    only overrides experiment_id. If scenario 6's walkthrough
+    later diverges from scenario 1 in stats (e.g., post-fix
+    numbers don't match the original clean-Ship counts), the
+    delegation will silently produce stale data — the test would
+    pass against scenario 1's stats, not scenario 6's. Future
+    divergence MUST be expressed by replacing the delegation with
+    explicit per-field overrides (or a fresh builder) so the
+    drift surfaces.
     """
     import dataclasses
 

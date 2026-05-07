@@ -74,19 +74,15 @@ from whatif.render._constants import (
 from whatif.render._constants import (
     SEVERITY_RANK as _SEVERITY_RANK,
 )
+from whatif.render._constants import (
+    VERDICT_LABEL as _VERDICT_LABEL,
+)
 
 if TYPE_CHECKING:
     from whatif.report.models_v01 import ReportV01
     from whatif.types.cohort import CohortResult, FloorFailure
     from whatif.types.finding import DecisionFinding
     from whatif.types.statistical import MethodologyDisclosure
-
-
-_VERDICT_LABEL = {
-    "ship": "Ship",
-    "dont_ship": "Don't Ship",
-    "inconclusive": "Inconclusive",
-}
 
 
 def render_full_report(report: ReportV01) -> str:

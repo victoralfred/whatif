@@ -42,5 +42,20 @@ SEVERITY_RANK: dict[Severity, int] = {
     "info": 1,
 }
 
+# Human-readable verdict labels keyed by the wire `verdict_state`
+# Literal. Single source of truth across the three renderers
+# (ci_status, summary, markdown) so a future label change happens
+# in one place.
+VERDICT_LABEL: dict[str, str] = {
+    "ship": "Ship",
+    "dont_ship": "Don't Ship",
+    "inconclusive": "Inconclusive",
+}
 
-__all__ = ["COHORT_BASELINE", "COHORT_FAILURE", "SEVERITY_RANK"]
+
+__all__ = [
+    "COHORT_BASELINE",
+    "COHORT_FAILURE",
+    "SEVERITY_RANK",
+    "VERDICT_LABEL",
+]
