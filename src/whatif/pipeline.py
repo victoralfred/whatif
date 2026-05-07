@@ -148,6 +148,18 @@ def _bucket_by_cohort(
                     message=f"delta_fn raised: {exc}",
                     trace_id=rt.trace_id,
                     details={
+                        # TODO(Phase 4B): replace the hardcoded
+                        # "stub" with a real provider identifier
+                        # sourced from the scorer adapter's
+                        # `adapter_metadata().adapter_id`. Forensic
+                        # reports under the real adapter MUST
+                        # attribute scorer failures to the actual
+                        # provider (e.g., "inspect_ai", "anthropic")
+                        # so the audit trail is accurate. The 9A.1
+                        # shortcut hardcodes "stub" because the
+                        # pipeline doesn't yet receive the scorer
+                        # in this scope; that wires in 9A.2+ /
+                        # Phase 4B.
                         "provider": "stub",
                         "reason": str(exc),
                         "exc_type": type(exc).__name__,

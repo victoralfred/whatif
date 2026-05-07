@@ -60,6 +60,15 @@ from ._fixtures import (
 # allowed (extension-point per cardinal #6) but kept minimal here.
 # Adding a new code to `FAILURE_CODE_REGISTRY` MUST add a row here
 # or `test_every_registered_code_is_covered` fails loudly.
+# Some entries below carry the registry's MINIMUM viable details
+# (e.g., a single key for `trace_schema_mismatch` and `trace_invalid`).
+# `make_failure_record` enforces `required_details` ⊆ supplied keys;
+# if the registry expands `required_details` for any code, the
+# `test_make_failure_record_succeeds_for_every_code` parametrization
+# raises `ValueError` for the affected code with a clear missing-keys
+# message. That's the canonical drift surface — not the entry
+# minimality. Adding more keys here pre-emptively isn't load-bearing;
+# tracking the registry's contract IS.
 _DETAILS_FOR_CODE: Mapping[str, Mapping[str, JsonPrimitive]] = {
     "trace_schema_mismatch": {"missing_field": "user_message"},
     "trace_invalid": {"reason": "empty user_message"},

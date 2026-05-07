@@ -100,6 +100,15 @@ class TestPipelineFailurePaths:
         # Trace-scope FailureRecords carry trace_id and have
         # cohort=None (per make_failure_record's scope rules);
         # the cohort is implicit from the trace.
+        #
+        # Audit (Phase 9A.4 review): no production code in
+        # src/whatif/ reads `FailureRecord.cohort` for routing — the
+        # field is informational only. Cohort-routed handling
+        # happens via `ReportV01.cohort_results[*].floor_failures`,
+        # which is a different field on a different type. So
+        # dropping the per-trace cohort assertion here is safe; the
+        # cohort signal for trace-scope failures lives on the
+        # adjacent CohortResult, not on the FailureRecord itself.
         assert any(
             f.code == "scorer_unavailable" and f.trace_id == "f-00" and f.scope == "trace"
             for f in report.failures
