@@ -45,6 +45,7 @@ from __future__ import annotations
 
 import pytest
 
+from whatif.decision.fix_suggestions import FIX_SUGGESTION_REGISTRY
 from whatif.render import (
     render_ci_status,
     render_full_report,
@@ -194,8 +195,6 @@ class TestScenarioStructure:
         # The cache_lock_unavailable fix-suggestion template is
         # registered; verify its summary line appears in the
         # rendered full report.
-        from whatif.decision.fix_suggestions import FIX_SUGGESTION_REGISTRY
-
         template = FIX_SUGGESTION_REGISTRY["cache_lock_unavailable"]
         assert f"### {template.summary}" in full
 
