@@ -12,6 +12,14 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+### Added — Phase 9A.4 (failure injection across `FAILURE_CODE_REGISTRY`); Phase 9A complete
+
+- `tests/integration/test_failure_injection.py` — registry-coverage failure injection. For every code in `FAILURE_CODE_REGISTRY`: `make_failure_record` constructs cleanly with realistic required details; the resulting `FailureRecord` carries the spec's stage/scope/retryable defaults; the record round-trips through `project_to_report_v01` into `ReportV01.failures` with all fields intact. An exhaustiveness pin (`test_every_registered_code_is_covered`) fails if a future code is added to the registry without a corresponding entry in the test's coverage map.
+- `src/whatif/pipeline.py` — the existing `delta_fn`-exception path now routes through `make_failure_record("scorer_unavailable", ...)` instead of constructing a `FailureRecord` with the literal code `"delta_fn_raised"`. The registry is now the single source of truth: code, stage, and scope are validated; required details (`provider`, `reason`) are enforced at construction; `exc_type` remains as an extension key (cardinal #6 extra-keys allowance). Existing flaky-scorer integration test updated for the new code.
+- **Scope and what 9A.4 does NOT do:** this is a **construction + projection** coverage test, not a behavioral simulation. Adapter-specific failure-mode coverage (the actual paths that produce `trace_schema_mismatch`, `runner_timeout`, `scorer_unavailable`, etc. in production) lives in adapter-package tests at Phase 4B and in `tests/unit/whatif/cache/test_recovery.py` for cache-corruption paths. 9A.4 owns the **registry contract**: every documented code constructs cleanly and round-trips through the report shape.
+- **Phase 9A complete.** All four sub-phases landed: 9A.1 pipeline + Ship; 9A.2 Don't Ship + Inconclusive; 9A.3 determinism byte-equality; 9A.4 failure-code coverage. Phase 4B (real adapters) and Phase 9B (real-adapter smoke) remain for v0.1 release.
+- 1002 unit + integration tests; mypy --strict clean.
+
 ### Added — Phase 9A.3 (determinism byte-equality)
 
 - `src/whatif/serialization/determinism.py` — schema-driven deterministic-subset extractor. `extract_deterministic_subset(report_dict)` projects a serialized `ReportV01` down to the top-level fields tagged `x-deterministic: true` in `v0.1.schema.json`. Schema-driven (not hardcoded) so a future schema change automatically updates the extractor. v0.1 deterministic fields: schema_version, schema_uri, verdict_state, cohort_results, failures, decision_findings, cache_summary, trust_floor, decision_policy, methodology. Excluded: `runtime` (timestamps, env fingerprint, sensitive-unwrap audit log).
