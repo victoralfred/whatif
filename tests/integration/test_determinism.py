@@ -27,6 +27,7 @@ field.
 from __future__ import annotations
 
 import json
+from importlib.resources import files
 
 import pytest
 
@@ -59,6 +60,12 @@ def _run_and_extract_subset(fx: IntegrationFixture) -> dict[str, object]:
         methodology=fx.methodology,
         cache_summary=fx.cache_summary,
     )
+    # `encode_report_v01` returns `bytes` (utf-8 ASCII per the
+    # canonical encoder contract); `json.loads` accepts both bytes
+    # and str natively, so a future refactor that flips the return
+    # type to str would still work here. The comment is the
+    # resilient signal for a reader who doesn't want to chase the
+    # encoder's contract from this seam.
     serialized = json.loads(encode_report_v01(report))
     return extract_deterministic_subset(serialized)
 
@@ -102,6 +109,25 @@ def test_runtime_field_excluded_from_subset() -> None:
     # doesn't silently sweep `runtime` into the byte-equality check.
     subset = _run_and_extract_subset(scenario_clean_ship())
     assert "runtime" not in subset
+
+
+def test_runtime_explicitly_tagged_false_in_schema() -> None:
+    # Stronger pin than the exclusion test above: the schema MUST
+    # carry `x-deterministic: false` on `runtime`, not just omit
+    # the annotation. A schema edit that drops the annotation
+    # entirely would silently start letting `runtime` through any
+    # consumer that defaults to "include unless tagged true",
+    # which is a different (and dangerous) default than the
+    # extractor's "include only if tagged true". Catching the
+    # negation here keeps the schema's explicit-opt-in contract
+    # intact (cardinal #4: determinism is opt-in per field).
+    schema_resource = files("whatif.report.schema").joinpath("v0.1.schema.json")
+    schema = json.loads(schema_resource.read_text(encoding="utf-8"))
+    runtime_property = schema["properties"]["runtime"]
+    assert runtime_property.get("x-deterministic") is False, (
+        "runtime field must carry `x-deterministic: false` explicitly. "
+        f"Got: {runtime_property.get('x-deterministic')!r}"
+    )
 
 
 def test_unknown_key_emits_drift_warning() -> None:
