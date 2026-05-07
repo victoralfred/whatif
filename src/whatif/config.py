@@ -62,6 +62,7 @@ way.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Literal
 
@@ -337,8 +338,17 @@ _HINTS: dict[tuple[str, str], str] = {
     ("decision.max_baseline_regression_ratio", "less_than_equal"): (
         "decision.max_baseline_regression_ratio must be a fraction in [0, 1]."
     ),
+    ("decision.max_baseline_regression_ratio", "greater_than_equal"): (
+        "decision.max_baseline_regression_ratio must be a fraction in [0, 1]."
+    ),
     ("decision.min_failure_improvement_ratio", "less_than_equal"): (
         "decision.min_failure_improvement_ratio must be a fraction in [0, 1]."
+    ),
+    ("decision.min_failure_improvement_ratio", "greater_than_equal"): (
+        "decision.min_failure_improvement_ratio must be a fraction in [0, 1]."
+    ),
+    ("decision.max_ci_width", "greater_than_equal"): (
+        "decision.max_ci_width must be >= 0 (or omit to disable the check)."
     ),
     ("decision.practical_delta_epsilon", "greater_than_equal"): (
         "decision.practical_delta_epsilon must be >= 0."
@@ -415,8 +425,6 @@ def load_config(path: Path) -> WhatifConfig:
     parser is selected by extension. Other extensions raise
     `ConfigFileError` rather than guessing.
     """
-    import json
-
     if not path.exists():
         raise ConfigFileError(f"config file not found: {path}")
     try:

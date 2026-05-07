@@ -15,6 +15,10 @@ Pin properties:
 
 from __future__ import annotations
 
+import json
+import os
+import sys
+
 import pytest
 from pydantic import ValidationError
 
@@ -338,12 +342,34 @@ class TestLoadConfig:
         assert cfg.source.adapter == "langfuse"
 
     def test_load_json_file(self, tmp_path) -> None:
-        import json as _json
-
         p = tmp_path / "whatif.json"
-        p.write_text(_json.dumps(_minimal_config_dict()), encoding="utf-8")
+        p.write_text(json.dumps(_minimal_config_dict()), encoding="utf-8")
         cfg = load_config(p)
         assert cfg.source.adapter == "langfuse"
+
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="POSIX permission semantics; Windows file ACLs differ",
+    )
+    @pytest.mark.skipif(
+        os.geteuid() == 0 if hasattr(os, "geteuid") else False,
+        reason="root bypasses chmod 0o000; can't simulate permission denied",
+    )
+    def test_permission_denied_raises_config_file_error(self, tmp_path) -> None:
+        # Pin the OSError -> ConfigFileError branch in load_config.
+        # chmod 000 makes the file unreadable; load_config wraps the
+        # PermissionError raised by Path.read_text into a typed
+        # ConfigFileError naming the path.
+        p = tmp_path / "unreadable.yaml"
+        p.write_text("source:\n  adapter: langfuse\n", encoding="utf-8")
+        os.chmod(p, 0o000)
+        try:
+            with pytest.raises(ConfigFileError, match="cannot read config"):
+                load_config(p)
+        finally:
+            # Restore permissions so pytest's tmp_path cleanup
+            # doesn't fail trying to remove the file.
+            os.chmod(p, 0o644)
 
     def test_missing_file_raises_config_file_error(self, tmp_path) -> None:
         with pytest.raises(ConfigFileError, match="not found"):
