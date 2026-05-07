@@ -44,14 +44,23 @@ from typing import Any, TypedDict
 # fields, etc. The extractor uses `.get("x-deterministic")` so
 # absence is safe; the typed shape exists so callers don't see
 # `dict[str, Any]` bleed across the internal/boundary line.
+# Self-recursive: a schema property's `items` is itself a property
+# (the element schema for an array), and `properties` maps names to
+# nested property definitions. Forward-referencing via the string
+# `"SchemaProperty"` closes the loop. `additionalProperties` accepts
+# either a bool (true/false) or another SchemaProperty per JSON
+# Schema. The recursive shape eliminates the `dict[str, Any]` surface
+# the prior version carried; only the JSON-loaded value type from
+# `json.loads` (which is fundamentally `Any`) remains, and that's
+# bounded to the `_schema_properties` cast.
 SchemaProperty = TypedDict(
     "SchemaProperty",
     {
         "type": str,
         "$ref": str,
-        "items": dict[str, Any],
-        "properties": dict[str, dict[str, Any]],
-        "additionalProperties": bool | dict[str, Any],
+        "items": "SchemaProperty",
+        "properties": dict[str, "SchemaProperty"],
+        "additionalProperties": "bool | SchemaProperty",
         "description": str,
         "x-deterministic": bool,
     },

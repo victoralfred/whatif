@@ -58,7 +58,7 @@ Format per entry:
 
 **Status:** open (extractor shipped; CI diff gate is downstream work).
 
-**Resolution:** closes when a Phase 9B / Phase 10 CI workflow consumes `extract_deterministic_subset` for cross-run determinism diffs OR when the consumer surface stabilizes and we explicitly mark the determinism contract complete for v0.1.
+**Owner / tracking:** the CI diff gate is the natural fit for the **Phase 10 release-prep CI hardening PR** (`.github/workflows/release.yml` or a new `determinism-diff.yml`). When that PR opens it MUST link this entry. If Phase 9B (real-adapter smoke) needs an earlier checkpoint, it can claim the work first by linking here from the 9B PR description; whichever PR consumes the extractor first owns the resolution. Until one of those PRs claims it, no GitHub issue exists — when one does, replace this paragraph with the issue number.
 
 ### Phase 9A walkthrough scenario coverage (4 of 6 in 9A.1+9A.2)
 

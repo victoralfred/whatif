@@ -145,8 +145,18 @@ def test_deterministic_field_set_matches_schema() -> None:
     # Explicit drift message so a schema change surfaces actionable
     # information instead of a raw set-equality failure.
     assert actual == expected, (
-        f"Deterministic-field-set drift: added={sorted(added)!r}, "
-        f"removed={sorted(removed)!r}. Update the `expected` literal AND the "
-        f"`test_deterministic_subset_byte_equal_across_runs` parametrization "
-        f"so the new field is covered by byte-equality."
+        f"Deterministic-field-set drift detected.\n"
+        f"  added (in schema, missing here): {sorted(added)!r}\n"
+        f"  removed (here, missing in schema): {sorted(removed)!r}\n"
+        f"\n"
+        f"To fix:\n"
+        f"  1. Update the `expected` literal in this test to match "
+        f"the schema's current x-deterministic:true set.\n"
+        f"  2. If a NEW field was added: extend "
+        f"`test_deterministic_subset_byte_equal_across_runs` with at "
+        f"least one fixture that exercises non-trivial values for "
+        f"the field, so byte-equality actually covers it.\n"
+        f"  3. If a field was REMOVED: confirm the removal is "
+        f"intentional (a cardinal #4 retraction) and update the "
+        f"cascade-catalog 'Deterministic-subset extractor' entry."
     )
