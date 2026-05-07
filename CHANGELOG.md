@@ -12,6 +12,16 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+### Added — Phase 8.2 (CLI shell: typer entry, exit codes, two-affirmation wiring)
+
+- `src/whatif/cli.py::app` — typer-based command surface. `whatif fork [--config PATH] [--profile {default|review|minimal|forensic}]` is the main entrypoint; `cache rebuild|unlock|verify`, `diff`, and `report-migrate` ship as Phase 8.3 / 8.4 / 8.5 stubs (each exits 2 with a clear "not yet implemented" message naming the phase).
+- **Exit code precedence:** 0 = Ship, 1 = Don't Ship, 2 = Inconclusive / setup failure / floor violation. Floor violations always produce exit 2 regardless of policy (cardinal #2). Setup failures (missing config, validation errors, missing forensic affirmation) also exit 2 because they prevent producing a verdict at all.
+- **Cardinal #7 wiring:** `whatif fork` calls `assert_two_affirmation(cfg, cli_profile=<--profile>)` IMMEDIATELY after `load_config` returns and BEFORE any forensic-path code runs. The returned `TwoAffirmationProof` is held locally as the downstream-pipeline contract surface (Phase 4 adapter / Phase 9 integration consumes it). `TODO(cardinal #7)` comment at the call site so a future refactor sees the marker. Cascade-catalog entry "CLI must enforce two-affirmation before forensic-path code" tracks the cross-phase commitment.
+- **Config-load failure surface:** `ConfigFileError` (file not found / parse error) prints `whatif: config error: <message>`; `ValidationError` prints `format_validation_errors(exc)` output with `Hint:` lines for registered codes; `ForensicAffirmationError` prints `whatif: <message>`. All three exit 2.
+- **Phase 4 stub:** the downstream pipeline (replay → score → decision → render) requires Phase 4 adapter integration. v0.1 8.2 ships the CLI SHELL — argument parsing, config load, two-affirmation, exit-code dispatch. The fork pipeline currently exits 2 with a clear setup-failure message naming the missing wiring; this is intentional, NOT a runtime crash. Phase 4 / Phase 9 wires the real path.
+- 14 tests pin: help command loads + exits 0; fork with missing/invalid/unknown-section configs all exit 2 with the appropriate diagnostic surface; two-affirmation cross-surface (CLI-only-forensic / config-only-forensic / both-forensic) all behave correctly; default-profile flow reaches the Phase 4 stub; all five subcommand stubs exit appropriately for their semantics.
+- **`report-migrate` exits 0 (EXIT_SUCCESS) deliberately**, not 2. v0.1 has no schema bumps to migrate from; the no-op IS a success, not a setup failure. Conflating "intentional no-op" with "setup failure" in the exit-code contract would mislead operators wiring this into automated pipelines. The other four stubs (`fork` Phase-4 stub, `cache rebuild|unlock|verify`, `diff`) exit 2 because their absence IS a setup blocker until the corresponding phase lands.
+
 ### Added — Phase 8.1 (config schema + hint generation + two-affirmation)
 
 - `src/whatif/config.py::WhatifConfig` — Pydantic v2 strict (`extra="forbid"`) at every nesting level. Sections: `source`, `target`, `selection` (per-cohort `failure_cohort` / `baseline_cohort` limits), `change`, `scorer`, `decision`, `reporting`, `timeouts`. A typo at any level raises `ValidationError` rather than silently absorbing.
