@@ -12,6 +12,14 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+### Added — Phase 4A.2 (adapter conformance harness)
+
+- `tests/adapters/conformance.py` — parameterized base classes (`TraceSourceConformance`, `ScorerConformance`, `StructuralFailureScorerConformance`) that any concrete adapter subclasses to inherit a battery of conformance tests. Single source of truth for "what makes an adapter valid"; runs against the synthetic stub at Phase 4A.3 and against `whatif-langfuse` / `whatif-inspect-ai` at Phase 4B. Base classes carry `__test__ = False` so pytest does not collect them with the unimplemented fixture; concrete subclasses set `__test__ = True`.
+- Conformance properties pinned: `isinstance` protocol check, `adapter_metadata()` shape (non-empty id + version), `cluster_key_support()` shape (returns `ClusterKeySupport`), `iter_traces()` is a generator/iterator (Phase 4 forbids list returns — bounded-memory contract), every emitted `RawTrace` wraps `user_message` and `original_response` as `Sensitive[str]` (cardinal #5 re-asserted at the harness boundary so a regression bypassing Pydantic construction fails loudly), `Scorer.score()` returns `JudgeResult` with `Sensitive[str]` rationale and `score: float | None`, `cache_key_components()` returns a valid `CacheKeyComponents` (its `__post_init__` enforces hex-digest invariants — raw text fails construction). Optional `StructuralFailureScorerConformance` exercises the cardinal-#1 `score=None` path explicitly for adapters whose backend can be configured to emit structural failures.
+- `tests/adapters/test_conformance_self_test.py` — proves the harness machinery is correct using **minimum-viable in-file fakes** (NOT the Phase 4A.3 stub). Three concrete subclasses (`TestHarnessTraceSource`, `TestHarnessScorer`, `TestHarnessFailingScorer`) plug the fakes in and run every inherited conformance test. A fourth class pins that the harness REJECTS bad adapters (a list-returning `iter_traces` triggers `AssertionError` from the harness method) so the assertions stay load-bearing instead of vacuous.
+- The `make_score_case()` helper at module level is the canonical realistic input for `Scorer.score` / `cache_key_components`; adapter-specific subclasses can extend with additional cases without re-deriving the shape.
+- Phase 4A.2 closes the cascade-catalog conformance-harness checklist for the harness side; the remaining checklist items (running the harness against the stub) close at Phase 4A.3.
+
 ### Added — Phase 4A.1 (adapter protocols + result types)
 
 - `src/whatif/adapters/__init__.py` + `protocols.py` — first slice of Phase 4A. Defines the adapter-side surface separate from the user-runner contract:

@@ -54,7 +54,7 @@ class _GoodTraceSource:
         return AdapterMetadata(adapter_id="test", package_version="0.0.0")
 
     def cluster_key_support(self) -> ClusterKeySupport:
-        return ClusterKeySupport(supported=False)
+        return ClusterKeySupport(available_keys=())
 
 
 class _BadTraceSource:
