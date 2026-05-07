@@ -236,7 +236,17 @@ class TestWitnessThreading:
         assert hints["return"] is int
 
 
-class TestSubcommandStubs:
+class TestSubcommands:
+    """Subcommand smoke tests at the CLI surface.
+
+    Renamed from `TestSubcommandStubs`: the cache subcommands
+    became real implementations in Phase 8.3 (PR #54). `diff`
+    and `report-migrate` are still stub paths but exit with
+    their own documented semantics — a future contributor wiring
+    Phase 8.4 / 8.5 should treat these as the surface contract,
+    not as placeholders to delete.
+    """
+
     def test_cache_rebuild_without_force_refuses(self, runner: CliRunner, tmp_path) -> None:
         # Phase 8.3 landed: cache rebuild is real. Without --force
         # it's a no-op safety belt. Detailed integration coverage

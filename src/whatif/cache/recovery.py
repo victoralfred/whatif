@@ -329,6 +329,19 @@ def _is_valid_entry(path: Path) -> bool:
     # Required CacheEntry fields per storage/v1.py. We don't fully
     # reconstruct via Pydantic — verify is a structural-integrity
     # check, not a re-validation.
+    #
+    # Why not Pydantic here despite the project's "Pydantic at
+    # boundaries" rule: this is NOT a boundary in the
+    # Pydantic-at-boundaries sense. Verify is a recovery operation
+    # that walks bytes-on-disk; a malformed entry that fails full
+    # Pydantic validation but passes structural parse should still
+    # be flagged as "structurally valid, semantically suspect"
+    # rather than crash mid-walk. The required-keys check is
+    # deliberate: it catches truncation / truly missing fields
+    # without rejecting v0.1-shape entries that have extra fields
+    # the future v0.2 reader will populate. Nested type validation
+    # (e.g., `metadata` being a Mapping[str, JsonPrimitive]) lands
+    # with the v0.2 cryptographic-hash extension — see TODO above.
     required = {"key", "value", "metadata"}
     return required.issubset(data.keys())
 

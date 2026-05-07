@@ -196,6 +196,20 @@ class TestUnlock:
         # assertion fails BEFORE the real check, surfacing the
         # test's brittleness rather than masquerading as a bug in
         # `unlock`.
+        #
+        # TOCTOU note: there's a window between `proc.wait()` and
+        # `psutil.pid_exists(dead_pid)` where the OS could in
+        # principle recycle the PID and assign it to a new
+        # process. On Linux/macOS the default `kernel.pid_max`
+        # range (4M+) and the assertion's microsecond timing
+        # make this practically impossible — the OS allocates
+        # PIDs sequentially, so the chance of wrapping back to
+        # `dead_pid` between two adjacent syscalls is negligible
+        # for realistic system loads. If this test ever flakes
+        # because of PID recycling, the right fix is to widen
+        # the dead-PID window (e.g., spawn a parent + child
+        # chain that holds the slot longer), not to remove the
+        # precondition assertion.
         assert not psutil.pid_exists(dead_pid), (
             f"test precondition: PID {dead_pid} is still alive "
             "immediately after subprocess.wait(). The "
