@@ -92,6 +92,19 @@ def test_deterministic_subset_byte_equal_across_runs(scenario_factory) -> None:
     # identical across the two runs. Re-using the same fixture
     # instance would mask non-determinism in fixture construction;
     # constructing fresh exercises the full path.
+    #
+    # **Scope limit:** both invocations run sequentially in the
+    # SAME process. Process-local caches (the `lru_cache` on the
+    # schema loader, any future `lru_cache` on a pipeline helper,
+    # Python's interned strings) survive between calls. Real
+    # cross-process determinism (two separate `whatif fork`
+    # invocations on different machines producing byte-equal
+    # subsets) is the Phase 9B / Phase 10 CI-gate concern — that
+    # workflow runs in a fresh subprocess and exercises the
+    # cross-process path. A regression that's same-process-stable
+    # but cross-process-unstable would NOT be caught here; the CI
+    # gate (cascade-tracked under "Deterministic-subset extractor")
+    # closes that hole.
     subset_a = _run_and_extract_subset(scenario_factory())
     subset_b = _run_and_extract_subset(scenario_factory())
 

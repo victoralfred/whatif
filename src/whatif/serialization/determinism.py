@@ -35,7 +35,7 @@ import warnings
 from collections.abc import Mapping
 from functools import lru_cache
 from importlib.resources import files
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict, Union
 
 if TYPE_CHECKING:
     from whatif.report.models_v01 import ReportV01
@@ -56,6 +56,16 @@ if TYPE_CHECKING:
 # the prior version carried; only the JSON-loaded value type from
 # `json.loads` (which is fundamentally `Any`) remains, and that's
 # bounded to the `_schema_properties` cast.
+# `Union[bool, "SchemaProperty"]` rather than `"bool | SchemaProperty"`:
+# the project's minimum supported Python is 3.11 (where `bool | X`
+# works at runtime), but the functional `TypedDict` form evaluates
+# its second argument at module-load time. The string-form pipe
+# union `"bool | SchemaProperty"` is a forward reference under
+# `from __future__ import annotations`, but TypedDict's runtime
+# resolution path historically had subtle interactions with pipe
+# unions in string form. `Union[bool, "SchemaProperty"]` works
+# uniformly across mypy and runtime introspection on every
+# supported Python.
 SchemaProperty = TypedDict(
     "SchemaProperty",
     {
@@ -63,7 +73,7 @@ SchemaProperty = TypedDict(
         "$ref": str,
         "items": "SchemaProperty",
         "properties": dict[str, "SchemaProperty"],
-        "additionalProperties": "bool | SchemaProperty",
+        "additionalProperties": Union[bool, "SchemaProperty"],
         "description": str,
         "x-deterministic": bool,
     },
@@ -162,6 +172,16 @@ def extract_deterministic_subset_from_report(
     available for tests that explicitly want to exercise the
     serialization seam (`test_determinism.py` does this on
     purpose).
+
+    **Equivalence contract:** the result is exactly equal (`==`) to
+    `extract_deterministic_subset(json.loads(encode_report_v01(report)))`.
+    Tests that don't want to exercise the serialization seam can
+    swap freely between the two surfaces. The equivalence is pinned
+    by `test_extract_from_report_matches_round_trip` in
+    `tests/integration/test_determinism.py`; that test is the
+    canonical contract surface. A future divergence (e.g., the
+    typed helper short-circuits the encoder) MUST update both this
+    docstring and that test in the same PR.
 
     Imports `encode_report_v01` lazily to avoid pulling the
     encoder module into `whatif.serialization.determinism`'s import
