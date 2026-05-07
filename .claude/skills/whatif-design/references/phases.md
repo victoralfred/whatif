@@ -2,7 +2,9 @@
 
 Bottom-up. Every phase has a test gate that proves the phase works before the next phase starts.
 
-**Phase dependencies are gate-based, not strictly calendar-based.** Phases 5–8 may proceed once Phase 4A (adapter protocol + conformance suite + synthetic stub adapter) is green. They do not block on Phase 4B (real Langfuse and Inspect AI adapters). Phase 9 has two modes — 9A drives the full pipeline against the stub adapter; 9B drives a smaller smoke suite against the real adapters. v0.1 ships when **both** Phase 4B and Phase 9B are green; Phase 9A alone is not the release bar.
+**Within a phase family, sub-phase sequencing is strict:** sub-phases must land in numeric order, and each sub-phase's gate must be green before its successor starts. Phase 1.2 cannot begin while 1.1 is open; Phase 4B cannot begin while 4A is open; Phase 9B cannot begin while 9A is open. This is the original "predecessors' gates green" rule, narrowed to its useful scope — it catches refactors that try to skip a sub-phase and prevents a contributor from racing two sub-phases of the same family in parallel where their gates overlap.
+
+**Across phase families, dependencies are gate-based, not strictly calendar-based.** Phases 5–8 may proceed once Phase 4A (adapter protocol + conformance suite + synthetic stub adapter) is green. They do not block on Phase 4B (real Langfuse and Inspect AI adapters). Phase 9 has two modes — 9A drives the full pipeline against the stub adapter; 9B drives a smaller smoke suite against the real adapters. v0.1 ships when **both** Phase 4B and Phase 9B are green; Phase 9A alone is not the release bar.
 
 The release rule is: **stubs prove the architecture; real adapters prove the product.** Stubs exercise every protocol, every failure path, every determinism invariant — that's a structural proof. Real adapters validate that Langfuse trace shapes and Inspect AI scorer outputs survive the contract boundary — that's the adapter proof. Both must hold before v0.1.0.
 
