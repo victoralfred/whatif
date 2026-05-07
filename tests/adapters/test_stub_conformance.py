@@ -24,12 +24,12 @@ from whatif.adapters.stub import (
     StubTraceSource,
     StubTraceSpec,
 )
-from whatif.contract import ScoreCase
 
 from .conformance import (
     ScorerConformance,
     StructuralFailureScorerConformance,
     TraceSourceConformance,
+    make_score_case,
 )
 
 
@@ -96,13 +96,7 @@ class TestStubBehaviors:
     def test_cache_key_components_deterministic(self) -> None:
         # The same ScoreCase produces the same hex digests across
         # calls — the cache subsystem's determinism invariant.
-        case = ScoreCase(
-            trace_id="t-1",
-            cohort="failure",
-            input={"user_message": "x"},  # type: ignore[arg-type]
-            original_output={"text": "a"},  # type: ignore[arg-type]
-            replayed_output={"text": "b"},  # type: ignore[arg-type]
-        )
+        case = make_score_case(trace_id="t-1")
         scorer = StubScorer()
         c1 = scorer.cache_key_components(case)
         c2 = scorer.cache_key_components(case)
@@ -112,18 +106,6 @@ class TestStubBehaviors:
         # Distinct ScoreCases produce distinct keys; otherwise the
         # cache would conflate runs.
         scorer = StubScorer()
-        case1 = ScoreCase(
-            trace_id="t-1",
-            cohort="failure",
-            input={"user_message": "x"},  # type: ignore[arg-type]
-            original_output={"text": "a"},  # type: ignore[arg-type]
-            replayed_output={"text": "b"},  # type: ignore[arg-type]
-        )
-        case2 = ScoreCase(
-            trace_id="t-2",
-            cohort="failure",
-            input={"user_message": "x"},  # type: ignore[arg-type]
-            original_output={"text": "a"},  # type: ignore[arg-type]
-            replayed_output={"text": "b"},  # type: ignore[arg-type]
-        )
+        case1 = make_score_case(trace_id="t-1")
+        case2 = make_score_case(trace_id="t-2")
         assert scorer.cache_key_components(case1) != scorer.cache_key_components(case2)

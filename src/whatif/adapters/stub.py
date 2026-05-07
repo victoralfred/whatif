@@ -55,7 +55,7 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
-from typing import Final
+from typing import TYPE_CHECKING, Final
 
 from whatif.adapters.protocols import (
     AdapterMetadata,
@@ -104,7 +104,7 @@ class StubTraceSpec:
     skip_reason: str | None = None
 
 
-@dataclass(slots=True)
+@dataclass(frozen=True, slots=True)
 class StubTraceSource:
     """Fixture-driven `TraceSource` for the harness and Phase 9A.
 
@@ -154,7 +154,7 @@ def _default_score_fn(case: ScoreCase) -> float | None:
     return 0.5
 
 
-@dataclass(slots=True)
+@dataclass(frozen=True, slots=True)
 class StubScorer:
     """Fixture-driven `Scorer`.
 
@@ -219,7 +219,16 @@ def make_default_stub_source(
     """Convenience builder: take `(trace_id, user_message, original_response)`
     triples and build a `StubTraceSource` with the appropriate cohort
     labels. Used by Phase 9A integration tests that don't need the
-    full `StubTraceSpec` surface."""
+    full `StubTraceSpec` surface.
+
+    **Limitation:** this builder does NOT accept `cluster_key` or
+    `skip_reason`. Tests that need either field must construct
+    `StubTraceSpec` rows directly and pass them to
+    `StubTraceSource(specs=...)`. A `**kwargs` forwarding form was
+    considered but rejected because the triple-based shape is the
+    common case (90% of Phase 9A scenarios) and the explicit
+    constructor path keeps the rare cluster-key / skip-reason cases
+    legible at the call site."""
     specs: list[StubTraceSpec] = []
     for tid, um, orig in failures:
         specs.append(
@@ -232,17 +241,16 @@ def make_default_stub_source(
     return StubTraceSource(specs=specs)
 
 
-# Type-checker assist: an explicit Protocol witness so a future
-# refactor that breaks the stub against the protocol fails at
-# import time. `Scorer` and `TraceSource` are runtime_checkable so
-# `isinstance` works; `_assert_protocols` runs at module load.
-def _assert_protocols() -> None:
-    src: TraceSource = StubTraceSource(specs=[])
-    sc: Scorer = StubScorer()
-    _ = (src, sc)
-
-
-_assert_protocols()
+# Static protocol witness: TYPE_CHECKING-only assignment so mypy
+# verifies StubTraceSource and StubScorer satisfy the protocols
+# without paying runtime construction cost on import. A signature
+# drift in the stub (e.g., a Phase 4B refactor that adds a new
+# protocol method) fails at type-check time. The runtime
+# `runtime_checkable` `isinstance(...)` checks in the conformance
+# harness are the second line of defense.
+if TYPE_CHECKING:
+    _trace_source_witness: TraceSource = StubTraceSource(specs=[])
+    _scorer_witness: Scorer = StubScorer()
 
 
 __all__ = [
