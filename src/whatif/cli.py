@@ -174,6 +174,17 @@ def _run_fork_pipeline(cfg: WhatifConfig, proof: TwoAffirmationProof) -> int:
     code with a clear stderr message naming the missing wiring.
     The Phase-4 contributor extends this body in place; the
     function signature is the stable contract surface.
+
+    ## Stability marker
+
+    This function is module-private (`_`-prefixed) but its
+    signature is the load-bearing Phase-4 wiring point. The test
+    `TestWitnessThreading::test_run_fork_pipeline_signature_requires_proof`
+    pins the signature shape (cfg, proof, return type, no
+    defaults) so a Phase-4 contributor cannot rename or relax
+    the contract silently — the test fails first. Renaming /
+    refactoring is fine; loosening the witness-token requirement
+    is not.
     """
     # Runtime guard: an `_ = proof` suppression alone would let a
     # future contributor accidentally delete the parameter (mypy
