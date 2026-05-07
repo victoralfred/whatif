@@ -1,0 +1,247 @@
+"""`whatif.cache.recovery` — operator-facing cache repair operations.
+
+Phase 8.3 of the v0.1 implementation plan. Surfaces the three
+cache-recovery primitives the walkthroughs reference (scenario 5
+in particular):
+
+  - `rebuild(cache_root, *, force) -> RebuildResult` — wipes
+    `<cache_root>/entries/`. Operators run this when scoring is
+    structurally broken (corrupted entries, mid-write crash) and
+    cache continuity is less valuable than a clean slate.
+  - `unlock(cache_root, *, allow_alive) -> UnlockResult` — removes
+    `<cache_root>/.lock` after a PID-alive safety check. Default
+    refuses to clobber a live lock; `allow_alive=True` overrides.
+  - `verify(cache_root) -> VerifyResult` — walks every entry in
+    `<cache_root>/entries/` and reports any that fail to parse as
+    valid `CacheEntry` JSON. v0.1 verifies structural integrity
+    only; cryptographic content-hash verification is deferred to
+    v0.2 when entries carry a stored hash field.
+
+## Why a separate module from `whatif/cache/storage/v1.py`
+
+Storage owns the read/write contract that the runtime consumes.
+Recovery owns the destructive operator-facing repairs that should
+NOT be reachable from the runtime path. Separating them keeps the
+runtime import graph clean (storage doesn't import recovery), and
+the banned-import lint can prevent runtime modules from accidentally
+calling `rebuild` or `unlock` (Phase 9 follow-up if motivated).
+
+## Cardinal alignment
+
+- **#1 failures-as-data:** each function returns a typed
+  `*Result` dataclass; CLI consumers branch on the result rather
+  than on exception types. Genuinely unexpected I/O errors
+  (permission denied, disk full) propagate as OSError — not in
+  v0.1's failure-as-data scope.
+- **#2 floor cannot be bypassed:** rebuild / unlock / verify are
+  cache-subsystem operations; they don't touch verdict logic. No
+  cardinal-#2 surface here.
+- **#7 two-affirmation:** unlock is cache-recovery, NOT a
+  structurally-dangerous capability that needs two-affirmation.
+  Per the cascade catalog "CLI cache subcommands for v0.1": a
+  CLI flag (`--allow-alive`) is sufficient because unlock is a
+  recovery path, not an opt-in to a sensitive capability.
+"""
+
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass
+from pathlib import Path
+
+import psutil
+
+_ENTRIES_SUBDIR = "entries"
+_LOCK_FILENAME = ".lock"
+
+
+@dataclass(frozen=True, slots=True)
+class RebuildResult:
+    """Outcome of `rebuild`. `entries_removed` counts the JSON files
+    deleted; `bucket_dirs_removed` counts the two-char digest-prefix
+    directories the storage layer creates. `error` is set when the
+    cache root or entries dir didn't exist (a no-op rebuild)."""
+
+    entries_removed: int
+    bucket_dirs_removed: int
+    error: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class UnlockResult:
+    """Outcome of `unlock`. `removed` is True iff the lock file was
+    deleted. `pid_was_alive` records whether the recorded PID was
+    a live process at the time of the check (informational; useful
+    for telemetry and the operator-facing message). `error` is set
+    when unlock refused to act (live PID + `allow_alive=False`, or
+    no lock file present)."""
+
+    removed: bool
+    pid_was_alive: bool
+    error: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class VerifyResult:
+    """Outcome of `verify`. `total` is every file under entries/;
+    `valid` parses cleanly as a CacheEntry; `corrupted` is the list
+    of paths that failed to parse. `error` is set when entries/
+    doesn't exist (vacuously valid; not a failure)."""
+
+    total: int
+    valid: int
+    corrupted: list[Path]
+    error: str | None = None
+
+
+def rebuild(cache_root: Path, *, force: bool) -> RebuildResult:
+    """Delete every entry under `<cache_root>/entries/`. The lock
+    file and `meta.json` are preserved — the storage layer's
+    schema-version contract stays intact, only the cached values
+    are wiped.
+
+    `force` is required to actually delete; without it the function
+    returns a no-op result with `error="force_required"`. This is
+    the safety belt against a CLI-typo deletion of cache state.
+    """
+    if not force:
+        return RebuildResult(
+            entries_removed=0,
+            bucket_dirs_removed=0,
+            error="force_required",
+        )
+
+    entries_dir = cache_root / _ENTRIES_SUBDIR
+    if not entries_dir.exists():
+        return RebuildResult(
+            entries_removed=0,
+            bucket_dirs_removed=0,
+            error="entries_dir_missing",
+        )
+
+    entries_removed = 0
+    bucket_dirs_removed = 0
+    for bucket in entries_dir.iterdir():
+        if not bucket.is_dir():
+            continue
+        for entry_file in bucket.iterdir():
+            if entry_file.is_file():
+                entry_file.unlink()
+                entries_removed += 1
+        bucket.rmdir()
+        bucket_dirs_removed += 1
+    return RebuildResult(
+        entries_removed=entries_removed,
+        bucket_dirs_removed=bucket_dirs_removed,
+    )
+
+
+def unlock(cache_root: Path, *, allow_alive: bool) -> UnlockResult:
+    """Remove `<cache_root>/.lock` after a PID-alive safety check.
+
+    Reads the lock file's recorded PID and checks via `psutil`
+    whether the process is still alive. If alive AND
+    `allow_alive=False`, refuses to act and returns
+    `error="lock_holder_alive"`. If alive AND `allow_alive=True`,
+    removes the lock anyway (operator override).
+    """
+    lock_path = cache_root / _LOCK_FILENAME
+    if not lock_path.exists():
+        return UnlockResult(removed=False, pid_was_alive=False, error="no_lock_file")
+
+    pid_was_alive = False
+    try:
+        raw = lock_path.read_text(encoding="utf-8")
+        recorded = json.loads(raw)
+        recorded_pid = int(recorded.get("pid", -1))
+        if recorded_pid > 0:
+            try:
+                proc = psutil.Process(recorded_pid)
+                # `is_running()` returns True for zombies too;
+                # `status()` returning STATUS_ZOMBIE means the
+                # process is effectively dead. Lock holder must be
+                # ALIVE to refuse.
+                if proc.is_running() and proc.status() != psutil.STATUS_ZOMBIE:
+                    pid_was_alive = True
+            except psutil.NoSuchProcess:
+                pid_was_alive = False
+    except (json.JSONDecodeError, OSError, ValueError):
+        # Corrupted lock file: treat as not-alive (safe to remove);
+        # the operator's intent in running `unlock` is recovery.
+        pid_was_alive = False
+
+    if pid_was_alive and not allow_alive:
+        return UnlockResult(
+            removed=False,
+            pid_was_alive=True,
+            error="lock_holder_alive",
+        )
+
+    try:
+        lock_path.unlink()
+    except OSError as exc:
+        return UnlockResult(
+            removed=False,
+            pid_was_alive=pid_was_alive,
+            error=f"unlink_failed: {exc}",
+        )
+    return UnlockResult(removed=True, pid_was_alive=pid_was_alive)
+
+
+def verify(cache_root: Path) -> VerifyResult:
+    """Walk every JSON file under `<cache_root>/entries/` and
+    confirm it parses as a valid `CacheEntry`.
+
+    v0.1 checks STRUCTURAL integrity (parse + required fields).
+    Cryptographic content-hash verification (catching disk-bit-
+    flip corruption that produces still-parseable but wrong data)
+    requires `CacheEntry` to carry a stored content hash; that's
+    a v0.2 schema bump.
+    """
+    entries_dir = cache_root / _ENTRIES_SUBDIR
+    if not entries_dir.exists():
+        return VerifyResult(total=0, valid=0, corrupted=[], error="entries_dir_missing")
+
+    total = 0
+    valid = 0
+    corrupted: list[Path] = []
+    for bucket in entries_dir.iterdir():
+        if not bucket.is_dir():
+            continue
+        for entry_file in bucket.iterdir():
+            if not entry_file.is_file():
+                continue
+            total += 1
+            if _is_valid_entry(entry_file):
+                valid += 1
+            else:
+                corrupted.append(entry_file)
+    return VerifyResult(total=total, valid=valid, corrupted=corrupted)
+
+
+def _is_valid_entry(path: Path) -> bool:
+    """Return True if `path` parses to a `CacheEntry`-shaped JSON
+    with the expected fields. Used by `verify`."""
+    try:
+        raw = path.read_text(encoding="utf-8")
+        data = json.loads(raw)
+    except (OSError, json.JSONDecodeError):
+        return False
+
+    if not isinstance(data, dict):
+        return False
+    # Required CacheEntry fields per storage/v1.py. We don't fully
+    # reconstruct via Pydantic — verify is a structural-integrity
+    # check, not a re-validation.
+    required = {"key", "value", "metadata"}
+    return required.issubset(data.keys())
+
+
+__all__ = [
+    "RebuildResult",
+    "UnlockResult",
+    "VerifyResult",
+    "rebuild",
+    "unlock",
+    "verify",
+]

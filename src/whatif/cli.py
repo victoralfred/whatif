@@ -222,38 +222,150 @@ def _run_fork_pipeline(cfg: WhatifConfig, proof: TwoAffirmationProof) -> int:
 # ---------------------------------------------------------------------------
 
 
-cache_app = typer.Typer(help="Cache management subcommands (Phase 8.3).")
+cache_app = typer.Typer(help="Cache management subcommands.")
 app.add_typer(cache_app, name="cache")
+
+# Default cache root matches the storage layer's convention.
+_DEFAULT_CACHE_ROOT = Path(".whatif/cache")
 
 
 @cache_app.command("rebuild")
 def cache_rebuild(
-    force: Annotated[bool, typer.Option("--force", help="Skip safety checks (Phase 8.3).")] = False,
+    force: Annotated[
+        bool,
+        typer.Option(
+            "--force",
+            help=(
+                "Required to actually delete entries. Without this flag, "
+                "the command is a no-op safety belt against typos."
+            ),
+        ),
+    ] = False,
+    cache_root: Annotated[
+        Path,
+        typer.Option("--cache-root", help="Cache root (default `.whatif/cache`)."),
+    ] = _DEFAULT_CACHE_ROOT,
 ) -> None:
-    """Rebuild the scorer cache (Phase 8.3 stub)."""
-    # Reference `force` in the stub message so the parameter
-    # isn't unused — preserves the API-surface preview that
-    # `whatif cache rebuild --force` is the documented invocation
-    # while making the lint clean. Phase 8.3 wires the real body.
+    """Wipe `<cache-root>/entries/`. Preserves `meta.json` and the
+    lock file so the storage layer's schema-version contract stays
+    intact; only cached values are removed.
+
+    Exits 0 on a clean rebuild OR a no-op-because-no-entries-dir.
+    Exits 2 when `--force` is missing (safety belt).
+    """
+    from whatif.cache.recovery import rebuild
+
+    result = rebuild(cache_root, force=force)
+    if result.error == "force_required":
+        typer.echo(
+            "whatif cache rebuild: refusing to delete without --force.",
+            err=True,
+        )
+        raise typer.Exit(code=EXIT_INCONCLUSIVE_OR_SETUP_FAILURE)
+    if result.error == "entries_dir_missing":
+        typer.echo(
+            f"whatif cache rebuild: no entries directory at {cache_root}/entries (already clean).",
+        )
+        raise typer.Exit(code=EXIT_SUCCESS)
     typer.echo(
-        f"whatif cache rebuild (force={force}): not yet implemented (Phase 8.3).",
-        err=True,
+        f"whatif cache rebuild: removed {result.entries_removed} entries "
+        f"across {result.bucket_dirs_removed} bucket directories under "
+        f"{cache_root}/entries.",
     )
-    raise typer.Exit(code=EXIT_INCONCLUSIVE_OR_SETUP_FAILURE)
+    raise typer.Exit(code=EXIT_SUCCESS)
 
 
 @cache_app.command("unlock")
-def cache_unlock() -> None:
-    """Remove a stale cache lock file (Phase 8.3 stub)."""
-    typer.echo("whatif cache unlock: not yet implemented (Phase 8.3).", err=True)
-    raise typer.Exit(code=EXIT_INCONCLUSIVE_OR_SETUP_FAILURE)
+def cache_unlock(
+    allow_alive: Annotated[
+        bool,
+        typer.Option(
+            "--allow-alive",
+            help=(
+                "Override the live-PID safety check. Use only when "
+                "you're sure the recorded process is gone."
+            ),
+        ),
+    ] = False,
+    cache_root: Annotated[
+        Path,
+        typer.Option("--cache-root", help="Cache root (default `.whatif/cache`)."),
+    ] = _DEFAULT_CACHE_ROOT,
+) -> None:
+    """Remove `<cache-root>/.lock` after a PID-alive safety check.
+
+    Default refuses to clobber a live lock; `--allow-alive`
+    overrides. Exits 0 on successful unlock OR no-lock-file.
+    Exits 2 when the lock holder is alive and `--allow-alive`
+    was not passed.
+    """
+    from whatif.cache.recovery import unlock
+
+    result = unlock(cache_root, allow_alive=allow_alive)
+    if result.error == "no_lock_file":
+        typer.echo(
+            f"whatif cache unlock: no lock file at {cache_root}/.lock (already unlocked).",
+        )
+        raise typer.Exit(code=EXIT_SUCCESS)
+    if result.error == "lock_holder_alive":
+        typer.echo(
+            "whatif cache unlock: lock holder is still alive. Pass --allow-alive to override.",
+            err=True,
+        )
+        raise typer.Exit(code=EXIT_INCONCLUSIVE_OR_SETUP_FAILURE)
+    if result.error is not None:  # unlink_failed: <reason>
+        typer.echo(f"whatif cache unlock: {result.error}", err=True)
+        raise typer.Exit(code=EXIT_INCONCLUSIVE_OR_SETUP_FAILURE)
+
+    if result.pid_was_alive:
+        typer.echo(
+            "whatif cache unlock: removed lock file (live-PID override via --allow-alive).",
+        )
+    else:
+        typer.echo("whatif cache unlock: removed stale lock file.")
+    raise typer.Exit(code=EXIT_SUCCESS)
 
 
 @cache_app.command("verify")
-def cache_verify() -> None:
-    """Verify cache-entry integrity (Phase 8.3 stub)."""
-    typer.echo("whatif cache verify: not yet implemented (Phase 8.3).", err=True)
-    raise typer.Exit(code=EXIT_INCONCLUSIVE_OR_SETUP_FAILURE)
+def cache_verify(
+    cache_root: Annotated[
+        Path,
+        typer.Option("--cache-root", help="Cache root (default `.whatif/cache`)."),
+    ] = _DEFAULT_CACHE_ROOT,
+) -> None:
+    """Verify cache-entry structural integrity.
+
+    Walks `<cache-root>/entries/` and confirms each JSON file
+    parses as a valid CacheEntry. Exits 0 if all entries valid OR
+    no entries directory exists. Exits 2 if any entry is corrupted
+    (operator should run `whatif cache rebuild --force`).
+
+    v0.1 checks structural integrity only; cryptographic
+    content-hash verification is deferred to v0.2.
+    """
+    from whatif.cache.recovery import verify
+
+    result = verify(cache_root)
+    if result.error == "entries_dir_missing":
+        typer.echo(
+            f"whatif cache verify: no entries directory at {cache_root}/entries (vacuously clean).",
+        )
+        raise typer.Exit(code=EXIT_SUCCESS)
+    if result.corrupted:
+        typer.echo(
+            f"whatif cache verify: {len(result.corrupted)}/{result.total} "
+            "entries are corrupted. Files:",
+            err=True,
+        )
+        for p in result.corrupted:
+            typer.echo(f"  {p}", err=True)
+        typer.echo(
+            "Run `whatif cache rebuild --force` to wipe and start clean.",
+            err=True,
+        )
+        raise typer.Exit(code=EXIT_INCONCLUSIVE_OR_SETUP_FAILURE)
+    typer.echo(f"whatif cache verify: {result.valid}/{result.total} entries OK.")
+    raise typer.Exit(code=EXIT_SUCCESS)
 
 
 @app.command()
