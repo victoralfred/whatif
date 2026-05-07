@@ -321,6 +321,8 @@ def _verdict_unchanged_and_nothing_else(report: DiffReport) -> bool:
     emit a "no changes" sentinel."""
     if report.verdict_state_prev != report.verdict_state_new:
         return False
+    if report.schema_version_prev != report.schema_version_new:
+        return False
     if report.failures_prev != report.failures_new:
         return False
     for c in report.cohorts:

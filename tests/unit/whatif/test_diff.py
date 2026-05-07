@@ -215,6 +215,16 @@ class TestRenderDiffMarkdown:
         assert "8→9" in out
         assert "+0.05→+0.10" in out
 
+    def test_schema_only_change_is_not_no_change(self) -> None:
+        # Pin: schema-version-only delta MUST NOT co-render with the
+        # "(No changes detected.)" sentinel. Without the schema check
+        # in _verdict_unchanged_and_nothing_else, the renderer emits
+        # the schema line AND the sentinel — contradictory output.
+        report = self._empty_report(schema_version_prev="v0.1", schema_version_new="v0.2")
+        out = render_diff_markdown(report)
+        assert "v0.1" in out and "v0.2" in out
+        assert "(No changes detected.)" not in out
+
     def test_unchanged_count_shift_is_not_no_change(self) -> None:
         # Pin: a cohort where only `unchanged_count` shifts (e.g.,
         # rebalancing between unchanged and improved missed the
