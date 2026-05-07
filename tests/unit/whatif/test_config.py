@@ -211,7 +211,29 @@ class TestTwoAffirmation:
     def test_acknowledgment_fields_required_non_empty(self) -> None:
         # ForensicAcknowledgment.min_length=1 — empty strings fail.
         with pytest.raises(ValidationError):
-            ForensicAcknowledgment(accepted_by="", accepted_at="x", reason="x")
+            ForensicAcknowledgment(accepted_by="", accepted_at="2026-05-07", reason="x")
+
+    def test_accepted_at_must_match_iso_8601_pattern(self) -> None:
+        # Free-text values (e.g., "yesterday", "x") in accepted_at
+        # are an obvious-misconfiguration smell that the
+        # forensic-acknowledgment block exists to prevent.
+        with pytest.raises(ValidationError):
+            ForensicAcknowledgment(accepted_by="ops", accepted_at="yesterday", reason="audit")
+        with pytest.raises(ValidationError):
+            ForensicAcknowledgment(accepted_by="ops", accepted_at="x", reason="audit")
+
+    def test_accepted_at_accepts_iso_8601_canonical_forms(self) -> None:
+        # Each form an operator might reasonably write in YAML.
+        for valid in (
+            "2026-05-07",  # date only
+            "2026-05-07T13:45:30",  # datetime, no tz
+            "2026-05-07T13:45:30Z",  # UTC
+            "2026-05-07T13:45:30.123Z",  # fractional
+            "2026-05-07T13:45:30+00:00",  # offset with colon
+            "2026-05-07T13:45:30-05:00",  # negative offset
+            "2026-05-07 13:45:30",  # space separator
+        ):
+            ForensicAcknowledgment(accepted_by="ops", accepted_at=valid, reason="audit")
 
     def test_proof_cannot_be_constructed_externally(self) -> None:
         # Witness-token defense: only `assert_two_affirmation` can

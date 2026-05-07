@@ -15,6 +15,24 @@ This module walks every `.py` under `src/whatif/` and asserts:
 Same lint pattern as the `json.dumps` ban
 (`tests/unit/whatif/serialization/test_banned_imports.py`):
 AST walk, no extra dependencies, ~30 lines.
+
+## What this lint does NOT cover
+
+Runtime access via `getattr(whatif.config, "_PROOF_TOKEN")` is
+NOT detected — `ast.walk` sees the bare `getattr` call but can't
+statically prove the second argument is `_PROOF_TOKEN`. This is
+acceptable for v0.1 because:
+
+- Static `import` and `Attribute` access are the natural ways to
+  reference a module symbol; deliberate `getattr` evasion is a
+  documented anti-pattern, not a routine refactor.
+- A determined caller bypassing cardinal #7 via runtime
+  introspection is outside the threat model — cardinal #7
+  defends against ACCIDENTAL forensic-profile enablement, not
+  against a malicious actor with full Python access.
+
+A future hardening (v0.2+) could parse the dotted module
+introspection patterns; not v0.1 scope.
 """
 
 from __future__ import annotations

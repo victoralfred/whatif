@@ -236,7 +236,21 @@ class ForensicAcknowledgment(BaseModel):
     model_config = _STRICT
 
     accepted_by: str = Field(..., min_length=1)
-    accepted_at: str = Field(..., min_length=1)
+    # `accepted_at` accepts ISO 8601 dates / datetimes (subset
+    # the regex below covers): `YYYY-MM-DD`, `YYYY-MM-DDTHH:MM:SS`,
+    # optional fractional seconds, optional timezone (`Z` or
+    # `+HH:MM` / `-HH:MM`). The regex is intentionally permissive
+    # rather than parsing — Pydantic's `datetime`/`date` types
+    # would reject string-only YAML, and we want operators to
+    # write dates as strings in YAML for forensic-audit clarity.
+    # The regex catches obviously wrong values (e.g., free-text
+    # like "yesterday") while accepting the canonical formats
+    # operators will write.
+    accepted_at: str = Field(
+        ...,
+        min_length=1,
+        pattern=r"^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?$",
+    )
     reason: str = Field(..., min_length=1)
 
 
@@ -378,10 +392,16 @@ def assert_two_affirmation(cfg: WhatifConfig, *, cli_profile: str | None) -> Two
 # with `.`). Full-path keys (rather than just the leaf field name)
 # disambiguate identically-named fields in different sections —
 # e.g., a future `source.adapter` and `scorer.adapter` get
-# distinct hints. List indices in `loc` (e.g., `('items', 0)`)
-# join as integers-as-strings (`'items.0'`), which is acceptable
-# for hint-table key purposes but isn't a path the user would
-# type into YAML.
+# distinct hints.
+#
+# Caveat for v0.2+ array-field schemas: list indices in `loc`
+# (e.g., `('decision', 'thresholds', 0)`) join as
+# integers-as-strings (`'decision.thresholds.0'`). A registered
+# hint keyed on that exact path would only fire for index 0;
+# index 1, 2, ... would miss the table. v0.1 has no array
+# fields with constraints, so this isn't load-bearing yet. When
+# array constraints land, the hint table will need a regex/glob
+# matcher to cover all indices for a given field.
 #
 # `model_validator` errors arrive with `loc=()` and `type=
 # 'value_error'` — `format_validation_errors` joins empty `loc`
