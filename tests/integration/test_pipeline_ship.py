@@ -88,3 +88,54 @@ class TestCleanShipScenario:
             assert c.median_delta is not None
             assert c.ci_lower is not None
             assert c.ci_upper is not None
+
+
+class TestPipelineFailurePaths:
+    """Cardinal #1: pipeline failures surface as structured
+    `FailureRecord`s in `ReportV01.failures`, not as exceptions."""
+
+    def test_delta_fn_exception_recorded_as_failure(self) -> None:
+        # delta_fn raises on one specific trace; that trace lands in
+        # ReportV01.failures with code='delta_fn_raised', cohort and
+        # trace_id populated, and is excluded from the cohort's
+        # scored count. The pipeline does NOT crash.
+        fx = scenario_clean_ship()
+
+        def flaky(rt):
+            if rt.trace_id == "f-00":
+                raise RuntimeError("scorer outage")
+            return fx.delta_fn(rt)
+
+        report = run_pipeline(
+            fx.trace_source,
+            delta_fn=flaky,
+            floor=TrustFloor(),
+            policy=DecisionPolicy(),
+            runtime=fx.runtime,
+            methodology=fx.methodology,
+            cache_summary=fx.cache_summary,
+        )
+        assert any(
+            f.code == "delta_fn_raised" and f.trace_id == "f-00" and f.cohort == "failure"
+            for f in report.failures
+        )
+        # Failed trace counted toward selected but not scored.
+        cohorts = {c.name: c for c in report.cohort_results}
+        assert cohorts["failure"].selected == 20
+        assert cohorts["failure"].scored == 19
+
+    def test_delta_fn_exception_does_not_crash_pipeline(self) -> None:
+        fx = scenario_clean_ship()
+        report = run_pipeline(
+            fx.trace_source,
+            delta_fn=lambda _rt: (_ for _ in ()).throw(RuntimeError("always fails")),
+            floor=TrustFloor(),
+            policy=DecisionPolicy(),
+            runtime=fx.runtime,
+            methodology=fx.methodology,
+            cache_summary=fx.cache_summary,
+        )
+        # Every trace produced a FailureRecord; cohorts have 0 scored
+        # so the floor blocks → Inconclusive.
+        assert report.verdict_state == "inconclusive"
+        assert len(report.failures) == 40

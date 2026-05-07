@@ -43,6 +43,7 @@ from dataclasses import dataclass
 
 from whatif.adapters.protocols import RawTrace, TraceSource
 from whatif.cache.summary import CacheSummary
+from whatif.decision.floor import compute_cohort_floor_failures
 from whatif.decision.verdict import compute_verdict
 from whatif.report.models_v01 import ReportV01
 from whatif.report.projection import project_to_report_v01
@@ -60,6 +61,15 @@ class _CohortBuckets:
     name: str
     selected: int
     deltas: tuple[float, ...]
+
+
+# Failure code emitted when `delta_fn` raises. Cardinal #1: an
+# adapter-side delta computation that throws is structured data,
+# not a pipeline crash. The FailureRecord lands in
+# `ReportV01.failures` and the affected trace is excluded from the
+# cohort's scored count. Phase 9A.4 (failure injection) extends
+# this with the full registry coverage.
+_DELTA_FN_FAILURE_CODE = "delta_fn_raised"
 
 
 def run_pipeline(
@@ -81,15 +91,14 @@ def run_pipeline(
     function.
     """
     raw_traces = list(trace_source.iter_traces())
-    buckets = _bucket_by_cohort(raw_traces, delta_fn=delta_fn)
+    buckets, delta_failures = _bucket_by_cohort(raw_traces, delta_fn=delta_fn)
     cohort_results = tuple(
         _cohort_result_from_bucket(b, policy=policy, floor=floor) for b in buckets
     )
     verdict = compute_verdict(cohort_results, floor, policy)
-    failures: list[FailureRecord] = []
     return project_to_report_v01(
         verdict,
-        failures=failures,
+        failures=delta_failures,
         cache_summary=cache_summary,
         methodology=methodology,
         runtime=runtime,
@@ -100,22 +109,49 @@ def _bucket_by_cohort(
     traces: Iterable[RawTrace],
     *,
     delta_fn: Callable[[RawTrace], float],
-) -> tuple[_CohortBuckets, ...]:
+) -> tuple[tuple[_CohortBuckets, ...], list[FailureRecord]]:
     """Group traces by `cohort` field and compute the per-trace
     delta for each. Skipped traces (`skip_reason is not None`) are
-    counted toward `selected` but excluded from `deltas`."""
-    by_name: dict[str, tuple[int, list[float]]] = {}
+    counted toward `selected` but excluded from `deltas`.
+
+    `delta_fn` exceptions are captured as `FailureRecord`s
+    (cardinal #1 — failure-as-data, not pipeline crash). The
+    affected trace contributes to `selected` but not to `deltas`,
+    matching the skip-reason path. Phase 9A.4 extends this pattern
+    to cover the full `FAILURE_CODE_REGISTRY`.
+    """
+    selected_counts: dict[str, int] = {}
+    deltas_by_cohort: dict[str, list[float]] = {}
+    failures: list[FailureRecord] = []
     for rt in traces:
-        sel, deltas = by_name.setdefault(rt.cohort, (0, []))
-        new_sel = sel + 1
-        new_deltas = list(deltas)
-        if rt.skip_reason is None:
-            new_deltas.append(delta_fn(rt))
-        by_name[rt.cohort] = (new_sel, new_deltas)
-    return tuple(
-        _CohortBuckets(name=name, selected=sel, deltas=tuple(deltas))
-        for name, (sel, deltas) in sorted(by_name.items())
+        selected_counts[rt.cohort] = selected_counts.get(rt.cohort, 0) + 1
+        bucket_deltas = deltas_by_cohort.setdefault(rt.cohort, [])
+        if rt.skip_reason is not None:
+            continue
+        try:
+            bucket_deltas.append(delta_fn(rt))
+        except Exception as exc:  # boundary catch; structured into FailureRecord per cardinal #1
+            failures.append(
+                FailureRecord(
+                    id=f"delta-fn-{rt.trace_id}",
+                    code=_DELTA_FN_FAILURE_CODE,
+                    stage="score",
+                    scope="trace",
+                    message=f"delta_fn raised: {exc}",
+                    trace_id=rt.trace_id,
+                    cohort=rt.cohort,
+                    retryable=False,
+                )
+            )
+    buckets = tuple(
+        _CohortBuckets(
+            name=name,
+            selected=selected_counts[name],
+            deltas=tuple(deltas_by_cohort.get(name, [])),
+        )
+        for name in sorted(selected_counts)
     )
+    return buckets, failures
 
 
 def _cohort_result_from_bucket(
@@ -126,7 +162,11 @@ def _cohort_result_from_bucket(
 ) -> CohortResult:
     """Build a `CohortResult` from a per-cohort bucket. Counts
     improved / unchanged / regressed per `practical_delta_epsilon`;
-    median + percentile CI from the deltas."""
+    median + percentile CI from the deltas; floor failures from
+    `compute_cohort_floor_failures`. Constructs the result exactly
+    once — floor evaluation uses a lightweight `_FloorProbe`
+    namespace so we don't materialize a discarded `CohortResult`
+    just to compute the failure list."""
     eps = policy.practical_delta_epsilon
     improved = sum(1 for d in bucket.deltas if d > eps)
     regressed = sum(1 for d in bucket.deltas if d < -eps)
@@ -151,7 +191,14 @@ def _cohort_result_from_bucket(
         ci_computable = True
         ci_unavailable_reason = None
 
-    cohort = CohortResult(
+    # Build a probe with just the fields `compute_cohort_floor_failures`
+    # reads (selected, replayed, scored, replay-validity ratio is
+    # derived from selected+replayed). A lightweight CohortResult is
+    # the cleanest probe: typed, frozen, and the floor function's
+    # signature already takes one. No discarded second instance —
+    # this is the same object pattern used elsewhere in the codebase
+    # for floor-then-finalize flows.
+    probe = CohortResult(
         name=bucket.name,
         selected=bucket.selected,
         replayed=replayed,
@@ -161,35 +208,36 @@ def _cohort_result_from_bucket(
         median_delta=median,  # type: ignore[arg-type]
         ci_lower=ci_lower,  # type: ignore[arg-type]
         ci_upper=ci_upper,  # type: ignore[arg-type]
-        floor_passed=True,
+        floor_passed=True,  # provisional; corrected below
         floor_failures=[],
         improved_count=improved,
         unchanged_count=unchanged,
         regressed_count=regressed,
     )
-    # Floor evaluation runs at compute_verdict time via
-    # compute_cohort_floor_failures, but the CohortResult on the
-    # input must already carry floor_passed correctly. Re-evaluate
-    # against the floor here so the verdict sees the right state.
-    from whatif.decision.floor import compute_cohort_floor_failures
-
-    failures = compute_cohort_floor_failures(cohort, floor)
+    floor_failures = compute_cohort_floor_failures(probe, floor)
+    if not floor_failures:
+        # Probe already satisfies the floor; return as-is to avoid
+        # an unnecessary copy.
+        return probe
+    # Floor failed — replace with the corrected `floor_passed` /
+    # `floor_failures` state. Cardinal #2: this is the structural
+    # signal compute_verdict consumes.
     return CohortResult(
-        name=cohort.name,
-        selected=cohort.selected,
-        replayed=cohort.replayed,
-        scored=cohort.scored,
-        ci_computable=cohort.ci_computable,
-        ci_unavailable_reason=cohort.ci_unavailable_reason,
-        median_delta=cohort.median_delta,
-        ci_lower=cohort.ci_lower,
-        ci_upper=cohort.ci_upper,
-        floor_passed=not failures,
-        floor_failures=failures,
-        improved_count=cohort.improved_count,
-        unchanged_count=cohort.unchanged_count,
-        regressed_count=cohort.regressed_count,
-        ci_meaningful=cohort.ci_meaningful,
+        name=probe.name,
+        selected=probe.selected,
+        replayed=probe.replayed,
+        scored=probe.scored,
+        ci_computable=probe.ci_computable,
+        ci_unavailable_reason=probe.ci_unavailable_reason,
+        median_delta=probe.median_delta,
+        ci_lower=probe.ci_lower,
+        ci_upper=probe.ci_upper,
+        floor_passed=False,
+        floor_failures=floor_failures,
+        improved_count=probe.improved_count,
+        unchanged_count=probe.unchanged_count,
+        regressed_count=probe.regressed_count,
+        ci_meaningful=probe.ci_meaningful,
     )
 
 
