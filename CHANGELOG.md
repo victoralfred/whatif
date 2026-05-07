@@ -12,6 +12,15 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+### Changed — Phase plan: split Phase 4 into 4A/4B and Phase 9 into 9A/9B (doctrine)
+
+- `.claude/skills/whatif-design/references/phases.md` — phase dependencies are now explicitly **gate-based, not strictly calendar-based**. The previous "no phase can begin until predecessors' gates are green" wording made the actual implementation order (Phases 5/6/7/8 against the runner-contract stub before completing real adapters) read as a violation. The split formalizes what already happened and de-risks future contributors reading the plan.
+- **Phase 4A** = adapter protocol + conformance harness + synthetic stub adapter. **This is the dependency for Phases 5–8 and Phase 9A.** Stubs prove the architecture.
+- **Phase 4B** = real Langfuse + Inspect AI adapters in separate packages. **Dependency for Phase 9B and v0.1 release.** Real adapters prove the product.
+- **Phase 9A** = stub end-to-end. All six walkthrough scenarios reproduce against the stub; every `FAILURE_CODE_REGISTRY` entry injects cleanly; determinism byte-equality holds. Architectural proof.
+- **Phase 9B** = real-adapter smoke. Three scenarios (one Ship, one Don't Ship, one Inconclusive) through real adapters. Smaller by design — 9A handles the invariant coverage. Product proof.
+- **Release rule:** v0.1.0 requires both 4B and 9B green. 9A alone is not the release bar.
+
 ### Added — Phase 8.4 (`whatif diff` — compare two reports)
 
 - `src/whatif/diff.py` — `load_report` / `compute_diff` / `render_diff_markdown` plus typed `DiffReport`, `CohortDelta`, `FindingDelta` (frozen + slotted, cardinal #6). `load_report` raises `DiffError` on file-level errors (missing, unreadable, malformed JSON, non-mapping root); shape errors propagate (genuine programmer bugs, not boundary errors). The diff operates on the raw dict rather than reconstructing `ReportV01` so cross-version comparisons during migration don't fail spuriously — exactly the rerun-after-fix workflow scenario 6 surfaces.

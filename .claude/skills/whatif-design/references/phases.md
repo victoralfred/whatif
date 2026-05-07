@@ -1,6 +1,12 @@
 # Phased Implementation Plan
 
-Bottom-up. Every phase has a test gate that proves the phase works before the next phase starts. No phase can begin until its predecessors' gates are green.
+Bottom-up. Every phase has a test gate that proves the phase works before the next phase starts.
+
+**Within a phase family, sub-phase sequencing is strict:** sub-phases must land in numeric order, and each sub-phase's gate must be green before its successor starts. Phase 1.2 cannot begin while 1.1 is open; Phase 4B cannot begin while 4A is open; Phase 9B cannot begin while 9A is open. This is the original "predecessors' gates green" rule, narrowed to its useful scope — it catches refactors that try to skip a sub-phase and prevents a contributor from racing two sub-phases of the same family in parallel where their gates overlap.
+
+**Across phase families, dependencies are gate-based, not strictly calendar-based.** Phases 5–8 may proceed once Phase 4A (adapter protocol + conformance suite + synthetic stub adapter) is green. They do not block on Phase 4B (real Langfuse and Inspect AI adapters). Phase 9 has two modes — 9A drives the full pipeline against the stub adapter; 9B drives a smaller smoke suite against the real adapters. v0.1 ships when **both** Phase 4B and Phase 9B are green; Phase 9A alone is not the release bar.
+
+The release rule is: **stubs prove the architecture; real adapters prove the product.** Stubs exercise every protocol, every failure path, every determinism invariant — that's a structural proof. Real adapters validate that Langfuse trace shapes and Inspect AI scorer outputs survive the contract boundary — that's the adapter proof. Both must hold before v0.1.0.
 
 ## Phase ordering rationale
 
@@ -11,14 +17,20 @@ Phase 0:  Walkthroughs and conceptual model     (paper artifacts; pressure-test 
 Phase 1:  Type model                            (the foundation; everything imports from here)
 Phase 2:  Decision pipeline                     (floor + policy; the trust core)
 Phase 3:  Cache subsystem                       (scorer cache with lock + disclosure)
-Phase 4:  Adapters                              (Langfuse trace source; Inspect AI scorer)
+Phase 4A: Adapter protocols + conformance + stub (unblocks Phases 5–8 and 9A)
 Phase 5:  Serialization and schema              (ReportV01, JSON Schema, redaction)
 Phase 6:  Replay pipeline                       (the streaming generator; runner contract)
 Phase 7:  Rendering                             (Markdown 3-format system)
 Phase 8:  CLI and config                        (Pydantic config, exit codes, environment)
-Phase 9:  Integration and end-to-end            (real fixtures, full pipeline)
+Phase 9A: Stub end-to-end                       (architectural proof against stub adapter)
+Phase 4B: Real adapters                         (Langfuse trace source; Inspect AI scorer)
+Phase 9B: Real-adapter smoke                    (product proof; small suite over real SDKs)
 Phase 10: Release packaging                     (docs, examples, PyPI publication)
 ```
+
+**On the non-monotonic numbering (4A → 5 → … → 9A → 4B → 9B):** the list is build-order, not numeric-order. Phase 4 and Phase 9 each split into a structural half (4A/9A) that lands early to unblock other work, and a real-adapter half (4B/9B) that lands later because it depends on the structural half plus external SDK integration. The numbers stay tied to "which phase concept" (adapters / integration); the letters carry the build-order. Reading top-to-bottom is the correct execution sequence.
+
+**Cascade-catalog check at 4B and 9B closure:** when either Phase 4B or Phase 9B is formally gated as complete, do a sweep of `references/cascade-catalog.md` for any entries whose Status was "open pending real adapter" or "open pending integration smoke" — splitting these phases changes the granularity at which downstream cascades resolve, and an entry that previously read "blocked on Phase 4" may now be load-bearing on 4B specifically (or already satisfied by 4A). The split itself does not auto-resolve any catalog entries; the reviewer must walk them.
 
 ## Phase 0: Walkthroughs and conceptual model (paper artifacts)
 
@@ -346,7 +358,47 @@ Common to all three:
 
 **Goal:** Reference adapters for trace source (Langfuse) and scorer (Inspect AI). Each is a separate package, lazy-loaded.
 
-### 4.1 — Langfuse trace source adapter
+Phase 4 splits into two gates: **4A** is the protocol + conformance suite + synthetic stub adapter — sufficient to unblock Phases 5–8 and Phase 9A. **4B** is the real Langfuse and Inspect AI adapters — required for Phase 9B and v0.1 release.
+
+### Phase 4A — Protocol, conformance harness, and stub adapter
+
+#### 4A.1 — Adapter protocols and loader
+
+`whatif/adapters/loader.py`:
+- Lazy import based on adapter ID string (`langfuse` → import `whatif_langfuse`)
+- Importing whatif core does NOT import any adapter
+- Test: `python -c "import whatif"` does not import `whatif_langfuse` or `whatif_inspect_ai`
+
+#### 4A.2 — Conformance test suite
+
+A shared conformance harness in `tests/adapters/test_conformance.py` that any concrete adapter (stub, real, or future) must pass. Exercises every protocol method, every documented failure path, every Sensitive-wrapping invariant. The harness is parameterized over adapter implementations.
+
+#### 4A.3 — Synthetic stub adapter
+
+`whatif/adapters/stub.py` (or equivalent in-repo location, NOT a separate package — the stub is internal scaffolding, not a shipped product):
+- Implements `TraceSource` and `Scorer` protocols
+- Produces realistic-shaped data driven by fixture inputs
+- Used by Phases 5–8 unit tests and by Phase 9A integration
+
+### Phase 4A tests
+
+- **Conformance harness runs against the stub** and is green.
+- **Lazy load test:** `import whatif` does not import any adapter.
+- **Sensitive wrap test (stub):** Stub-adapter outputs always wrap user content; serializer refuses stub output that has unwrapped user content.
+- **Cache key components test (stub):** Stub Scorer returns all required components; missing any one fails the test.
+
+### Phase 4A gate
+
+✅ Conformance harness exists and runs against the stub.
+✅ Lazy load test green.
+✅ Stub adapter implemented and used by downstream phases.
+✅ Sensitive wrapping verified through the stub.
+
+**Phase 4A is the dependency for Phases 5–8 and 9A.** The "no phase can begin until predecessors' gates are green" rule applies to 4A, not 4B.
+
+### Phase 4B — Real adapters
+
+#### 4B.1 — Langfuse trace source adapter
 
 `whatif-langfuse/` (separate package):
 - Implements `TraceSource` protocol
@@ -355,7 +407,7 @@ Common to all three:
 - Builds `RawTrace` → `TraceInput` projection
 - Adapter version exposed via `adapter_metadata()`
 
-### 4.2 — Inspect AI scorer adapter
+#### 4B.2 — Inspect AI scorer adapter
 
 `whatif-inspect-ai/` (separate package):
 - Implements `Scorer` protocol
@@ -364,27 +416,19 @@ Common to all three:
 - Wraps judge rationale as `Sensitive[str]`
 - Adapter version exposed via `adapter_metadata()`
 
-### 4.3 — Adapter loading
+### Phase 4B tests
 
-`whatif/adapters/loader.py`:
-- Lazy import based on adapter ID string (`langfuse` → import `whatif_langfuse`)
-- Importing whatif core does NOT import any adapter
-- Test: `python -c "import whatif"` does not import `whatif_langfuse` or `whatif_inspect_ai`
+- **Conformance harness runs against both real adapters** (same harness as 4A, parameterized).
+- **Sensitive wrap test (real):** Real-adapter outputs always wrap user content; serializer refuses real output that has unwrapped user content.
+- **Cache key components test (real):** Inspect AI adapter returns all required components; missing any one fails the test.
 
-### Phase 4 tests
+### Phase 4B gate
 
-- **Adapter conformance tests:** Both adapters pass a shared conformance test suite that exercises the protocol.
-- **Sensitive wrap test:** Adapter outputs always wrap user content; serializer refuses adapter output that has unwrapped user content.
-- **Lazy load test:** `import whatif` does not import any adapter.
-- **Cache key components test:** Inspect AI adapter returns all required components; missing any one fails the test.
-- **Stub adapter test:** Synthetic stub adapter for use in integration tests; produces realistic-shaped data.
+✅ Both real adapters pass the conformance harness.
+✅ Sensitive wrapping verified end-to-end with both real adapters.
+✅ Adapter packages publishable (separate distributions, lazy-loaded by core).
 
-### Phase 4 gate
-
-✅ Both adapters pass conformance suite.
-✅ Lazy load test green.
-✅ Stub adapter implemented (used in Phase 9 integration).
-✅ Sensitive wrapping verified end-to-end (adapter output → serializer rejects unwrapped).
+**Phase 4B is a dependency for Phase 9B and for v0.1 release. It is NOT a dependency for Phases 5–8 or 9A.**
 
 ## Phase 5: Serialization and schema
 
@@ -613,51 +657,87 @@ Resolved in `whatif/cli.py`:
 
 ## Phase 9: Integration and end-to-end
 
-**Goal:** Full pipeline against recorded synthetic Langfuse traces. Real fixtures, real adapter, real renderer, real CLI.
+**Goal:** Full pipeline reproduces the six walkthrough scenarios. Phase 9 splits into 9A (stub end-to-end — the architectural proof) and 9B (real-adapter smoke — the product proof).
 
-### 9.1 — Integration test fixtures
+### Phase 9A — Stub end-to-end (architectural proof)
+
+**Goal:** Drive the full pipeline against the synthetic stub adapter from Phase 4A. All six walkthrough scenarios reproduce; every failure code injects cleanly; determinism holds byte-by-byte on the deterministic subset.
+
+#### 9A.1 — Integration test fixtures
 
 `tests/fixtures/`:
-- Synthetic Langfuse traces (regenerable from a stub agent)
+- Synthetic stub-adapter inputs (regenerable from a fixture builder)
 - Six scenario configurations (one per walkthrough)
 - Expected `ReportV01` JSON for each
 - Expected rendered Markdown for each
 
-### 9.2 — End-to-end test suite
+#### 9A.2 — End-to-end test suite
 
 `tests/integration/`:
 - One test per walkthrough scenario
-- Run `whatif fork` against fixtures
+- Run `whatif fork` against the stub adapter + fixtures
 - Assert exit code, JSON output, Markdown output match expectations
 
-### 9.3 — Determinism property test
+#### 9A.3 — Determinism property test
 
 `tests/integration/test_determinism.py`:
-- Run same fixture twice
+- Run same fixture twice through the stub
 - Diff JSON deterministic subset
 - Assert byte-equality
 
-### 9.4 — Failure injection
+#### 9A.4 — Failure injection
 
 `tests/integration/test_failures.py`:
 - Inject scorer outage, runner timeout, cache corruption, malformed traces
 - Assert each produces structured `FailureRecord`s, not exceptions
 - Assert exit code 2 with appropriate verdict
+- **Coverage requirement:** every entry in `FAILURE_CODE_REGISTRY` is exercised
 
-### Phase 9 tests
+### Phase 9A tests
 
-- **All six scenarios pass end-to-end.**
+- **All six scenarios pass end-to-end against the stub.**
 - **Determinism test passes byte-equality.**
-- **Failure injection test passes for all 8+ injected failure types.**
-- **Performance test:** Full pipeline on 40-trace fixture under 60s (excluding judge calls; mock judge for this test).
+- **Failure injection covers every `FAILURE_CODE_REGISTRY` entry.**
+- **Performance test:** Full pipeline on 40-trace fixture under 60s (mock judge).
 
-### Phase 9 gate
+### Phase 9A gate
 
-✅ Six end-to-end scenarios match committed expectations.
+✅ Six stub end-to-end scenarios match committed expectations.
 ✅ Determinism test green.
 ✅ Failure injection covers all `FAILURE_CODE_REGISTRY` entries.
 ✅ Performance budget met.
 ✅ Full enforcement audit re-run; all entries green.
+
+### Phase 9B — Real-adapter smoke (product proof)
+
+**Goal:** Validate that the contract boundary survives real Langfuse trace shapes and real Inspect AI scorer outputs. Smaller suite than 9A by design — the architectural invariants are 9A's job; 9B answers "does the real SDK fit?"
+
+#### 9B.1 — Real-adapter fixtures
+
+- Recorded Langfuse trace export (sanitized; sensitive content already wrapped)
+- Inspect AI scorer in mocked or recorded mode (no live judge calls in CI)
+
+#### 9B.2 — Smoke scenario suite
+
+`tests/integration/test_real_adapters.py`:
+- One Ship scenario (clean baseline + improvement)
+- One Don't Ship scenario (regression past threshold)
+- One Inconclusive scenario (floor failure)
+- Each runs through the full CLI path with real adapters
+
+### Phase 9B tests
+
+- **Three smoke scenarios pass against real adapters.**
+- **Adapter conformance harness runs against both real adapters and is green** (mirrors Phase 4B; pinned again here to catch regressions in the integration path).
+- **Lazy-load assertion in CI:** real adapters are NOT imported by `import whatif` even when installed.
+
+### Phase 9B gate
+
+✅ Three real-adapter smoke scenarios pass.
+✅ Conformance harness green against real adapters in the integration path.
+✅ Lazy-load assertion holds with real adapters installed.
+
+**Phase 9B is a dependency for v0.1 release. Phase 9A alone is not the release bar.**
 
 ## Phase 10: Release packaging
 

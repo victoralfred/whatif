@@ -22,6 +22,16 @@ Format per entry:
 
 ## Open cascades (must resolve before schema freeze)
 
+### TODO: Sweep this catalog at Phase 4B and Phase 9B closure
+
+**Source decision:** Phase 4 and Phase 9 each split into a structural half (4A/9A) and a real-adapter half (4B/9B). See `references/phases.md`.
+
+**Rippled to:** every entry below whose Status mentions "Phase 4" or "Phase 9" without a sub-letter. Splitting the phases changes the granularity at which downstream cascades resolve — an entry previously blocked on "Phase 4" may now be load-bearing on 4B specifically, or may already be satisfied by 4A. The split does NOT auto-resolve any catalog entries; the reviewer must walk them.
+
+**Status:** open (sweep procedure, not a resolvable cascade).
+
+**Resolution:** when Phase 4B is formally gated as complete, walk this catalog top-to-bottom and update every entry whose Status references "Phase 4" — re-target to 4A or 4B as appropriate, or mark resolved if the structural half closed it. Repeat the sweep at Phase 9B closure. Leave this entry in place across both sweeps; remove it only when both 4B and 9B are merged AND the catalog has been walked end-to-end. Do not silently skip — the prose-only instruction in `phases.md` is not enforcement; this entry is the enforcement.
+
 ### Verdict-impact removal from FailureRecord
 
 **Source decision:** `FailureRecord` is operational fact only; verdict consequences live on `DecisionFinding`. See `references/type-model.md`.
