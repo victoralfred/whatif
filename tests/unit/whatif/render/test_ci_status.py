@@ -275,6 +275,26 @@ class TestDefensiveFallback:
         )
 
 
+class TestSeverityRankCoverage:
+    def test_severity_rank_covers_all_severity_literal_arms(self) -> None:
+        # Pin that the rank table covers every value in the
+        # `Severity` Literal. A future contributor adding a
+        # severity to the type without updating the rank would
+        # fail this test, surfacing the omission BEFORE render-
+        # time KeyError appears in production.
+        from typing import get_args
+
+        from whatif.render._constants import SEVERITY_RANK
+        from whatif.types.finding import Severity
+
+        literal_arms = set(get_args(Severity))
+        assert literal_arms == set(SEVERITY_RANK.keys()), (
+            f"SEVERITY_RANK keys {set(SEVERITY_RANK.keys())} do not match "
+            f"Severity Literal arms {literal_arms}. A new severity was "
+            "added without updating whatif/render/_constants.py."
+        )
+
+
 class TestSeverityStrictness:
     def test_unknown_severity_raises_keyerror(self) -> None:
         # `Severity` is a closed Literal; a value outside it

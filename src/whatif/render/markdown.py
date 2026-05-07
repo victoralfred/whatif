@@ -64,6 +64,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from whatif.decision.fix_suggestions import FIX_SUGGESTION_REGISTRY
 from whatif.render._constants import (
     COHORT_BASELINE as _COHORT_BASELINE,
 )
@@ -253,8 +254,6 @@ def _suggested_next_steps_section(report: ReportV01) -> list[str]:
     registered fix suggestion, so the `KeyError` fallback path
     below is defensive only.
     """
-    from whatif.decision.fix_suggestions import FIX_SUGGESTION_REGISTRY
-
     lines = ['<a id="fix"></a>', "## Suggested next steps", ""]
     if report.verdict_state == "ship":
         lines.append("No actionable findings — the verdict is Ship.")
