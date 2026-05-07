@@ -12,6 +12,12 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+### Added — Phase 9A.3 (determinism byte-equality)
+
+- `src/whatif/serialization/determinism.py` — schema-driven deterministic-subset extractor. `extract_deterministic_subset(report_dict)` projects a serialized `ReportV01` down to the top-level fields tagged `x-deterministic: true` in `v0.1.schema.json`. Schema-driven (not hardcoded) so a future schema change automatically updates the extractor. v0.1 deterministic fields: schema_version, schema_uri, verdict_state, cohort_results, failures, decision_findings, cache_summary, trust_floor, decision_policy, methodology. Excluded: `runtime` (timestamps, env fingerprint, sensitive-unwrap audit log).
+- `tests/integration/test_determinism.py` — Cardinal #4 byte-equality test. Re-runs each Phase 9A scenario (Clean Ship, Don't Ship × 2, Inconclusive insufficient sample) twice from fresh fixtures, extracts the deterministic subset, encodes both with the canonical kwargs (sort_keys + tight separators), and asserts byte-equality. Three additional pins: `runtime` excluded from subset; the extractor's deterministic-field set MUST match the schema's annotations (catches drift); a regression in any tagged field surfaces as a test failure rather than silently propagating.
+- 987 unit + integration tests pass; mypy --strict clean.
+
 ### Added — Phase 9A.2 (Don't Ship + Inconclusive walkthrough scenarios)
 
 - `tests/integration/test_pipeline_dont_ship.py` — walkthroughs 02 (baseline regression: 6/20 = 30% > policy threshold 10% → `baseline_regression_above_threshold` blocks_ship) and 03 (failure-rescue gap: 2/20 improved = 10% < policy threshold 50% → `failure_improvement_below_threshold` blocks_ship). Each pins verdict resolution to DontShip with floor passing — DontShip is a policy verdict above the floor, not a structural verdict.

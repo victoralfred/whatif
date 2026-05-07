@@ -47,6 +47,19 @@ Format per entry:
 
 **Resolution:** closes when 4B real adapters ship and the conformance harness is green against both real adapters in addition to the stub.
 
+### Deterministic-subset extractor (Phase 9A.3)
+
+**Source decision:** Phase 9A.3 (PR #62) introduces `whatif.serialization.determinism.extract_deterministic_subset`. The function reads `v0.1.schema.json` via `importlib.resources.files` (zipimport-safe), keeps only top-level fields tagged `x-deterministic: true`, and warns via `DeterministicSubsetWarning` when input keys aren't in the schema (drift detection). The integration test `tests/integration/test_determinism.py` re-runs each Phase 9A scenario twice and asserts byte-equality on the subset via `canonical_json_bytes`.
+
+**Rippled to:**
+- **CI gate (future):** the determinism comparison surface is now a known artifact. A future Phase 9B / Phase 10 CI check that diffs deterministic subsets across runs (e.g., on PRs that touch the pipeline) should reuse `extract_deterministic_subset` rather than re-implement the schema lookup.
+- **Schema-bump migrations (v0.2+):** when the schema adds a new top-level field with `x-deterministic: true`, `test_deterministic_field_set_matches_schema` MUST be updated in the same PR so the byte-equality assertion covers the new field. Producer-ahead-of-consumer drift surfaces as `DeterministicSubsetWarning` at runtime; missing schema-extractor sync surfaces as a test failure.
+- **Banned-import discipline:** the test file routes its re-encode through `canonical_json_bytes` (in `whatif.serialization`); any future helper that encodes for byte-comparison MUST live in the serialization package per the project's `json.dumps`-only-inside-`whatif/serialization/` lint rule. The lint rule itself is one layer of cardinal #5's three-layer defense (it prevents bypassing `WhatifJSONEncoder`'s Sensitive-rejection check), but the immediate governing rule is the banned-import discipline, not cardinal #5 itself.
+
+**Status:** open (extractor shipped; CI diff gate is downstream work).
+
+**Owner / tracking:** the CI diff gate is the natural fit for the **Phase 10 release-prep CI hardening PR** (`.github/workflows/release.yml` or a new `determinism-diff.yml`). When that PR opens it MUST link this entry. If Phase 9B (real-adapter smoke) needs an earlier checkpoint, it can claim the work first by linking here from the 9B PR description; whichever PR consumes the extractor first owns the resolution. Until one of those PRs claims it, no GitHub issue exists — when one does, replace this paragraph with the issue number.
+
 ### Phase 9A walkthrough scenario coverage (4 of 6 in 9A.1+9A.2)
 
 **Source decision:** Phase 9A.1 + 9A.2 cover walkthroughs 1–4 (Clean Ship, Don't Ship × 2, Inconclusive insufficient sample) end-to-end through `whatif.pipeline.run_pipeline` against the synthetic stub. Walkthroughs 5 (cache corruption) and 6 (rerun-after-fix / diff) are deliberately deferred.
