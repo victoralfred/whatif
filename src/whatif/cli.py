@@ -333,8 +333,14 @@ def cache_unlock(
             err=True,
         )
         raise typer.Exit(code=EXIT_INCONCLUSIVE_OR_SETUP_FAILURE)
-    if result.error is not None:  # unlink_failed: <reason>
-        typer.echo(f"whatif cache unlock: {result.error}", err=True)
+    if result.error == "unlink_failed":
+        # The closed UnlockErrorCode literal lets us match
+        # exhaustively on the sentinel; `unlink_error` carries
+        # the OS-level diagnostic separately.
+        typer.echo(
+            f"whatif cache unlock: unlink failed: {result.unlink_error}",
+            err=True,
+        )
         raise typer.Exit(code=EXIT_INCONCLUSIVE_OR_SETUP_FAILURE)
 
     if result.pid_was_alive:
@@ -369,6 +375,10 @@ def cache_verify(
             f"whatif cache verify: no entries directory at {cache_root}/entries (vacuously clean).",
         )
         raise typer.Exit(code=EXIT_SUCCESS)
+    # Print the headline (clean OR corrupted) first, then the
+    # anomaly counts apply equally to both branches — operators
+    # need the full picture in one invocation, not just on the
+    # success path.
     if result.corrupted:
         typer.echo(
             f"whatif cache verify: {len(result.corrupted)}/{result.total} "
@@ -381,12 +391,12 @@ def cache_verify(
             "Run `whatif cache rebuild --force` to wipe and start clean.",
             err=True,
         )
-        raise typer.Exit(code=EXIT_INCONCLUSIVE_OR_SETUP_FAILURE)
-    typer.echo(f"whatif cache verify: {result.valid}/{result.total} entries OK.")
-    # Mirror rebuild's anomaly-count surfacing so the two
-    # operations report the same shape of unexpected state. The
-    # entries that DO parse pass the structural check; the
-    # skipped counters describe layout anomalies.
+    else:
+        typer.echo(f"whatif cache verify: {result.valid}/{result.total} entries OK.")
+    # Anomaly counts surface on both paths so an operator sees
+    # everything in one invocation. The entries that DO parse
+    # pass the structural check; these counters describe layout
+    # anomalies that exist independently of corruption.
     if result.non_bucket_skipped:
         typer.echo(
             f"  note: skipped {result.non_bucket_skipped} non-directory "
@@ -400,7 +410,7 @@ def cache_verify(
             "subdirs).",
             err=True,
         )
-    raise typer.Exit(code=EXIT_SUCCESS)
+    raise typer.Exit(code=EXIT_INCONCLUSIVE_OR_SETUP_FAILURE if result.corrupted else EXIT_SUCCESS)
 
 
 @app.command()

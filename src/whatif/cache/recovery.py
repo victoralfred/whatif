@@ -48,8 +48,15 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 import psutil
+
+# Closed set of unlock error sentinels. Distinct from the freeform
+# `unlink_error` string (which carries the OS-level message); the
+# CLI exhaustively branches on this sentinel so a future variant
+# addition surfaces at every consumer call site.
+UnlockErrorCode = Literal["no_lock_file", "lock_holder_alive", "unlink_failed"]
 
 _ENTRIES_SUBDIR = "entries"
 _LOCK_FILENAME = ".lock"
@@ -82,16 +89,27 @@ class RebuildResult:
 
 @dataclass(frozen=True, slots=True)
 class UnlockResult:
-    """Outcome of `unlock`. `removed` is True iff the lock file was
-    deleted. `pid_was_alive` records whether the recorded PID was
-    a live process at the time of the check (informational; useful
-    for telemetry and the operator-facing message). `error` is set
-    when unlock refused to act (live PID + `allow_alive=False`, or
-    no lock file present)."""
+    """Outcome of `unlock`.
+
+    - `removed`: True iff the lock file was deleted.
+    - `pid_was_alive`: whether the recorded PID was a live process
+      at the time of the check (informational).
+    - `error`: closed-set sentinel from `UnlockErrorCode` or
+      `None` for clean success. CLI branches exhaustively on this.
+    - `unlink_error`: OS-level error message when `error="unlink_failed"`
+      (the freeform string from `OSError.__str__`). `None` for any
+      other error code.
+
+    Splitting the sentinel from the freeform message: the previous
+    `error="unlink_failed: <exc>"` pattern mixed two concepts in
+    one field. Now the CLI matches on the closed `error` literal
+    and reads `unlink_error` separately when needed.
+    """
 
     removed: bool
     pid_was_alive: bool
-    error: str | None = None
+    error: UnlockErrorCode | None = None
+    unlink_error: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -264,7 +282,8 @@ def unlock(cache_root: Path, *, allow_alive: bool) -> UnlockResult:
         return UnlockResult(
             removed=False,
             pid_was_alive=pid_was_alive,
-            error=f"unlink_failed: {exc}",
+            error="unlink_failed",
+            unlink_error=str(exc),
         )
     return UnlockResult(removed=True, pid_was_alive=pid_was_alive)
 
@@ -341,24 +360,36 @@ def _is_valid_entry(path: Path) -> bool:
 
     if not isinstance(data, dict):
         return False
-    # Required CacheEntry fields per storage/v1.py. We don't fully
-    # reconstruct via Pydantic — verify is a structural-integrity
-    # check, not a re-validation.
+    # Required CacheEntry fields per storage/v1.py plus minimal
+    # type guards. Tightening beyond key-presence catches a class
+    # of corruption (e.g., key truncated to None, metadata
+    # overwritten with a list) that bare key-membership misses,
+    # at negligible cost.
+    required = {"key", "value", "metadata"}
+    if not required.issubset(data.keys()):
+        return False
+    if not isinstance(data["key"], str) or not data["key"]:
+        return False
+    if not isinstance(data["metadata"], dict):  # noqa: SIM103
+        return False
+    # `value` is intentionally not type-checked — adapters return
+    # arbitrary JSON-serializable scorer outputs (string, dict,
+    # list); verify shouldn't enforce a shape the storage layer
+    # itself doesn't enforce.
     #
     # Why not Pydantic here despite the project's "Pydantic at
-    # boundaries" rule: this is NOT a boundary in the
-    # Pydantic-at-boundaries sense. Verify is a recovery operation
-    # that walks bytes-on-disk; a malformed entry that fails full
+    # boundaries" rule: this is NOT a boundary in the Pydantic-
+    # at-boundaries sense. Verify is a recovery operation that
+    # walks bytes-on-disk; a malformed entry that fails full
     # Pydantic validation but passes structural parse should still
     # be flagged as "structurally valid, semantically suspect"
-    # rather than crash mid-walk. The required-keys check is
-    # deliberate: it catches truncation / truly missing fields
-    # without rejecting v0.1-shape entries that have extra fields
-    # the future v0.2 reader will populate. Nested type validation
-    # (e.g., `metadata` being a Mapping[str, JsonPrimitive]) lands
-    # with the v0.2 cryptographic-hash extension — see TODO above.
-    required = {"key", "value", "metadata"}
-    return required.issubset(data.keys())
+    # rather than crash mid-walk. The structural checks above
+    # catch truncation / truly missing fields without rejecting
+    # v0.1-shape entries that have extra fields the future v0.2
+    # reader will populate. Full Pydantic reconstruction lands
+    # with the v0.2 cryptographic-hash extension — see TODO at
+    # the function docstring.
+    return True
 
 
 __all__ = [
