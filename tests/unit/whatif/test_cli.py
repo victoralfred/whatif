@@ -43,7 +43,18 @@ def _all_output(result: Result) -> str:
     streams in `result.output` by default, dropping the
     `mix_stderr` constructor arg. This helper smooths the
     difference so assertions read whichever of the two is
-    populated."""
+    populated.
+
+    Note on potential double-counting: `result.stdout` and
+    `result.output` may overlap on some click/typer versions
+    (newer versions alias them; older versions don't). The
+    concatenation can technically duplicate content. We accept
+    this for the assertion use case — `assert "foo" in <combined>`
+    only cares about presence, not count, so duplicates are
+    benign. If a future test asserts on substring counts, that
+    test should call `result.stdout` / `result.stderr` directly
+    rather than going through this helper.
+    """
     return (result.stdout or "") + (getattr(result, "stderr", "") or "") + (result.output or "")
 
 

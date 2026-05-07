@@ -177,15 +177,17 @@ def _run_fork_pipeline(cfg: WhatifConfig, proof: TwoAffirmationProof) -> int:
     """
     # Runtime guard: an `_ = proof` suppression alone would let a
     # future contributor accidentally delete the parameter (mypy
-    # passes; runtime is silent). The isinstance assertion makes
-    # the contract executable — bypassing the witness fails the
-    # test suite immediately. Phase 4 / Phase 9 wiring keeps this
-    # check at the entry point even after the body grows.
-    assert isinstance(proof, TwoAffirmationProof), (
-        "_run_fork_pipeline must receive a TwoAffirmationProof from "
-        "assert_two_affirmation; bypassing the witness violates "
-        "cardinal #7."
-    )
+    # passes; runtime is silent). The explicit raise makes the
+    # contract executable — bypassing the witness fails immediately.
+    # `if/raise` rather than `assert` because `python -O` strips
+    # asserts; cardinal #7 enforcement must hold under all run
+    # modes including optimized production deployments.
+    if not isinstance(proof, TwoAffirmationProof):
+        raise TypeError(
+            "_run_fork_pipeline must receive a TwoAffirmationProof "
+            "from assert_two_affirmation; bypassing the witness "
+            "violates cardinal #7."
+        )
     # `cfg` and `proof` are accepted but not yet consumed by the
     # body — Phase 4 wires the runner from cfg.target.runner, the
     # scorer from cfg.scorer.adapter, etc. `proof.forensic_active`
@@ -218,7 +220,14 @@ def cache_rebuild(
     force: Annotated[bool, typer.Option("--force", help="Skip safety checks (Phase 8.3).")] = False,
 ) -> None:
     """Rebuild the scorer cache (Phase 8.3 stub)."""
-    typer.echo("whatif cache rebuild: not yet implemented (Phase 8.3).", err=True)
+    # Reference `force` in the stub message so the parameter
+    # isn't unused — preserves the API-surface preview that
+    # `whatif cache rebuild --force` is the documented invocation
+    # while making the lint clean. Phase 8.3 wires the real body.
+    typer.echo(
+        f"whatif cache rebuild (force={force}): not yet implemented (Phase 8.3).",
+        err=True,
+    )
     raise typer.Exit(code=EXIT_INCONCLUSIVE_OR_SETUP_FAILURE)
 
 
