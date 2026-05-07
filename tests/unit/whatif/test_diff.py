@@ -79,8 +79,12 @@ class TestLoadReport:
         # and pytest runs tests sequentially within a process by
         # default (pytest-xdist isolates via separate processes, not
         # concurrent threads). Per-instance scoping isn't practical
-        # for `Path.read_text` because method lookup resolves through
-        # the class, not the instance.
+        # for `Path.read_text`: `pathlib.PurePath` uses `__slots__`,
+        # so `monkeypatch.setattr(p, "read_text", ...)` raises
+        # `AttributeError: 'PosixPath' object attribute 'read_text'
+        # is read-only`. Class-level patch is the only option;
+        # parallelism concerns are addressed by pytest-xdist's
+        # process isolation above.
         p = tmp_path / "ok.json"
         p.write_text(json.dumps(_base_report()), encoding="utf-8")
 
