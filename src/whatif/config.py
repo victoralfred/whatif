@@ -62,7 +62,7 @@ way.
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
@@ -101,7 +101,11 @@ class SourceConfig(BaseModel):
         ...,
         description="Adapter name; e.g., 'langfuse'. Resolved at load time.",
     )
-    options: dict[str, Any] = Field(default_factory=dict)
+    # Adapter-specific options omitted from v0.1 per YAGNI:
+    # `langfuse` (the only v0.1 adapter) takes no config-level
+    # options. Phase 4 adapter integration will revisit if a future
+    # adapter needs them; the typed shape (dedicated `<Adapter>Options`
+    # model, NOT `dict[str, Any]`) lands then per cardinal #6.
 
 
 class TargetConfig(BaseModel):
@@ -231,13 +235,16 @@ class WhatifConfig(BaseModel):
     selection: SelectionConfig
     change: ChangeConfig
     scorer: ScorerConfig
-    # mypy strict (no Pydantic plugin enabled) doesn't recognize
-    # Pydantic field defaults, so we use `default_factory` with a
-    # parameter-typed lambda that calls each sub-model with **{}.
-    # Pydantic accepts this and mypy sees a Callable[[], T].
-    decision: DecisionConfig = Field(default_factory=lambda: DecisionConfig.model_construct())
-    reporting: ReportingConfig = Field(default_factory=lambda: ReportingConfig.model_construct())
-    timeouts: TimeoutsConfig = Field(default_factory=lambda: TimeoutsConfig.model_construct())
+    # decision / reporting / timeouts sections are REQUIRED at the
+    # top-level config. Each sub-model's fields carry their own
+    # defaults, so an empty `decision: {}` block in YAML is enough
+    # to opt in to the v0.1 defaults — but the section must be
+    # present, not silently inferred. This avoids the
+    # `model_construct` / `model_validate({})` factory complexity
+    # while keeping mypy strict happy without the Pydantic plugin.
+    decision: DecisionConfig
+    reporting: ReportingConfig
+    timeouts: TimeoutsConfig
 
 
 # ---------------------------------------------------------------------------
@@ -258,6 +265,15 @@ def assert_two_affirmation(cfg: WhatifConfig, *, cli_profile: str | None) -> Non
     to enforce the cross-surface match: forensic on one side
     without forensic on the other is the dangerous-misconfiguration
     case.
+
+    ## CLI startup ordering
+
+    Call this at CLI startup IMMEDIATELY after `WhatifConfig` loads
+    and BEFORE any forensic-path code runs. Config construction
+    alone enforces only the config-side half of cardinal #7; the
+    cross-surface check below is what catches `--profile forensic`
+    without the matching config block (or vice versa). Phase 8.2
+    CLI must call this before resolving the redaction profile.
     """
     config_says_forensic = cfg.reporting.profile == "forensic"
     cli_says_forensic = cli_profile == "forensic"
@@ -290,26 +306,37 @@ def assert_two_affirmation(cfg: WhatifConfig, *, cli_profile: str | None) -> Non
 # table — the goal is to cover the top-N common misconfigurations,
 # not be exhaustive (operators see the raw Pydantic message either
 # way).
+# Map (full-loc-path, error-type) -> human-readable hint. The path
+# is the dotted location string (matching `loc` joined with '.')
+# so identically-named fields in different sections (e.g.,
+# `source.adapter` vs `scorer.adapter`) get distinct hints.
+#
+# The model_validator path for forensic_acknowledgment is
+# intentionally NOT in this table: Pydantic emits those errors
+# with `loc=()` (empty tuple), so there's no field path to key on.
+# The validator's raised message already includes the actionable
+# text, so the bare Pydantic message surfaces correctly without a
+# hint.
 _HINTS: dict[tuple[str, str], str] = {
-    ("adapter", "missing"): ("set `source.adapter` to your tracer name (e.g., 'langfuse')."),
-    ("runner", "missing"): ("set `target.runner` to a `python:module.path:attr` string."),
-    ("limit", "greater_than_equal"): ("selection limits must be >= 1; use a positive integer."),
-    ("max_baseline_regression_ratio", "less_than_equal"): (
+    ("source.adapter", "missing"): ("set `source.adapter` to your tracer name (e.g., 'langfuse')."),
+    ("target.runner", "missing"): ("set `target.runner` to a `python:module.path:attr` string."),
+    ("selection.failure_cohort.limit", "greater_than_equal"): (
+        "selection.failure_cohort.limit must be >= 1; use a positive integer."
+    ),
+    ("selection.baseline_cohort.limit", "greater_than_equal"): (
+        "selection.baseline_cohort.limit must be >= 1; use a positive integer."
+    ),
+    ("decision.max_baseline_regression_ratio", "less_than_equal"): (
         "decision.max_baseline_regression_ratio must be a fraction in [0, 1]."
     ),
-    ("min_failure_improvement_ratio", "less_than_equal"): (
+    ("decision.min_failure_improvement_ratio", "less_than_equal"): (
         "decision.min_failure_improvement_ratio must be a fraction in [0, 1]."
     ),
-    ("practical_delta_epsilon", "greater_than_equal"): (
+    ("decision.practical_delta_epsilon", "greater_than_equal"): (
         "decision.practical_delta_epsilon must be >= 0."
     ),
-    ("replay_seconds", "greater_than"): ("timeouts.replay_seconds must be > 0."),
-    ("score_seconds", "greater_than"): ("timeouts.score_seconds must be > 0."),
-    ("forensic_acknowledgment", "value_error"): (
-        "forensic profile requires a populated "
-        "reporting.forensic_acknowledgment block (accepted_by, "
-        "accepted_at, reason)."
-    ),
+    ("timeouts.replay_seconds", "greater_than"): ("timeouts.replay_seconds must be > 0."),
+    ("timeouts.score_seconds", "greater_than"): ("timeouts.score_seconds must be > 0."),
 }
 
 
@@ -328,11 +355,10 @@ def format_validation_errors(exc: ValidationError) -> str:
     """
     lines: list[str] = ["whatif config validation failed:", ""]
     for err in exc.errors():
-        loc_tail = str(err["loc"][-1]) if err["loc"] else "(root)"
         path = ".".join(str(part) for part in err["loc"]) or "(root)"
         msg = err["msg"]
         lines.append(f"  {path}: {msg}")
-        hint = _HINTS.get((loc_tail, err["type"]))
+        hint = _HINTS.get((path, err["type"]))
         if hint is not None:
             lines.append(f"    Hint: {hint}")
         lines.append("")

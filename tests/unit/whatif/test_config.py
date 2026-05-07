@@ -28,6 +28,9 @@ from whatif.config import (
 
 
 def _minimal_config_dict() -> dict:
+    # decision/reporting/timeouts are required at WhatifConfig
+    # level; pass `{}` to opt in to each sub-model's field
+    # defaults (which still validate via Pydantic).
     return {
         "source": {"adapter": "langfuse"},
         "target": {"runner": "python:my_agent.replay:run"},
@@ -37,6 +40,9 @@ def _minimal_config_dict() -> dict:
         },
         "change": {"system_prompt": "be concise"},
         "scorer": {"adapter": "inspect_ai", "cache_mode": "auto"},
+        "decision": {},
+        "reporting": {},
+        "timeouts": {},
     }
 
 
@@ -211,7 +217,9 @@ class TestHintGenerator:
         except ValidationError as exc:
             msg = format_validation_errors(exc)
             assert "selection.failure_cohort.limit" in msg
-            assert "Hint: selection limits must be >= 1" in msg
+            assert (
+                "Hint: selection.failure_cohort.limit must be >= 1; use a positive integer." in msg
+            )
         else:
             pytest.fail("Expected ValidationError")
 
