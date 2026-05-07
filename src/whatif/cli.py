@@ -269,11 +269,30 @@ def cache_rebuild(
             f"whatif cache rebuild: no entries directory at {cache_root}/entries (already clean).",
         )
         raise typer.Exit(code=EXIT_SUCCESS)
-    typer.echo(
+    summary = (
         f"whatif cache rebuild: removed {result.entries_removed} entries "
         f"across {result.bucket_dirs_removed} bucket directories under "
-        f"{cache_root}/entries.",
+        f"{cache_root}/entries."
     )
+    typer.echo(summary)
+    # Surface anomaly counts when non-zero so the operator sees
+    # the same information the result dataclass carries. A silent
+    # zero leaves clean output; a positive count prints the
+    # anomaly with its location so the operator can investigate.
+    if result.non_bucket_skipped:
+        typer.echo(
+            f"  note: skipped {result.non_bucket_skipped} non-directory "
+            f"path(s) directly under {cache_root}/entries (stray files; "
+            "preserved for inspection).",
+            err=True,
+        )
+    if result.non_file_skipped_in_bucket:
+        typer.echo(
+            f"  note: skipped {result.non_file_skipped_in_bucket} "
+            f"non-file path(s) inside bucket directories (unexpected "
+            "subdirs; bucket dirs preserved for inspection).",
+            err=True,
+        )
     raise typer.Exit(code=EXIT_SUCCESS)
 
 
@@ -364,6 +383,23 @@ def cache_verify(
         )
         raise typer.Exit(code=EXIT_INCONCLUSIVE_OR_SETUP_FAILURE)
     typer.echo(f"whatif cache verify: {result.valid}/{result.total} entries OK.")
+    # Mirror rebuild's anomaly-count surfacing so the two
+    # operations report the same shape of unexpected state. The
+    # entries that DO parse pass the structural check; the
+    # skipped counters describe layout anomalies.
+    if result.non_bucket_skipped:
+        typer.echo(
+            f"  note: skipped {result.non_bucket_skipped} non-directory "
+            f"path(s) directly under {cache_root}/entries (stray files).",
+            err=True,
+        )
+    if result.non_file_skipped_in_bucket:
+        typer.echo(
+            f"  note: skipped {result.non_file_skipped_in_bucket} "
+            "non-file path(s) inside bucket directories (unexpected "
+            "subdirs).",
+            err=True,
+        )
     raise typer.Exit(code=EXIT_SUCCESS)
 
 

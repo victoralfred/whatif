@@ -350,6 +350,37 @@ class TestCacheCliIntegration:
         assert result.exit_code == EXIT_SUCCESS
         assert list(entries.iterdir()) == []
 
+    def test_rebuild_surfaces_non_bucket_skipped_in_output(self, tmp_path: Path) -> None:
+        # Anomaly count must appear in the CLI output when
+        # non-zero (the result dataclass carries it; the operator
+        # only sees what the CLI prints).
+        from typer.testing import CliRunner
+
+        from whatif.cli import EXIT_SUCCESS, app
+
+        entries = tmp_path / "entries"
+        entries.mkdir(parents=True)
+        (entries / "stray.json").write_text("garbage", encoding="utf-8")
+        runner = CliRunner()
+        result = runner.invoke(app, ["cache", "rebuild", "--force", "--cache-root", str(tmp_path)])
+        assert result.exit_code == EXIT_SUCCESS
+        combined = (result.stdout or "") + (result.output or "")
+        assert "skipped 1 non-directory path" in combined
+
+    def test_verify_surfaces_non_bucket_skipped_in_output(self, tmp_path: Path) -> None:
+        from typer.testing import CliRunner
+
+        from whatif.cli import EXIT_SUCCESS, app
+
+        entries = tmp_path / "entries"
+        entries.mkdir(parents=True)
+        (entries / "stray.json").write_text("garbage", encoding="utf-8")
+        runner = CliRunner()
+        result = runner.invoke(app, ["cache", "verify", "--cache-root", str(tmp_path)])
+        assert result.exit_code == EXIT_SUCCESS
+        combined = (result.stdout or "") + (result.output or "")
+        assert "skipped 1 non-directory path" in combined
+
     def test_verify_corrupted_via_cli(self, tmp_path: Path) -> None:
         from typer.testing import CliRunner
 
