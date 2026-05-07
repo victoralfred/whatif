@@ -28,7 +28,7 @@ from typer.testing import CliRunner
 
 from whatif.cli import (
     EXIT_INCONCLUSIVE_OR_SETUP_FAILURE,
-    EXIT_SHIP,
+    EXIT_SUCCESS,
     app,
 )
 
@@ -94,7 +94,7 @@ class TestHelp:
         # typer convention: exit 2 (usage error) when no args; help
         # text is shown.
         assert result.exit_code != 0
-        assert "Usage:" in _all_output(result) or "Usage:" in _all_output(result)
+        assert "Usage:" in _all_output(result)
 
 
 # ---------------------------------------------------------------------------
@@ -258,5 +258,5 @@ class TestSubcommandStubs:
         report = tmp_path / "report.json"
         report.write_text("{}", encoding="utf-8")
         result = runner.invoke(app, ["report-migrate", str(report)])
-        assert result.exit_code == EXIT_SHIP
+        assert result.exit_code == EXIT_SUCCESS
         assert "No-op success" in _all_output(result)

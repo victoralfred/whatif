@@ -69,7 +69,19 @@ from whatif.config import (
 _DEFAULT_CONFIG_PATH = Path("whatif.config.yaml")
 
 # Exit codes per the cardinal-#2 / phase-8 contract.
-EXIT_SHIP = 0
+#
+# Semantics:
+#   0 - command succeeded. For `whatif fork` specifically, 0
+#       means a Ship verdict (the alias `EXIT_SHIP` documents
+#       that meaning at the call site). For commands that do not
+#       produce a verdict (`report-migrate` no-op, future
+#       `cache verify` clean-pass), 0 means "command did its
+#       job"; use the `EXIT_SUCCESS` alias for clarity.
+#   1 - Don't Ship verdict (fork only).
+#   2 - Inconclusive verdict / setup failure / floor violation.
+#       Floor violations always produce 2 regardless of policy.
+EXIT_SUCCESS = 0
+EXIT_SHIP = 0  # alias: fork-specific semantic name for exit 0
 EXIT_DONT_SHIP = 1
 EXIT_INCONCLUSIVE_OR_SETUP_FAILURE = 2
 
@@ -163,12 +175,23 @@ def _run_fork_pipeline(cfg: WhatifConfig, proof: TwoAffirmationProof) -> int:
     The Phase-4 contributor extends this body in place; the
     function signature is the stable contract surface.
     """
-    # `cfg` and `proof` are accepted but not yet consumed — Phase 4
-    # wires the runner from cfg.target.runner, the scorer from
-    # cfg.scorer.adapter, etc. `proof.forensic_active` gates the
-    # redaction profile at the artifact-bundle write boundary.
+    # Runtime guard: an `_ = proof` suppression alone would let a
+    # future contributor accidentally delete the parameter (mypy
+    # passes; runtime is silent). The isinstance assertion makes
+    # the contract executable — bypassing the witness fails the
+    # test suite immediately. Phase 4 / Phase 9 wiring keeps this
+    # check at the entry point even after the body grows.
+    assert isinstance(proof, TwoAffirmationProof), (
+        "_run_fork_pipeline must receive a TwoAffirmationProof from "
+        "assert_two_affirmation; bypassing the witness violates "
+        "cardinal #7."
+    )
+    # `cfg` and `proof` are accepted but not yet consumed by the
+    # body — Phase 4 wires the runner from cfg.target.runner, the
+    # scorer from cfg.scorer.adapter, etc. `proof.forensic_active`
+    # gates the redaction profile at the artifact-bundle write
+    # boundary.
     _ = cfg
-    _ = proof
     typer.echo(
         "whatif: fork pipeline requires Phase 4 adapter integration, "
         "which is not yet wired into the v0.1 CLI. Config and "
@@ -244,7 +267,7 @@ def report_migrate(
     typer.echo(
         f"whatif report-migrate: v0.1 has no migrations to apply ({report}). No-op success.",
     )
-    raise typer.Exit(code=EXIT_SHIP)  # exit 0: intentional no-op
+    raise typer.Exit(code=EXIT_SUCCESS)  # exit 0: intentional no-op
 
 
 def main() -> None:
