@@ -59,11 +59,16 @@ _LOCK_FILENAME = ".lock"
 class RebuildResult:
     """Outcome of `rebuild`. `entries_removed` counts the JSON files
     deleted; `bucket_dirs_removed` counts the two-char digest-prefix
-    directories the storage layer creates. `error` is set when the
-    cache root or entries dir didn't exist (a no-op rebuild)."""
+    directories the storage layer creates. `non_bucket_skipped`
+    counts non-directory paths the rebuild walked past (stray
+    files directly under entries/ — shouldn't normally exist;
+    surface them so an operator notices the anomaly). `error` is
+    set when the cache root or entries dir didn't exist (a no-op
+    rebuild)."""
 
     entries_removed: int
     bucket_dirs_removed: int
+    non_bucket_skipped: int = 0
     error: str | None = None
 
 
@@ -84,13 +89,19 @@ class UnlockResult:
 @dataclass(frozen=True, slots=True)
 class VerifyResult:
     """Outcome of `verify`. `total` is every file under entries/;
-    `valid` parses cleanly as a CacheEntry; `corrupted` is the list
-    of paths that failed to parse. `error` is set when entries/
-    doesn't exist (vacuously valid; not a failure)."""
+    `valid` parses cleanly as a CacheEntry; `corrupted` is the
+    tuple of paths that failed to parse. `error` is set when
+    entries/ doesn't exist (vacuously valid; not a failure).
+
+    `corrupted` is a tuple (not a list) for immutability — the
+    `frozen=True` decorator alone doesn't prevent mutation through
+    a list-typed field. Tuple matches the v0.1 typed-boundary
+    discipline.
+    """
 
     total: int
     valid: int
-    corrupted: list[Path]
+    corrupted: tuple[Path, ...]
     error: str | None = None
 
 
@@ -121,8 +132,15 @@ def rebuild(cache_root: Path, *, force: bool) -> RebuildResult:
 
     entries_removed = 0
     bucket_dirs_removed = 0
+    non_bucket_skipped = 0
     for bucket in entries_dir.iterdir():
         if not bucket.is_dir():
+            # Stray file directly under entries/ — shouldn't
+            # normally exist; the storage layer only writes inside
+            # bucket subdirectories. Count + skip rather than
+            # silently ignore so an operator running rebuild can
+            # see the anomaly in the result.
+            non_bucket_skipped += 1
             continue
         for entry_file in bucket.iterdir():
             if entry_file.is_file():
@@ -133,6 +151,7 @@ def rebuild(cache_root: Path, *, force: bool) -> RebuildResult:
     return RebuildResult(
         entries_removed=entries_removed,
         bucket_dirs_removed=bucket_dirs_removed,
+        non_bucket_skipped=non_bucket_skipped,
     )
 
 
@@ -200,7 +219,7 @@ def verify(cache_root: Path) -> VerifyResult:
     """
     entries_dir = cache_root / _ENTRIES_SUBDIR
     if not entries_dir.exists():
-        return VerifyResult(total=0, valid=0, corrupted=[], error="entries_dir_missing")
+        return VerifyResult(total=0, valid=0, corrupted=(), error="entries_dir_missing")
 
     total = 0
     valid = 0
@@ -216,7 +235,7 @@ def verify(cache_root: Path) -> VerifyResult:
                 valid += 1
             else:
                 corrupted.append(entry_file)
-    return VerifyResult(total=total, valid=valid, corrupted=corrupted)
+    return VerifyResult(total=total, valid=valid, corrupted=tuple(corrupted))
 
 
 def _is_valid_entry(path: Path) -> bool:

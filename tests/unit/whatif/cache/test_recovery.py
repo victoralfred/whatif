@@ -78,6 +78,24 @@ class TestRebuild:
         assert entries.exists()
         assert list(entries.iterdir()) == []
 
+    def test_non_bucket_files_counted(self, tmp_path: Path) -> None:
+        # Stray file directly under entries/ shouldn't normally
+        # exist (storage only writes inside bucket subdirs), but
+        # if one does, rebuild surfaces it via non_bucket_skipped
+        # rather than silently ignoring.
+        entries = tmp_path / "entries"
+        entries.mkdir(parents=True)
+        (entries / "stray.json").write_text("garbage", encoding="utf-8")
+        _make_entry(entries, "a")  # creates a real bucket too
+
+        result = rebuild(tmp_path, force=True)
+        assert result.error is None
+        assert result.entries_removed == 1
+        assert result.bucket_dirs_removed == 1
+        assert result.non_bucket_skipped == 1
+        # The stray file is preserved (rebuild doesn't touch it).
+        assert (entries / "stray.json").exists()
+
     def test_preserves_meta_and_lock_files(self, tmp_path: Path) -> None:
         entries = tmp_path / "entries"
         _make_entry(entries, "a")
@@ -103,9 +121,20 @@ class TestUnlock:
         assert result.removed is False
 
     def test_stale_lock_removed(self, tmp_path: Path) -> None:
+        # Use a freshly-exited subprocess for a hermetic dead PID.
+        # The earlier "PID 999999 is virtually guaranteed dead"
+        # approach flaked on Linux systems with `kernel.pid_max`
+        # set high enough that 999999 could be a live process.
+        # Spawning + waiting for `true` guarantees the PID was
+        # alive when allocated and dead by the time we use it.
+        import subprocess
+
+        proc = subprocess.Popen(["true"])
+        proc.wait()
+        dead_pid = proc.pid
+
         lock = tmp_path / ".lock"
-        # PID 999999 is virtually guaranteed dead on test machines.
-        lock.write_text(json.dumps({"pid": 999999}), encoding="utf-8")
+        lock.write_text(json.dumps({"pid": dead_pid}), encoding="utf-8")
         result = unlock(tmp_path, allow_alive=False)
         assert result.removed is True
         assert result.pid_was_alive is False
@@ -156,7 +185,7 @@ class TestVerify:
         assert result.error is None
         assert result.total == 2
         assert result.valid == 2
-        assert result.corrupted == []
+        assert result.corrupted == ()
 
     def test_corrupted_flagged(self, tmp_path: Path) -> None:
         # Use `in` membership rather than `==` equality on the
