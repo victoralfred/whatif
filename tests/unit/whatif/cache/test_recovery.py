@@ -121,6 +121,19 @@ class TestUnlock:
         assert result.removed is False
 
     def test_stale_lock_removed(self, tmp_path: Path) -> None:
+        # Skip on Windows: `true` isn't a standard executable
+        # there, and the cache subsystem is Linux/macOS-only at
+        # the module level (psutil conditional + lock.py refuses
+        # Windows at import). The dead-PID acquisition mechanism
+        # picks `true` because every POSIX system has it; a
+        # cross-platform alternative would add complexity without
+        # benefit since the runtime path doesn't run on Windows.
+        import sys
+
+        if sys.platform == "win32":
+            import pytest
+
+            pytest.skip("Linux/macOS only — cache subsystem refuses Windows")
         # Use a freshly-exited subprocess for a hermetic dead PID.
         # The earlier "PID 999999 is virtually guaranteed dead"
         # approach flaked on Linux systems with `kernel.pid_max`
@@ -188,7 +201,7 @@ class TestUnlock:
 class TestVerify:
     def test_missing_entries_dir_is_vacuous_clean(self, tmp_path: Path) -> None:
         result = verify(tmp_path)
-        assert result.error == "entries_dir_missing"
+        assert result.vacuous is True
         assert result.total == 0
 
     def test_all_valid(self, tmp_path: Path) -> None:
@@ -196,7 +209,7 @@ class TestVerify:
         _make_entry(entries, "a")
         _make_entry(entries, "b")
         result = verify(tmp_path)
-        assert result.error is None
+        assert result.vacuous is False
         assert result.total == 2
         assert result.valid == 2
         assert result.corrupted == ()

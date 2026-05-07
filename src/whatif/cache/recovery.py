@@ -90,19 +90,34 @@ class UnlockResult:
 class VerifyResult:
     """Outcome of `verify`. `total` is every file under entries/;
     `valid` parses cleanly as a CacheEntry; `corrupted` is the
-    tuple of paths that failed to parse. `error` is set when
-    entries/ doesn't exist (vacuously valid; not a failure).
+    tuple of paths that failed to parse.
+
+    Three coherent states:
+
+      - **Clean:** `error=None`, `corrupted=()`, `total>=0`. CLI
+        exits 0.
+      - **Vacuously clean:** `vacuous=True`, `total=0`. The
+        entries directory doesn't exist; nothing to verify. CLI
+        also exits 0. Distinct from "Clean" so consumers can
+        report the difference operationally.
+      - **Corrupted:** `corrupted` non-empty. CLI exits 2.
+
+    `vacuous` is a dedicated bool rather than reusing `error`
+    because the entries-dir-missing case is NOT an error — it's
+    the absence of a verify subject. The previous `error=
+    "entries_dir_missing"` overload conflated "no work to do"
+    with "verify failed", which is a different semantic and
+    would confuse future contributors.
 
     `corrupted` is a tuple (not a list) for immutability — the
-    `frozen=True` decorator alone doesn't prevent mutation through
-    a list-typed field. Tuple matches the v0.1 typed-boundary
-    discipline.
+    `frozen=True` decorator alone doesn't prevent mutation
+    through a list-typed field.
     """
 
     total: int
     valid: int
     corrupted: tuple[Path, ...]
-    error: str | None = None
+    vacuous: bool = False
 
 
 def rebuild(cache_root: Path, *, force: bool) -> RebuildResult:
@@ -228,7 +243,7 @@ def verify(cache_root: Path) -> VerifyResult:
     """
     entries_dir = cache_root / _ENTRIES_SUBDIR
     if not entries_dir.exists():
-        return VerifyResult(total=0, valid=0, corrupted=(), error="entries_dir_missing")
+        return VerifyResult(total=0, valid=0, corrupted=(), vacuous=True)
 
     total = 0
     valid = 0

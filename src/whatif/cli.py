@@ -55,6 +55,7 @@ from typing import Annotated
 import typer
 from pydantic import ValidationError
 
+from whatif.cache.recovery import rebuild, unlock, verify
 from whatif.config import (
     ConfigFileError,
     ForensicAffirmationError,
@@ -253,7 +254,6 @@ def cache_rebuild(
     Exits 0 on a clean rebuild OR a no-op-because-no-entries-dir.
     Exits 2 when `--force` is missing (safety belt).
     """
-    from whatif.cache.recovery import rebuild
 
     result = rebuild(cache_root, force=force)
     if result.error == "force_required":
@@ -299,7 +299,6 @@ def cache_unlock(
     Exits 2 when the lock holder is alive and `--allow-alive`
     was not passed.
     """
-    from whatif.cache.recovery import unlock
 
     result = unlock(cache_root, allow_alive=allow_alive)
     if result.error == "no_lock_file":
@@ -343,10 +342,8 @@ def cache_verify(
     v0.1 checks structural integrity only; cryptographic
     content-hash verification is deferred to v0.2.
     """
-    from whatif.cache.recovery import verify
-
     result = verify(cache_root)
-    if result.error == "entries_dir_missing":
+    if result.vacuous:
         typer.echo(
             f"whatif cache verify: no entries directory at {cache_root}/entries (vacuously clean).",
         )
