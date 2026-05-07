@@ -26,6 +26,7 @@ from whatif.config import (
     ConfigFileError,
     ForensicAcknowledgment,
     ForensicAffirmationError,
+    TwoAffirmationProof,
     WhatifConfig,
     assert_two_affirmation,
     format_validation_errors,
@@ -180,10 +181,11 @@ def _forensic_config() -> WhatifConfig:
 
 
 class TestTwoAffirmation:
-    def test_both_surfaces_forensic_passes(self) -> None:
+    def test_both_surfaces_forensic_returns_active_proof(self) -> None:
         cfg = _forensic_config()
-        # No raise.
-        assert_two_affirmation(cfg, cli_profile="forensic")
+        proof = assert_two_affirmation(cfg, cli_profile="forensic")
+        assert isinstance(proof, TwoAffirmationProof)
+        assert proof.forensic_active is True
 
     def test_config_forensic_cli_not_fails(self) -> None:
         cfg = _forensic_config()
@@ -195,15 +197,29 @@ class TestTwoAffirmation:
         with pytest.raises(ForensicAffirmationError, match="CLI flag alone is insufficient"):
             assert_two_affirmation(cfg, cli_profile="forensic")
 
-    def test_neither_forensic_passes(self) -> None:
+    def test_neither_forensic_returns_inactive_proof(self) -> None:
         cfg = WhatifConfig(**_minimal_config_dict())
-        assert_two_affirmation(cfg, cli_profile=None)
-        assert_two_affirmation(cfg, cli_profile="default")
+        # Both nullary surfaces: returns a proof with
+        # forensic_active=False so downstream code still
+        # type-checks against the witness API but takes the
+        # default-redaction branch.
+        proof_none = assert_two_affirmation(cfg, cli_profile=None)
+        assert proof_none.forensic_active is False
+        proof_default = assert_two_affirmation(cfg, cli_profile="default")
+        assert proof_default.forensic_active is False
 
     def test_acknowledgment_fields_required_non_empty(self) -> None:
         # ForensicAcknowledgment.min_length=1 — empty strings fail.
         with pytest.raises(ValidationError):
             ForensicAcknowledgment(accepted_by="", accepted_at="x", reason="x")
+
+    def test_proof_cannot_be_constructed_externally(self) -> None:
+        # Witness-token defense: only `assert_two_affirmation` can
+        # produce a valid `TwoAffirmationProof`. Direct construction
+        # without the module-private sentinel raises RuntimeError.
+        # Mirrors cardinal #2's `FloorPassedProof` enforcement.
+        with pytest.raises(RuntimeError, match="closure-capture"):
+            TwoAffirmationProof(forensic_active=True, _token=object())
 
 
 # ---------------------------------------------------------------------------

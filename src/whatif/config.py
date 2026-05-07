@@ -85,6 +85,51 @@ class ForensicAffirmationError(ValueError):
     """
 
 
+class TwoAffirmationProof:
+    """Witness token: structurally proves the cardinal-#7 two-
+    affirmation check ran AND passed.
+
+    Mirrors the `FloorPassedProof` pattern from cardinal #2. The
+    only function that produces a `TwoAffirmationProof` is
+    `assert_two_affirmation`; any code path that consumes
+    forensic-profile capability MUST accept a proof, forcing
+    callers through the check.
+
+    Constructing a `TwoAffirmationProof` outside this module is
+    blocked by a closure-captured token (same pattern as
+    `_FLOOR_INTERNAL_TOKEN` in `whatif/decision/floor.py`):
+    `__init__` requires a sentinel that only this module holds.
+    A fabricated proof raises at construction.
+
+    `forensic_active` records the verdict the check delivered:
+    True iff both surfaces agreed on `forensic`; False otherwise.
+    Forensic-path code branches on this — not on the raw
+    config/CLI values — so the witness is the single source of
+    truth for "are we writing unredacted artifacts".
+    """
+
+    __slots__ = ("forensic_active",)
+
+    def __init__(self, *, forensic_active: bool, _token: object) -> None:
+        if _token is not _PROOF_TOKEN:
+            raise RuntimeError(
+                "TwoAffirmationProof can only be constructed by "
+                "`whatif.config.assert_two_affirmation`. The witness-"
+                "token closure-capture pattern (cardinal #7 mirror of "
+                "cardinal #2's FloorPassedProof) prevents fabrication."
+            )
+        self.forensic_active = forensic_active
+
+
+# Module-private sentinel used to authenticate `TwoAffirmationProof`
+# construction. Captured by `assert_two_affirmation` via lexical
+# scope; not exported. A future restructure that exports this token
+# OR moves `assert_two_affirmation` out of this module breaks the
+# witness guarantee — banned-import lint and the cascade entry
+# track this constraint.
+_PROOF_TOKEN = object()
+
+
 # ---------------------------------------------------------------------------
 # Per-section sub-models
 # ---------------------------------------------------------------------------
@@ -261,7 +306,7 @@ class WhatifConfig(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-def assert_two_affirmation(cfg: WhatifConfig, *, cli_profile: str | None) -> None:
+def assert_two_affirmation(cfg: WhatifConfig, *, cli_profile: str | None) -> TwoAffirmationProof:
     """Enforce the cardinal-#7 two-affirmation rule for forensic.
 
     Both surfaces must agree:
@@ -283,6 +328,20 @@ def assert_two_affirmation(cfg: WhatifConfig, *, cli_profile: str | None) -> Non
     cross-surface check below is what catches `--profile forensic`
     without the matching config block (or vice versa). Phase 8.2
     CLI must call this before resolving the redaction profile.
+
+    ## Witness token
+
+    Returns a `TwoAffirmationProof`. Forensic-path code (Phase
+    8.2 + downstream renderer / artifact-bundle code) accepts the
+    proof as a parameter — callers that skip the affirmation check
+    cannot type-check against the forensic-path API. Mirrors
+    cardinal #2's `FloorPassedProof` witness pattern.
+
+    `proof.forensic_active` records the verdict: True iff both
+    surfaces agreed on `forensic`. Forensic-path code branches on
+    this — not on raw config/CLI values — so the witness is the
+    single source of truth for "are we writing unredacted
+    artifacts".
     """
     config_says_forensic = cfg.reporting.profile == "forensic"
     cli_says_forensic = cli_profile == "forensic"
@@ -303,6 +362,11 @@ def assert_two_affirmation(cfg: WhatifConfig, *, cli_profile: str | None) -> Non
             "affirmation across BOTH surfaces. The CLI flag alone is "
             "insufficient."
         )
+
+    return TwoAffirmationProof(
+        forensic_active=config_says_forensic and cli_says_forensic,
+        _token=_PROOF_TOKEN,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -421,9 +485,18 @@ def load_config(path: Path) -> WhatifConfig:
     boundary; the CLI catches both and renders the appropriate
     message before exiting non-zero.
 
-    `path` accepts both `.yaml`/`.yml` and `.json` extensions; the
-    parser is selected by extension. Other extensions raise
+    `path` accepts `.yaml` / `.yml` / `.json` extensions; the parser
+    is selected by extension. Other extensions raise
     `ConfigFileError` rather than guessing.
+
+    TOML support (e.g., `pyproject.toml`-style configs) is
+    deferred from v0.1: it would require either tomllib (Python
+    3.11+ stdlib, available) plus a separate writer for tooling
+    that emits TOML, OR a third-party library that adds a dep.
+    Operators who want TOML can convert to YAML at the build
+    stage. Phase 8.2's CLI will accept `--config <path>` so
+    extension-driven dispatch is the right place to add TOML when
+    motivated by a real user need.
     """
     if not path.exists():
         raise ConfigFileError(f"config file not found: {path}")
@@ -478,6 +551,7 @@ __all__ = [
     "SourceConfig",
     "TargetConfig",
     "TimeoutsConfig",
+    "TwoAffirmationProof",
     "WhatifConfig",
     "assert_two_affirmation",
     "format_validation_errors",
