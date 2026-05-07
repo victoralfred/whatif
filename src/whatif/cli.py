@@ -66,6 +66,12 @@ from whatif.config import (
     format_validation_errors,
     load_config,
 )
+from whatif.diff import (
+    DiffError,
+    compute_diff,
+    load_report,
+    render_diff_markdown,
+)
 
 # Default config-file path. Operators override via `--config`.
 _DEFAULT_CONFIG_PATH = Path("whatif.config.yaml")
@@ -418,12 +424,22 @@ def diff(
     prev: Annotated[Path, typer.Argument(help="Previous report.json")],
     new: Annotated[Path, typer.Argument(help="New report.json")],
 ) -> None:
-    """Compare two whatif reports (Phase 8.4 stub)."""
-    typer.echo(
-        f"whatif diff: not yet implemented (Phase 8.4). prev={prev}, new={new}",
-        err=True,
-    )
-    raise typer.Exit(code=EXIT_INCONCLUSIVE_OR_SETUP_FAILURE)
+    """Compare two whatif reports and emit a Markdown diff to stdout.
+
+    Exits 0 on a successful render (whether or not anything changed —
+    the diff is descriptive, not a verdict). Exits 2 on file-level
+    errors (missing file, parse failure, non-mapping JSON) surfaced
+    as `DiffError` from `load_report`.
+    """
+    try:
+        prev_data = load_report(prev)
+        new_data = load_report(new)
+    except DiffError as exc:
+        typer.echo(f"whatif diff: {exc}", err=True)
+        raise typer.Exit(code=EXIT_INCONCLUSIVE_OR_SETUP_FAILURE) from exc
+    report = compute_diff(prev_data, new_data)
+    typer.echo(render_diff_markdown(report), nl=False)
+    raise typer.Exit(code=EXIT_SUCCESS)
 
 
 @app.command("report-migrate")

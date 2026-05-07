@@ -393,9 +393,14 @@ Each format is a pure function `(ReportV01) -> str`. Walkthrough-match tests aga
   - Con: it's a separate CLI surface with its own renderer and its own schema version
 - Recommendation: include in v0.1. The failure-rescue use case is fundamentally iterative, and the diff mode is what makes the iteration legible
 
-**Status:** open (decision pending)
+**Status:** resolved — shipped in v0.1 as Phase 8.4 (PR #55).
 
-**Resolution:** Phase 8 (CLI) decision; if accepted, becomes Phase 8.5 (diff). If deferred to v0.2, scenario 6's design pressure remains unresolved and the README must remove the CLI invocation example.
+**Resolution:** `whatif diff <prev.json> <new.json>` lives at `src/whatif/diff.py` (single module, not a subpackage — no `whatif/render/diff_markdown.py` separation; the renderer is `render_diff_markdown` in the same file). v0.1 scope: verdict-state transitions, cohort row deltas, decision_findings added/removed (keyed on `(code, severity)`), failure-count delta. Renderer emits Markdown only — no `DiffV01` JSON output schema in v0.1 (downstream tooling reads the Markdown or re-runs `compute_diff` against the raw JSON). `whatif/diff.py::load_report` deliberately reads raw dicts rather than reconstructing `ReportV01` so cross-version comparisons during migration don't fail spuriously.
+
+**Deferred to v0.2:**
+- Per-trace evidence diff (which traces newly improved / regressed) — **hard dependency edge** on the "Per-trace evidence schema (top improvements / regressions with judge rationale)" entry directly below. The diff cannot land before that schema does, because there is no typed shape to diff over. Any v0.2 milestone that schedules per-trace evidence diff MUST schedule the schema entry first or in the same PR.
+- `DiffV01` JSON output shape — only motivated when downstream tooling appears that wants structured diff data.
+- Verdict-change matrix tests (Ship→Ship, Ship→DontShip, … 9 cells) — current tests pin the load-bearing transitions; full matrix becomes useful when the renderer grows verdict-specific guidance.
 
 ### Per-trace evidence schema (top improvements / regressions with judge rationale)
 
@@ -633,6 +638,14 @@ Recommend option 2 (ContextVar) when concurrent or embedded runs become a real u
 **Trigger for resolution:** v0.1 ships option 1 with documented discipline. Move to ContextVar when first multi-run-in-process use case lands.
 
 ## Deferred cascades (v1.0+, explicit)
+
+### `whatif diff` arrow spacing consistency
+
+**Source decision:** v0.1 ships `whatif diff` with two arrow styles: the verdict line uses spaced ` → ` (`Don't Ship → Ship`), while cohort-table cells use unspaced `→` (`8→9 (+1)`). The unspaced form is deliberate — cohort cells live inside Markdown table columns where the tight form preserves column budget on narrow viewers; the verdict line is full-width prose where spacing reads cleaner.
+
+**Rationale for deferral:** Cosmetic, not a correctness issue. Aligning would either (a) widen cohort cells (worse for narrow viewers) or (b) tighten the verdict line (worse for readability). The right answer probably involves measuring real PR-comment renders before picking.
+
+**Trigger for resolution:** v0.2 renderer pass — when per-trace evidence diff lands and the cohort table grows, revisit the column-width budget holistically.
 
 ### FloorPassedProof binds to specific cohort results
 

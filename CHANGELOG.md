@@ -12,6 +12,14 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+### Added — Phase 8.4 (`whatif diff` — compare two reports)
+
+- `src/whatif/diff.py` — `load_report` / `compute_diff` / `render_diff_markdown` plus typed `DiffReport`, `CohortDelta`, `FindingDelta` (frozen + slotted, cardinal #6). `load_report` raises `DiffError` on file-level errors (missing, unreadable, malformed JSON, non-mapping root); shape errors propagate (genuine programmer bugs, not boundary errors). The diff operates on the raw dict rather than reconstructing `ReportV01` so cross-version comparisons during migration don't fail spuriously — exactly the rerun-after-fix workflow scenario 6 surfaces.
+- v0.1 scope: verdict-state transitions, cohort row deltas (selected / scored / improved / regressed / median_delta), `decision_findings` added/removed (keyed on `(code, severity)` so a severity transition surfaces as both rows), and failure-count deltas. Per-trace evidence diff deferred to v0.2 alongside the per-trace evidence schema. Cardinal #10: the renderer surfaces deltas as descriptive numbers — no inferential claims beyond the verdict-state transition itself.
+- CLI wiring: `whatif diff <prev.json> <new.json>` replaces the Phase 8.4 stub. Renders to stdout; exits 0 on a successful diff (descriptive, not a verdict), 2 on `DiffError` from either input.
+- **Renderer behavior operators should know:** (a) **asymmetric cohorts** — a cohort name present in only one report (added or dropped between runs) renders with zeroed counters on the absent side (e.g., a new failure cohort appears as `0→10`, a dropped cohort as `10→0`). Deliberate; the row IS the diff signal. (b) **Failures line suppression** — when `failures_prev == failures_new` the line is omitted, matching the Schema-line behavior; the verdict line stays always-present because it's the load-bearing claim per cardinal #10.
+- Tests in `tests/unit/whatif/test_diff.py` cover the four `load_report` failure modes plus round-trip; verdict / failure-count / cohort / findings-added/removed paths through `compute_diff`; trailing-newline contract, "(No changes detected.)" sentinel, verdict-arrow rendering, cohort-table cell formatting (`prev→new (±delta)` for changed, bare value for unchanged), and findings-section rendering. Two new CLI smoke tests pin the missing-file → exit 2 and successful-diff → stdout-Markdown surfaces.
+
 ### Added — Phase 8.3 (cache recovery: rebuild / unlock / verify)
 
 - `src/whatif/cache/recovery.py` — three operator-facing recovery primitives separated from the runtime-path `whatif.cache.storage`:

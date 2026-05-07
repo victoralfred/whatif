@@ -267,14 +267,41 @@ class TestSubcommands:
         assert result.exit_code == EXIT_SUCCESS
         assert "vacuously clean" in _all_output(result)
 
-    def test_diff_stub(self, runner: CliRunner, tmp_path) -> None:
+    def test_diff_missing_file_exits_2(self, runner: CliRunner, tmp_path) -> None:
+        # File-level errors surface as DiffError → exit 2.
+        new = tmp_path / "new.json"
+        new.write_text(
+            json.dumps(
+                {
+                    "verdict_state": "ship",
+                    "schema_version": "v0.1",
+                    "cohort_results": [],
+                    "decision_findings": [],
+                    "failures": [],
+                }
+            ),
+            encoding="utf-8",
+        )
+        result = runner.invoke(app, ["diff", str(tmp_path / "missing.json"), str(new)])
+        assert result.exit_code == EXIT_INCONCLUSIVE_OR_SETUP_FAILURE
+        assert "not found" in _all_output(result)
+
+    def test_diff_renders_markdown(self, runner: CliRunner, tmp_path) -> None:
         prev = tmp_path / "prev.json"
         new = tmp_path / "new.json"
-        prev.write_text("{}", encoding="utf-8")
-        new.write_text("{}", encoding="utf-8")
+        base = {
+            "schema_version": "v0.1",
+            "cohort_results": [],
+            "decision_findings": [],
+            "failures": [],
+        }
+        prev.write_text(json.dumps({**base, "verdict_state": "dont_ship"}), encoding="utf-8")
+        new.write_text(json.dumps({**base, "verdict_state": "ship"}), encoding="utf-8")
         result = runner.invoke(app, ["diff", str(prev), str(new)])
-        assert result.exit_code == EXIT_INCONCLUSIVE_OR_SETUP_FAILURE
-        assert "Phase 8.4" in _all_output(result)
+        assert result.exit_code == EXIT_SUCCESS
+        out = _all_output(result)
+        assert "# whatif diff" in out
+        assert "Don't Ship" in out and "Ship" in out
 
     def test_report_migrate_no_op_exits_zero(self, runner: CliRunner, tmp_path) -> None:
         # v0.1 has no schema bumps to migrate; the no-op IS a
