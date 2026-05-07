@@ -47,6 +47,18 @@ Format per entry:
 
 **Resolution:** closes when 4B real adapters ship and the conformance harness is green against both real adapters in addition to the stub.
 
+### Phase 9A walkthrough scenario coverage (4 of 6 in 9A.1+9A.2)
+
+**Source decision:** Phase 9A.1 + 9A.2 cover walkthroughs 1–4 (Clean Ship, Don't Ship × 2, Inconclusive insufficient sample) end-to-end through `whatif.pipeline.run_pipeline` against the synthetic stub. Walkthroughs 5 (cache corruption) and 6 (rerun-after-fix / diff) are deliberately deferred.
+
+**Rippled to:**
+- **Walkthrough 5 (cache corruption)** — recovery-path scenario already exercised by `tests/unit/whatif/cache/test_recovery.py` and the `whatif cache verify` CLI surface. Surfacing it through `run_pipeline` requires a parallel CLI integration harness (the cache-corruption signal flows via `whatif cache verify` exit codes + the `cache_summary.policy_violations` field, not through the per-trace stream). Phase 9A.4 (failure injection) is the right home — it runs every `FAILURE_CODE_REGISTRY` entry through a CLI-level harness.
+- **Walkthrough 6 (rerun-after-fix / diff)** — fully exercised by `tests/unit/whatif/test_diff.py` against synthetic reports. The pipeline that produces the inputs IS exercised here (scenario 1 produces "before-fix"; downstream scenarios produce "after-fix"); the diff itself is tested at its own seam. Reproducing through `run_pipeline` would mostly re-test what `test_diff.py` already covers.
+
+**Status:** open (4 of 6 covered; 5 and 6 tracked as deferred).
+
+**Resolution:** closes when Phase 9A.4 lands the CLI failure-injection harness (covers walkthrough 5) and a Phase 9A.5 cross-pipeline+diff smoke test or explicit decision marks walkthrough 6 satisfied by `test_diff.py`.
+
 ### TODO: Sweep this catalog at Phase 4B and Phase 9B closure
 
 **Source decision:** Phase 4 and Phase 9 each split into a structural half (4A/9A) and a real-adapter half (4B/9B). See `references/phases.md`.

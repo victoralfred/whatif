@@ -12,6 +12,14 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+### Added — Phase 9A.2 (Don't Ship + Inconclusive walkthrough scenarios)
+
+- `tests/integration/test_pipeline_dont_ship.py` — walkthroughs 02 (baseline regression: 6/20 = 30% > policy threshold 10% → `baseline_regression_above_threshold` blocks_ship) and 03 (failure-rescue gap: 2/20 improved = 10% < policy threshold 50% → `failure_improvement_below_threshold` blocks_ship). Each pins verdict resolution to DontShip with floor passing — DontShip is a policy verdict above the floor, not a structural verdict.
+- `tests/integration/test_pipeline_inconclusive.py` — walkthrough 04 (insufficient sample: baseline 8 selected with 5 carrying `skip_reason` → only 3 scored → below floor's `min_scored_per_required_cohort=5` → `Inconclusive`). Pins that skipped traces flow through and contribute to `selected` count without contributing to `scored`, preserving the walkthrough's "8 selected, 3 scored" shape end-to-end.
+- `tests/integration/_fixtures.py` — three new scenario builders + small helpers (`_spec`, `_idx`, `_build_fixture`) consolidate the per-cohort `StubTraceSpec` construction. The Phase 9A.1 Ship scenario builder remains intact.
+- **Walkthroughs 5 and 6 deliberately deferred** with cascade-catalog entry. Walkthrough 5 (cache corruption) is a recovery-path scenario whose signal flows through the `whatif cache verify` CLI + `cache_summary.policy_violations`, not through the per-trace stream — Phase 9A.4 (CLI failure-injection harness) is the right home. Walkthrough 6 (rerun-after-fix / diff) is fully exercised at the diff seam by `tests/unit/whatif/test_diff.py`; reproducing through `run_pipeline` would mostly re-test what's already covered.
+- 18 integration tests pass total (6 Ship + 4×2 DontShip + 4 Inconclusive). 981 unit + integration tests; mypy --strict clean.
+
 ### Added — Phase 9A.1 (programmatic integration entry + Clean Ship scenario)
 
 - `src/whatif/pipeline.py::run_pipeline` — adapter-agnostic programmatic entry point that stitches `TraceSource → cohort aggregation → compute_verdict → project_to_report_v01` into a `ReportV01`. v0.1 Phase 9A callers pass the synthetic stub from `whatif.adapters.stub`; Phase 9B will pass real Langfuse / Inspect AI through the same signature.

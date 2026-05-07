@@ -141,6 +141,37 @@ def _default_cache_summary() -> CacheSummary:
     )
 
 
+def _build_fixture(
+    *,
+    failure_specs: list[StubTraceSpec],
+    baseline_specs: list[StubTraceSpec],
+    delta_fn: Callable[[RawTrace], float],
+) -> IntegrationFixture:
+    floor = TrustFloor()
+    policy = DecisionPolicy()
+    return IntegrationFixture(
+        trace_source=StubTraceSource(specs=[*failure_specs, *baseline_specs]),
+        delta_fn=delta_fn,
+        runtime=_default_runtime(floor=floor, policy=policy),
+        methodology=_default_methodology(),
+        cache_summary=_default_cache_summary(),
+    )
+
+
+def _spec(idx: int, *, cohort: str) -> StubTraceSpec:
+    prefix = "f" if cohort == "failure" else "b"
+    return StubTraceSpec(
+        trace_id=f"{prefix}-{idx:02d}",
+        user_message=f"{cohort} prompt {idx}",
+        original_response=f"{cohort} response {idx}",
+        cohort=cohort,
+    )
+
+
+def _idx(trace_id: str) -> int:
+    return int(trace_id.split("-")[1])
+
+
 def scenario_clean_ship() -> IntegrationFixture:
     """Walkthrough scenario 1 — Clean Ship.
 
@@ -184,3 +215,108 @@ def scenario_clean_ship() -> IntegrationFixture:
         methodology=_default_methodology(),
         cache_summary=_default_cache_summary(),
     )
+
+
+def scenario_dont_ship_regression() -> IntegrationFixture:
+    """Walkthrough 02 — Don't Ship (baseline regression).
+
+    Failure (20): improved 14, unchanged 3, regressed 3 → looks fine.
+    Baseline (20): improved 1, unchanged 13, regressed 6 → 30% regression
+    rate exceeds policy.max_baseline_regression_ratio=0.10 →
+    `baseline_regression_above_threshold` blocks_ship → DontShip.
+    """
+    failures = [_spec(i, cohort="failure") for i in range(20)]
+    baselines = [_spec(i, cohort="baseline") for i in range(20)]
+
+    def delta_fn(rt: RawTrace) -> float:
+        idx = _idx(rt.trace_id)
+        if rt.cohort == "failure":
+            if idx < 14:
+                return 0.28  # improved
+            if idx < 17:
+                return 0.0  # unchanged
+            return -0.10  # regressed (3 traces)
+        # baseline: 1 improved, 13 unchanged, 6 regressed
+        if idx == 0:
+            return 0.10
+        if idx < 14:
+            return 0.0
+        return -0.18  # 6 regressed
+
+    return _build_fixture(failure_specs=failures, baseline_specs=baselines, delta_fn=delta_fn)
+
+
+def scenario_dont_ship_failure_rescue_gap() -> IntegrationFixture:
+    """Walkthrough 03 — Don't Ship (failure-rescue gap).
+
+    Failure (20): improved 2 (10%) → below
+    policy.min_failure_improvement_ratio=0.50 →
+    `failure_cohort_no_improvement` blocks_ship → DontShip.
+    Baseline (20): stable (clean).
+    """
+    failures = [_spec(i, cohort="failure") for i in range(20)]
+    baselines = [_spec(i, cohort="baseline") for i in range(20)]
+
+    def delta_fn(rt: RawTrace) -> float:
+        idx = _idx(rt.trace_id)
+        if rt.cohort == "failure":
+            if idx < 2:
+                return 0.20  # improved
+            if idx < 18:
+                return 0.0  # unchanged
+            return -0.10  # 2 regressed
+        # baseline: 1 improved, 18 unchanged, 1 regressed
+        if idx == 0:
+            return 0.08
+        if idx < 19:
+            return 0.0
+        return -0.08
+
+    return _build_fixture(failure_specs=failures, baseline_specs=baselines, delta_fn=delta_fn)
+
+
+def scenario_inconclusive_insufficient_sample() -> IntegrationFixture:
+    """Walkthrough 04 — Inconclusive (insufficient sample).
+
+    Failure (15): improved 11, unchanged 3, regressed 1 — clean.
+    Baseline (8 selected, 3 scored): 5 traces marked `skip_reason`
+    so they reach the bucket but don't contribute deltas. 3 scored
+    is below floor.min_scored_per_required_cohort=5 →
+    `min_scored_per_required_cohort` floor_failure (blocks_all) →
+    Inconclusive.
+    """
+    failures = [_spec(i, cohort="failure") for i in range(15)]
+    # 8 baseline specs; 5 of them carry `skip_reason` so they're
+    # selected but not scored.
+    baselines: list[StubTraceSpec] = []
+    for i in range(8):
+        skip = "ingest_failed" if i >= 3 else None
+        baselines.append(
+            StubTraceSpec(
+                trace_id=f"b-{i:02d}",
+                user_message=f"baseline prompt {i}",
+                original_response=f"baseline response {i}",
+                cohort="baseline",
+                skip_reason=skip,
+            )
+        )
+
+    def delta_fn(rt: RawTrace) -> float:
+        idx = _idx(rt.trace_id)
+        if rt.cohort == "failure":
+            if idx < 11:
+                return 0.34
+            if idx < 14:
+                return 0.0
+            return -0.10
+        # Only the first 3 baseline specs (no skip_reason) reach here.
+        # Boundary behavior pinned: pipeline.py classifies improved
+        # via `delta > eps` (strict), so delta == eps is *unchanged*.
+        # Returning 0.04 (strictly under eps=0.05) keeps this scenario
+        # robust to a future widening of the operator (e.g., `>=`)
+        # — the trace stays unchanged either way, isolating the
+        # scenario's verdict signal to the floor failure (insufficient
+        # baseline scoring), not to a borderline counter shift.
+        return 0.04
+
+    return _build_fixture(failure_specs=failures, baseline_specs=baselines, delta_fn=delta_fn)

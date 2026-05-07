@@ -1,5 +1,15 @@
 """Tests for `whatif.diff` — Phase 8.4.
 
+This module is also the load-bearing coverage for **walkthrough 06
+(rerun-after-fix / diff)** under Phase 9A.2's coverage map. The
+cascade-catalog entry "Phase 9A walkthrough scenario coverage"
+defers walkthrough 06 from the integration suite to this file:
+reproducing the diff path through `run_pipeline` would mostly re-
+test what the cases below already pin (verdict transitions, cohort
+deltas, findings added/removed, no-changes sentinel). If you remove
+or weaken cases here, update that cascade entry to match — or add
+the integration coverage and close the deferral.
+
 Pinned properties:
 
 1. `load_report` raises `DiffError` for missing file, unreadable
