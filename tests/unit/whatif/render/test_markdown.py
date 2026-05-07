@@ -179,23 +179,11 @@ class TestSuggestedNextSteps:
         assert "## Suggested next steps" in out
         assert "No actionable findings" in out
 
-    def test_blocking_findings_listed(self) -> None:
-        f = make_decision_finding(
-            code="baseline_regression_above_threshold",
-            message="HIGH-SEVERITY-MESSAGE",
-            details={"observed": "0.150", "threshold": "0.10"},
-        )
-        verdict = dataclasses.replace(dont_ship(), findings=(f,))
-        out = render_full_report(_report_for(verdict))
-        assert "## Suggested next steps" in out
-        assert "baseline_regression_above_threshold" in out
-        assert "HIGH-SEVERITY-MESSAGE" in out
+    def test_registered_template_summary_and_steps_rendered(self) -> None:
+        # Each blocking finding renders the registered FixSuggestion's
+        # summary as an h3 + numbered steps.
+        from whatif.decision.fix_suggestions import FIX_SUGGESTION_REGISTRY
 
-    def test_phase_7_1b_placeholder_message(self) -> None:
-        # 7.1a explicitly defers fix-suggestion templates to 7.1b.
-        # Pin the placeholder text so a future contributor wiring
-        # the templates removes the placeholder rather than leaving
-        # it behind.
         f = make_decision_finding(
             code="baseline_regression_above_threshold",
             message="x",
@@ -203,7 +191,91 @@ class TestSuggestedNextSteps:
         )
         verdict = dataclasses.replace(dont_ship(), findings=(f,))
         out = render_full_report(_report_for(verdict))
-        assert "Fix-suggestion templates land in Phase 7.1b" in out
+
+        template = FIX_SUGGESTION_REGISTRY["baseline_regression_above_threshold"]
+        # h3 summary line
+        assert f"### {template.summary}" in out
+        # First step rendered as numbered list item
+        assert f"1. {template.steps[0]}" in out
+        # Total steps preserved
+        assert f"{len(template.steps)}. {template.steps[-1]}" in out
+
+    def test_placeholder_text_removed_in_7_1b(self) -> None:
+        # The 7.1a placeholder must be gone now that 7.1b wires
+        # real templates. A future regression that re-introduces
+        # the placeholder would fail this test.
+        f = make_decision_finding(
+            code="baseline_regression_above_threshold",
+            message="x",
+            details={"observed": "0.150", "threshold": "0.10"},
+        )
+        verdict = dataclasses.replace(dont_ship(), findings=(f,))
+        out = render_full_report(_report_for(verdict))
+        assert "Fix-suggestion templates land in Phase 7.1b" not in out
+
+    def test_multiple_blocking_findings_sorted_by_severity(self) -> None:
+        # Two blocking findings: blocks_ship + blocks_all. The
+        # blocks_all template renders FIRST (highest severity).
+        f_ship = make_decision_finding(
+            code="baseline_regression_above_threshold",  # blocks_ship
+            message="x",
+            details={"observed": "0.150", "threshold": "0.10"},
+        )
+        f_all = make_decision_finding(
+            code="cohort_systemic_failure",  # blocks_all
+            message="x",
+            details={
+                "cohort": "failure",
+                "percent": 60,
+                "code": "runner_timeout",
+            },
+            derived_from_failures=["failure_001"],
+        )
+        verdict = dataclasses.replace(dont_ship(), findings=(f_ship, f_all))
+        out = render_full_report(_report_for(verdict))
+
+        from whatif.decision.fix_suggestions import FIX_SUGGESTION_REGISTRY
+
+        all_summary = FIX_SUGGESTION_REGISTRY["cohort_systemic_failure"].summary
+        ship_summary = FIX_SUGGESTION_REGISTRY["baseline_regression_above_threshold"].summary
+
+        # blocks_all (cohort_systemic_failure) appears BEFORE
+        # blocks_ship (baseline_regression_above_threshold) — index
+        # in the rendered string proves order.
+        idx_all = out.index(all_summary)
+        idx_ship = out.index(ship_summary)
+        assert idx_all < idx_ship
+
+    def test_unregistered_code_fallback_does_not_crash(self) -> None:
+        # Defensive: an unregistered finding code surfaces the
+        # fallback "(no registered template)" string rather than
+        # crashing the renderer with KeyError.
+        from whatif.decision.finding_codes import FINDING_CODE_REGISTRY
+        from whatif.decision.fix_suggestions import FIX_SUGGESTION_REGISTRY
+        from whatif.types.finding import DecisionFinding
+
+        # Find a finding code that exists in FINDING_CODE_REGISTRY
+        # but NOT in FIX_SUGGESTION_REGISTRY (an info-severity code
+        # would qualify but isn't blocking; we forge a blocking-
+        # severity finding directly to exercise the fallback).
+        # Use a hand-built DecisionFinding with severity=blocks_ship
+        # and code that's intentionally unregistered.
+        unregistered_code = "test_unregistered_blocking_code"
+        assert unregistered_code not in FIX_SUGGESTION_REGISTRY
+        # Confirm the test premise: the code is also not in the
+        # finding registry (any registered code MUST have a fix
+        # suggestion per cardinal #8 coverage).
+        assert unregistered_code not in FINDING_CODE_REGISTRY
+
+        forged = DecisionFinding(
+            code=unregistered_code,
+            severity="blocks_ship",
+            message="forged finding for fallback test",
+        )
+        verdict = dataclasses.replace(dont_ship(), findings=(forged,))
+        # No raise — fallback string appears.
+        out = render_full_report(_report_for(verdict))
+        assert f"`{unregistered_code}` (no registered template)" in out
 
 
 # ---------------------------------------------------------------------------

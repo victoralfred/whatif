@@ -12,6 +12,13 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+### Added — Phase 7.1b (FIX_SUGGESTION_REGISTRY templates wired into full report)
+
+- `_suggested_next_steps_section` in `whatif/render/markdown.py` now consumes `whatif.decision.fix_suggestions.FIX_SUGGESTION_REGISTRY`. Each blocking finding (severity `blocks_all` or `blocks_ship`) renders as `### <FixSuggestion.summary>` followed by a Markdown numbered list of `FixSuggestion.steps`. Findings sorted by severity rank (highest first); ties stable on input order so reports are deterministic.
+- **Cardinal #8 closure path:** the section is now structurally non-empty for any non-Ship verdict with blocking findings. The cardinal-#8 coverage test in `tests/unit/whatif/decision/` already pins that every floor rule + every blocking finding code has a registered fix-suggestion; the renderer defensively falls back to "(no registered template)" only on the unreachable production path (a forged finding code), so test forging proves the renderer doesn't crash on registry gaps mid-development.
+- Removed the 7.1a placeholder paragraph ("Fix-suggestion templates land in Phase 7.1b"); pinned by `test_placeholder_text_removed_in_7_1b` so a future revert surfaces.
+- Tests added: registered-template summary + steps render correctly; placeholder text gone; multiple blocking findings sorted by severity (`blocks_all` before `blocks_ship` via index comparison in the rendered output); unregistered-code fallback doesn't crash.
+
 ### Added — Phase 7.1a (full Markdown report skeleton)
 
 - `src/whatif/render/markdown.py::render_full_report(report: ReportV01) -> str` — the canonical Markdown artifact `whatif fork` writes alongside the JSON report. Sections: verdict header, bold reason, Stats (per-cohort breakdown with median Δ + CI), Replay validity (with `<a id="replay-validity">` anchor), Floor evaluation table (rendered IFF a floor failure is present), Suggested next steps (`<a id="fix">` anchor), Methodology, Manifest pointer.

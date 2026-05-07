@@ -33,13 +33,15 @@ full-report to the same Markdown file.
 
 ## Phase 7.1 split
 
-This delivery is **7.1a** — the section skeleton with anchors and
-methodology block. Outstanding:
-
-- **7.1b** — `FIX_SUGGESTION_REGISTRY` templates wired into the
-  "Suggested next steps" section. v0.1 7.1a renders a placeholder
-  paragraph; 7.1b expands it per blocking finding.
-- **7.1c** — walkthrough-match tests for all six
+- **7.1a** ✅ — section skeleton + anchors + methodology block.
+- **7.1b** ✅ — `FIX_SUGGESTION_REGISTRY` templates wired into the
+  "Suggested next steps" section. Each blocking finding renders as
+  `### <summary>` + numbered steps. Findings sorted by severity
+  rank (highest first); unregistered codes hit a defensive
+  fallback (the cardinal-#8 coverage test in
+  `tests/unit/whatif/decision/` pins this is unreachable for
+  registered codes).
+- **7.1c** outstanding — walkthrough-match tests for all six
   `docs/walkthroughs/*.md` scenarios (Phase 7 gate).
 
 ## Cardinal alignment
@@ -234,23 +236,53 @@ def _floor_row(cohort_name: str, ff: FloorFailure) -> str:
 
 
 def _suggested_next_steps_section(report: ReportV01) -> list[str]:
-    """The summary's `#fix` jump-link target. Phase 7.1a ships the
-    anchor + a verdict-specific placeholder; 7.1b wires registry
-    templates per blocking finding."""
+    """The summary's `#fix` jump-link target. Renders one
+    `FIX_SUGGESTION_REGISTRY` template per blocking finding:
+
+      ### <summary>
+
+      1. step 1
+      2. step 2
+      ...
+
+    Findings are sorted by severity rank (highest first) so the
+    most-blocking suggestion appears at the top. Cardinal #8: the
+    section is structurally non-empty for any non-Ship verdict; the
+    coverage test in `tests/unit/whatif/decision/` already pins
+    that every floor rule + every blocking finding code has a
+    registered fix suggestion, so the `KeyError` fallback path
+    below is defensive only.
+    """
+    from whatif.decision.fix_suggestions import FIX_SUGGESTION_REGISTRY
+
     lines = ['<a id="fix"></a>', "## Suggested next steps", ""]
     if report.verdict_state == "ship":
         lines.append("No actionable findings — the verdict is Ship.")
         return lines
 
-    # v0.1 7.1a placeholder: list the blocking findings by code so
-    # the section is non-empty for non-Ship verdicts. Phase 7.1b
-    # replaces this with FIX_SUGGESTION_REGISTRY template content.
     blocking = [f for f in report.decision_findings if f.severity in {"blocks_all", "blocks_ship"}]
     if blocking:
-        lines.append("Fix-suggestion templates land in Phase 7.1b. Blocking findings:")
-        lines.append("")
-        for f in blocking:
-            lines.append(f"- `{f.code}` — {f.message}")
+        # Sort by severity rank (highest first), stable on input order.
+        blocking_sorted = sorted(blocking, key=lambda f: -_SEVERITY_RANK[f.severity])
+        for i, finding in enumerate(blocking_sorted):
+            if i > 0:
+                lines.append("")  # blank line between templates
+            template = FIX_SUGGESTION_REGISTRY.get(finding.code)
+            if template is not None:
+                lines.append(f"### {template.summary}")
+                lines.append("")
+                for n, step in enumerate(template.steps, start=1):
+                    lines.append(f"{n}. {step}")
+            else:
+                # Defensive fallback for an unregistered finding
+                # code. The coverage test pins this is unreachable
+                # for production codes; the fallback exists so a
+                # mid-development addition of a new code surfaces a
+                # recognizable string rather than crashing the
+                # render.
+                lines.append(f"### `{finding.code}` (no registered template)")
+                lines.append("")
+                lines.append(finding.message)
         return lines
 
     floor_rule = _top_floor_failure_summary(report.cohort_results)
