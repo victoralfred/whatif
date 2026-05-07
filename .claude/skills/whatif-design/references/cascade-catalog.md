@@ -205,6 +205,22 @@ Each format is a pure function `(ReportV01) -> str`. Walkthrough-match tests aga
 
 **Resolution:** Phase 8.2 wires the `assert_two_affirmation` call at the CLI's earliest pre-action point. `# TODO(cardinal #7)` comment at the call site so a future refactor that moves it sees the marker.
 
+### `whatif cache rebuild --strict` (deferred from v0.1)
+
+**Source decision:** Phase 8.3 (PR #54) `rebuild` counts non-directory paths under `entries/` (stray files that shouldn't normally exist) via `RebuildResult.non_bucket_skipped` rather than erroring. The CLI prints the count; an operator running `whatif cache rebuild` sees the anomaly. v0.1 chose the count-and-continue pattern over a hard error because:
+
+1. The count is sufficient feedback for operator inspection.
+2. A real user encountering frequent stray files is the trigger for the hard-error variant; without that signal, defaulting to error would surface false alarms (e.g., a `.DS_Store` macOS artifact).
+
+**Rippled to (deferred):**
+- `whatif/cache/recovery.py::rebuild` would gain a `strict: bool = False` parameter; when True and `non_bucket_skipped > 0`, return a result with `error="stray_files_present"`.
+- `whatif/cli.py` `cache rebuild` would gain a `--strict` flag that wires through to the parameter.
+- Test coverage for both branches.
+
+**Status:** open (deferred).
+
+**Resolution:** trigger is a real user encountering stray files often enough to want hard-error semantics. Until then, the count-and-continue default is correct. The `TODO(future)` marker at `rebuild`'s `non_bucket_skipped` branch points back to this entry.
+
 ### Walkthrough scenario 6 fixture delegation
 
 **Source decision:** Phase 7.1c (PR #51) `tests/unit/whatif/render/_walkthrough_fixtures.py::scenario_6_rerun_after_fix` delegates entirely to `scenario_1_clean_ship()` and only overrides `runtime.experiment_id`. Walkthrough 06 (`docs/walkthroughs/06-rerun-after-fix.md`) currently has identical stats to walkthrough 01; the delegation captures that equivalence directly.

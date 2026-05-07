@@ -12,6 +12,16 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+### Added — Phase 8.3 (cache recovery: rebuild / unlock / verify)
+
+- `src/whatif/cache/recovery.py` — three operator-facing recovery primitives separated from the runtime-path `whatif.cache.storage`:
+  - `rebuild(cache_root, *, force) -> RebuildResult` wipes `<cache_root>/entries/` (preserving `meta.json` and the lock file). `force=False` is a no-op safety belt against typos.
+  - `unlock(cache_root, *, allow_alive) -> UnlockResult` removes `<cache_root>/.lock` after a `psutil`-backed PID-alive check. Default refuses to clobber a live lock; `allow_alive=True` overrides. Corrupted lock files are treated as stale (safe to remove).
+  - `verify(cache_root) -> VerifyResult` walks every JSON under entries/ and reports total / valid / corrupted. v0.1 checks structural integrity (parse + required CacheEntry fields); cryptographic content-hash verification deferred to v0.2 when entries carry stored hashes.
+- CLI subcommands (`whatif cache rebuild|unlock|verify`) now wire to the recovery primitives. Each accepts `--cache-root` (default `.whatif/cache`); `rebuild` requires `--force`; `unlock` accepts `--allow-alive` for the live-PID override. Exit codes: 0 on success / no-op-clean, 2 on `--force` missing, 2 on lock-holder-alive without `--allow-alive`, 2 on any verify-found corruption.
+- Per the cascade-catalog entry "CLI cache subcommands for v0.1": unlock is recovery, NOT a structurally-dangerous capability requiring two-affirmation. `--allow-alive` is sufficient for the override.
+- 17 tests: `tests/unit/whatif/cache/test_recovery.py` covers each primitive's branches (force-required, missing-dir, deletes-and-preserves, idempotent-no-lock, stale-removed, corrupted-lock-treated-as-stale, live-lock-refused-without-allow-alive, live-lock-removed-with-allow-alive, vacuous-clean, all-valid, corrupted-flagged, missing-required-field-flagged) plus two CLI smoke tests. Replaces the now-stale Phase 8.3 stub tests in `test_cli.py` with real-behavior assertions.
+
 ### Added — Phase 8.2 (CLI shell: typer entry, exit codes, two-affirmation wiring)
 
 - `src/whatif/cli.py::app` — typer-based command surface. `whatif fork [--config PATH] [--profile {default|review|minimal|forensic}]` is the main entrypoint; `cache rebuild|unlock|verify`, `diff`, and `report-migrate` ship as Phase 8.3 / 8.4 / 8.5 stubs (each exits 2 with a clear "not yet implemented" message naming the phase).

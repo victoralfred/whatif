@@ -236,21 +236,36 @@ class TestWitnessThreading:
         assert hints["return"] is int
 
 
-class TestSubcommandStubs:
-    def test_cache_rebuild_stub(self, runner: CliRunner) -> None:
-        result = runner.invoke(app, ["cache", "rebuild"])
-        assert result.exit_code == EXIT_INCONCLUSIVE_OR_SETUP_FAILURE
-        assert "Phase 8.3" in _all_output(result)
+class TestSubcommands:
+    """Subcommand smoke tests at the CLI surface.
 
-    def test_cache_unlock_stub(self, runner: CliRunner) -> None:
-        result = runner.invoke(app, ["cache", "unlock"])
-        assert result.exit_code == EXIT_INCONCLUSIVE_OR_SETUP_FAILURE
-        assert "Phase 8.3" in _all_output(result)
+    Renamed from `TestSubcommandStubs`: the cache subcommands
+    became real implementations in Phase 8.3 (PR #54). `diff`
+    and `report-migrate` are still stub paths but exit with
+    their own documented semantics — a future contributor wiring
+    Phase 8.4 / 8.5 should treat these as the surface contract,
+    not as placeholders to delete.
+    """
 
-    def test_cache_verify_stub(self, runner: CliRunner) -> None:
-        result = runner.invoke(app, ["cache", "verify"])
+    def test_cache_rebuild_without_force_refuses(self, runner: CliRunner, tmp_path) -> None:
+        # Phase 8.3 landed: cache rebuild is real. Without --force
+        # it's a no-op safety belt. Detailed integration coverage
+        # is in tests/unit/whatif/cache/test_recovery.py.
+        result = runner.invoke(app, ["cache", "rebuild", "--cache-root", str(tmp_path)])
         assert result.exit_code == EXIT_INCONCLUSIVE_OR_SETUP_FAILURE
-        assert "Phase 8.3" in _all_output(result)
+        assert "refusing to delete without --force" in _all_output(result)
+
+    def test_cache_unlock_idempotent_when_no_lock(self, runner: CliRunner, tmp_path) -> None:
+        # No lock file in tmp_path → idempotent success.
+        result = runner.invoke(app, ["cache", "unlock", "--cache-root", str(tmp_path)])
+        assert result.exit_code == EXIT_SUCCESS
+        assert "already unlocked" in _all_output(result)
+
+    def test_cache_verify_vacuously_clean(self, runner: CliRunner, tmp_path) -> None:
+        # No entries dir → vacuously clean (exit 0).
+        result = runner.invoke(app, ["cache", "verify", "--cache-root", str(tmp_path)])
+        assert result.exit_code == EXIT_SUCCESS
+        assert "vacuously clean" in _all_output(result)
 
     def test_diff_stub(self, runner: CliRunner, tmp_path) -> None:
         prev = tmp_path / "prev.json"

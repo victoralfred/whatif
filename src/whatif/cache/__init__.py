@@ -29,6 +29,8 @@ implementation is ever swapped (e.g., for a network-coordinated v0.3
 multi-tenant lock).
 """
 
+from pathlib import Path
+
 from whatif.cache.lock import (
     LOCK_FAILURE_CODE,
     CacheLock,
@@ -42,7 +44,18 @@ from whatif.cache.summary import (
     PolicyViolationRecord,
 )
 
+# Single source of truth for the cache-root default. The storage
+# layer's docstring already names `.whatif/cache/` as the canonical
+# layout; this constant is the importable form. CLI subcommands
+# (`whatif fork`, `whatif cache *`) and any future runtime code
+# default to this path; an operator override goes through
+# `--cache-root` on the CLI or an explicit argument in code. A
+# future change here propagates everywhere; cli.py / recovery.py /
+# any new caller read the same value.
+DEFAULT_CACHE_ROOT = Path(".whatif/cache")
+
 __all__ = (
+    "DEFAULT_CACHE_ROOT",
     "LOCK_FAILURE_CODE",
     "CacheLock",
     "CacheLockedError",
