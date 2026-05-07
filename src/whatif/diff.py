@@ -41,8 +41,10 @@ between two `ReportV01` JSON files.
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any, Literal
 
 from whatif.render import VERDICT_LABEL
@@ -191,6 +193,19 @@ def compute_diff(prev: dict[str, Any], new: dict[str, Any]) -> DiffReport:
 
 
 def _diff_cohorts(prev: dict[str, Any], new: dict[str, Any]) -> tuple[CohortDelta, ...]:
+    """Build per-cohort deltas keyed on cohort `name`.
+
+    **Asymmetric cohorts** (a cohort name present in only one report —
+    a new cohort added in the second run, or an old cohort dropped):
+    the absent side's counters render as zero, NOT as a missing row.
+    A new `failure` cohort with 10 selected appears as `0→10` for
+    every counter, surfacing the addition; a dropped cohort appears
+    as `10→0`. This is deliberate: the cohort row IS the diff signal,
+    and an operator looking at scenario 6 (rerun-after-fix) needs to
+    see a new cohort in the table rather than have it silently absent.
+    Median delta uses `n/a` on the absent side (handled by
+    `_pair_str`). Tracked in CHANGELOG so operators encountering
+    `0→N` rows know what they mean."""
     prev_by_name = {c["name"]: c for c in prev.get("cohort_results", [])}
     new_by_name = {c["name"]: c for c in new.get("cohort_results", [])}
     all_names = sorted(set(prev_by_name) | set(new_by_name))
@@ -231,7 +246,7 @@ class _FindingSource:
     their own row)."""
 
     keys: frozenset[tuple[str, str]]
-    by_key: dict[tuple[str, str], dict[str, Any]]
+    by_key: Mapping[tuple[str, str], Mapping[str, Any]]
     direction: Literal["added", "removed"]
 
 
@@ -244,15 +259,18 @@ def _diff_findings(prev: dict[str, Any], new: dict[str, Any]) -> tuple[FindingDe
     """
     prev_keys = {(f["code"], f["severity"]): f for f in prev.get("decision_findings", [])}
     new_keys = {(f["code"], f["severity"]): f for f in new.get("decision_findings", [])}
+    # Wrap source dicts in MappingProxyType so the frozen `by_key`
+    # field cannot be mutated through the dataclass surface — frozen=True
+    # only blocks field rebinding, not mutation of a mutable dict.
     sources = (
         _FindingSource(
             keys=frozenset(new_keys.keys() - prev_keys.keys()),
-            by_key=new_keys,
+            by_key=MappingProxyType(new_keys),
             direction="added",
         ),
         _FindingSource(
             keys=frozenset(prev_keys.keys() - new_keys.keys()),
-            by_key=prev_keys,
+            by_key=MappingProxyType(prev_keys),
             direction="removed",
         ),
     )
@@ -292,15 +310,19 @@ def render_diff_markdown(report: DiffReport) -> str:
 
     lines.append("")
 
-    # Failures count
+    # Failures count — suppressed when unchanged, matching Schema's
+    # behavior. The verdict line is kept always-present (it's the
+    # load-bearing claim per cardinal #10); Schema and Failures are
+    # descriptive and read cleaner when only the deltas surface.
+    # A nonzero unchanged-failure count is still visible via the
+    # Cohorts table and via the per-report views; the diff doesn't
+    # need to repeat it.
     if report.failures_prev != report.failures_new:
         lines.append(
             f"**Failures:** {report.failures_prev} → {report.failures_new} "
             f"({_signed(report.failures_new - report.failures_prev)})"
         )
-    else:
-        lines.append(f"**Failures:** {report.failures_new} (unchanged)")
-    lines.append("")
+        lines.append("")
 
     # Cohort table
     if report.cohorts:

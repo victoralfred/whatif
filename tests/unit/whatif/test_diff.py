@@ -263,6 +263,19 @@ class TestRenderDiffMarkdown:
         out = render_diff_markdown(report)
         assert "(No changes detected.)" not in out
 
+    def test_failures_line_suppressed_when_unchanged(self) -> None:
+        # Aligns with the Schema-line suppression policy: when the
+        # failure count is unchanged, no Failures line surfaces.
+        # The verdict line stays (load-bearing per cardinal #10).
+        report = self._empty_report(verdict_state_prev="dont_ship", verdict_state_new="ship")
+        out = render_diff_markdown(report)
+        assert "**Failures:**" not in out
+
+    def test_failures_line_emitted_when_changed(self) -> None:
+        report = self._empty_report(failures_prev=2, failures_new=5)
+        out = render_diff_markdown(report)
+        assert "**Failures:** 2 → 5 (+3)" in out
+
     def test_pair_str_both_none_renders_single_na(self) -> None:
         # Pin the deliberate invariant from `_pair_str` docstring:
         # both-None medians render as a single `n/a` (unchanged),
