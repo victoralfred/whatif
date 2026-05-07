@@ -12,6 +12,16 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+### Added — Phase 7.1c (walkthrough structural-fidelity tests)
+
+- `tests/unit/whatif/render/_walkthrough_fixtures.py` — six `ReportV01` builders matching the "Underlying state" sections of `docs/walkthroughs/01..06-*.md`. `SCENARIOS` map keys by scenario number → (name, expected verdict_state, builder). Ship verdicts route through `evaluate_floor()` so the `FloorPassedProof` is real (cardinal #2 enforcement).
+- `tests/unit/whatif/render/test_walkthroughs.py` — 39 parameterized tests across the six scenarios:
+  - **Verdict-state fidelity:** each scenario's `verdict_state` matches the walkthrough's documented verdict.
+  - **All formats render:** `render_ci_status` / `render_summary` / `render_full_report` produce strings without raising; CI status ≤80 chars; summary + full report start with `# whatif verdict:`.
+  - **Three-format consistency:** the verdict label appears in all three formats; cohort `(N)` counts match between summary and full report (skip when no cohort_results).
+  - **Per-scenario structural pins:** scenario 2 surfaces the baseline-regression message in summary + full; scenario 4 renders the floor-evaluation table with the expected rule + cohort + numbers; scenario 5 renders the `cache_lock_unavailable` registered fix-suggestion summary; scenario 1 (clean Ship) renders "No actionable findings" rather than a registry template.
+- **Why structural fidelity instead of byte-equality (the original Phase 7 gate):** several walkthrough features are deferred from v0.1 — per-trace evidence schema (scenarios 2, 3), multi-cause fix-suggestion templating (scenario 3), floor table with PASSING rules surfaced (scenario 4). These have cascade entries; byte-equality lands when those features land. Phase 7.1c ships structural fidelity now and the fixtures are concrete enough to drive byte-equality without rebuilding.
+
 ### Added — Phase 7.1b (FIX_SUGGESTION_REGISTRY templates wired into full report)
 
 - `_suggested_next_steps_section` in `whatif/render/markdown.py` now consumes `whatif.decision.fix_suggestions.FIX_SUGGESTION_REGISTRY`. Each blocking finding (severity `blocks_all` or `blocks_ship`) renders as `### <FixSuggestion.summary>` followed by a Markdown numbered list of `FixSuggestion.steps`. Findings sorted by severity rank (highest first); ties stable on input order so reports are deterministic.
