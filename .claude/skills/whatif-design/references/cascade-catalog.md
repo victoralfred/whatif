@@ -47,6 +47,21 @@ Format per entry:
 
 **Resolution:** closes when 4B real adapters ship and the conformance harness is green against both real adapters in addition to the stub.
 
+### Monorepo workspace + `whatif-langfuse` distribution (Phase 4B.1)
+
+**Source decision:** Phase 4B.1 (PR #65) ships `packages/whatif-langfuse/` as a sibling distribution under a uv workspace (`[tool.uv.workspace] members = ["packages/whatif-langfuse"]` at the root `pyproject.toml`). Industry-standard monorepo layout (cf. OpenTelemetry Python, AWS CDK, pytest plugins). Library version pinning is lower-bound + major-cap (`langfuse>=4.5.1,<5.0`).
+
+**Rippled to:**
+- **Phase 4B.2** — `packages/whatif-inspect-ai/` joins the workspace as a second sibling. Same pinning convention; same separate-distribution rule (lazy-loaded by core, never imported transitively).
+- **Lazy-load contract** extended at the workspace level: `tests/unit/whatif/adapters/test_protocols.py::TestLazyLoad::test_core_modules_do_not_load_real_adapter_packages` now scans for `whatif_langfuse` and `whatif_inspect_ai` in `sys.modules` after importing `whatif.cli` / `whatif.diff` / `whatif.config` / `whatif.contract` / `whatif.cache` / `whatif.render`. Adding a third sibling MUST extend this scan in the same PR.
+- **Conformance harness reuse** — `packages/whatif-langfuse/tests/conftest.py` adds the parent's `tests/adapters/` directory to `sys.path` so `from conformance import TraceSourceConformance` works. If this seam grows brittle (Phase 4B.2 hits the same friction; out-of-tree adapters can't reach into the parent), promote `tests/adapters/conformance.py` to a public `whatif.testing.adapter_conformance` per `whatif-features` entry #1. Until then, the conftest tweak is the documented bridge.
+- **Cassette discipline** — recorded-smoke tests under `pytest-recording` MUST scrub user content from response bodies AND credentials from request headers AND echoed identifiers from response bodies. Header filtering alone is insufficient (Langfuse echoes `public_key` inside trace metadata). The pattern: a `before_record_response` hook that walks the JSON shape and replaces `input` / `output` / `metadata` / `name` / `projectId` / per-trace `id` with deterministic placeholders. Phase 4B.2 (`whatif-inspect-ai`) inherits this discipline; any new adapter cassette is reviewed for content leakage before commit.
+- **`packages/` test collection** — root `[tool.pytest.ini_options] testpaths = ["tests", "packages"]`. Adding a third package extends the glob; adding a non-package directory requires a more selective testpaths value.
+
+**Status:** open (4B.1 landed; 4B.2 + 9B remaining).
+
+**Resolution:** closes when Phase 4B.2 ships the second sibling AND Phase 9B's real-adapter smoke covers both.
+
 ### Deterministic-subset extractor (Phase 9A.3)
 
 **Source decision:** Phase 9A.3 (PR #62) introduces `whatif.serialization.determinism.extract_deterministic_subset`. The function reads `v0.1.schema.json` via `importlib.resources.files` (zipimport-safe), keeps only top-level fields tagged `x-deterministic: true`, and warns via `DeterministicSubsetWarning` when input keys aren't in the schema (drift detection). The integration test `tests/integration/test_determinism.py` re-runs each Phase 9A scenario twice and asserts byte-equality on the subset via `canonical_json_bytes`.

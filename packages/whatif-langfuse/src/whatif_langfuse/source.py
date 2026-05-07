@@ -11,7 +11,6 @@ at `tests/adapters/conformance.py` is the gating test.
 
 from __future__ import annotations
 
-import json
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
@@ -20,6 +19,7 @@ from whatif.adapters.protocols import (
     AdapterMetadata,
     RawTrace,
 )
+from whatif.serialization.canonical import canonical_json_bytes
 from whatif.types.sensitive import Sensitive
 from whatif.types.statistical import ClusterKeySupport
 
@@ -73,16 +73,30 @@ def _stringify(value: Any) -> str:
 
     `None` and empty values render as the empty string so downstream
     `Sensitive[str]` wrapping always succeeds with a real `str`
-    value. Dicts/lists round-trip through `json.dumps` with stable
-    key ordering so the same trace always projects to the same
-    string (cardinal #4 determinism for the projection step;
-    determinism beyond that is the report layer's responsibility).
+    value. Dicts/lists round-trip through `canonical_json_bytes` so
+    the same trace always projects to the same string (cardinal #4
+    determinism for the projection step; determinism beyond that is
+    the report layer's responsibility).
+
+    Routes through `whatif.serialization.canonical.canonical_json_bytes`
+    rather than calling `json.dumps` directly. The project's banned-
+    import discipline keeps `json.dumps` inside `whatif/serialization/`
+    so all canonical encoding goes through a single review surface
+    (one layer of cardinal #5's three-layer defense — the encoder
+    rejects unwrapped `Sensitive[T]` values).
     """
     if value is None:
         return ""
     if isinstance(value, str):
         return value
-    return json.dumps(value, sort_keys=True, default=str)
+    # `canonical_json_bytes` returns ASCII bytes; decode to str for
+    # the `Sensitive[str]` wrap downstream. The encoding is stable
+    # across platforms (sort_keys=True + ensure_ascii=True per the
+    # canonical helper). Explicit `str(...)` so mypy knows the
+    # decoded value matches the declared return type without
+    # leaking `Any` from the canonical helper's signature.
+    decoded: str = canonical_json_bytes(value).decode("ascii")
+    return decoded
 
 
 @dataclass(frozen=True, slots=True)

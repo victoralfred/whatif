@@ -76,45 +76,85 @@ def _cassette_for(name: str) -> Path:
 
 _PUBLIC_KEY_RE = re.compile(r"pk-lf-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 _SECRET_KEY_RE = re.compile(r"sk-lf-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
-_KEY_ID_RE = re.compile(r'"key_id":"[^"]+"')
 
 
 def _scrub_response_body(response: dict[str, object]) -> dict[str, object]:
-    """vcrpy `before_record_response` hook: scrub Langfuse identifiers
-    that the API echoes inside response bodies.
+    """vcrpy `before_record_response` hook: scrub the response body
+    of EVERYTHING that could leak from the recorder's project.
 
-    Langfuse traces carry `resourceAttributes.scope.attributes.public_key`
-    and `metadata.key_id` populated from the recording side. The
-    public key isn't a secret per Langfuse's threat model but it
-    identifies the recording project; the `key_id` looks like an
-    upstream provider key id. Both get scrubbed so the committed
-    cassette is decoupled from the recording project's identity.
+    The committed cassette MUST NOT carry user content from the
+    recording project (cardinal #5 spirit: even if the project is
+    a "test project," its prompts/responses/metadata are
+    `Sensitive`). The strategy here is structural: parse the JSON
+    body, walk the trace shape, and replace user-content fields
+    with deterministic placeholders. The replayed test still
+    exercises the protocol contract (Sensitive[str] wrapping over
+    a real Trace shape) without committing the original content.
 
-    Header filtering catches the request side; this hook catches the
-    response side. Defense in depth — even if a future Langfuse
-    response shape grows new echoed fields, the regex sweep stays
-    aligned because it operates on the body bytes.
+    What gets scrubbed:
+    - Top-level `data[*].input` / `data[*].output` → REDACTED placeholders
+    - Top-level `data[*].metadata` → `{}` (project-specific tooling state)
+    - Top-level `data[*].name` → `"redacted-trace-name"` (may carry
+      project-specific endpoint paths)
+    - Top-level `data[*].projectId` → `"redacted-project-id"`
+    - Top-level `data[*].userId` / `sessionId` / `tags` → null/empty
+    - Top-level `data[*].observations` / `scores` / `htmlPath` →
+      empty/redacted (carry references to project state)
+    - `data[*].id` is REPLACED with `redacted-trace-NN` so the
+      cassette test still asserts `RawTrace.trace_id` is non-empty
+      without committing the project's actual trace ids.
+    - Langfuse credential patterns anywhere in the body
+      (defence-in-depth fallback for echoed keys).
     """
+    import json as _json  # local: keeps the canonical-import lint clean
+
     body = response.get("body", {})
-    if isinstance(body, dict):
-        raw = body.get("string")
-        if isinstance(raw, str):
-            cleaned = _PUBLIC_KEY_RE.sub("pk-lf-FILTERED-FILTERED-FILTERED-FILTERED-FILTERED", raw)
-            cleaned = _SECRET_KEY_RE.sub(
-                "sk-lf-FILTERED-FILTERED-FILTERED-FILTERED-FILTERED", cleaned
-            )
-            cleaned = _KEY_ID_RE.sub('"key_id":"FILTERED"', cleaned)
-            body["string"] = cleaned
-        elif isinstance(raw, bytes):
-            decoded = raw.decode("utf-8", errors="replace")
-            cleaned = _PUBLIC_KEY_RE.sub(
-                "pk-lf-FILTERED-FILTERED-FILTERED-FILTERED-FILTERED", decoded
-            )
-            cleaned = _SECRET_KEY_RE.sub(
-                "sk-lf-FILTERED-FILTERED-FILTERED-FILTERED-FILTERED", cleaned
-            )
-            cleaned = _KEY_ID_RE.sub('"key_id":"FILTERED"', cleaned)
-            body["string"] = cleaned.encode("utf-8")
+    if not isinstance(body, dict):
+        return response
+    raw = body.get("string")
+    if not isinstance(raw, (str, bytes)):
+        return response
+    text = raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else raw
+
+    try:
+        parsed = _json.loads(text)
+    except _json.JSONDecodeError:
+        # Non-JSON response — fall back to regex-only credential scrub.
+        cleaned = _PUBLIC_KEY_RE.sub("pk-lf-FILTERED", text)
+        cleaned = _SECRET_KEY_RE.sub("sk-lf-FILTERED", cleaned)
+        body["string"] = cleaned.encode("utf-8") if isinstance(raw, bytes) else cleaned
+        return response
+
+    if isinstance(parsed, dict) and isinstance(parsed.get("data"), list):
+        for idx, trace in enumerate(parsed["data"]):
+            if not isinstance(trace, dict):
+                continue
+            trace["id"] = f"redacted-trace-{idx:03d}"
+            trace["projectId"] = "redacted-project-id"
+            trace["name"] = "redacted-trace-name"
+            trace["input"] = "[REDACTED USER CONTENT]"
+            trace["output"] = "[REDACTED USER CONTENT]"
+            trace["metadata"] = {}
+            trace["userId"] = None
+            trace["sessionId"] = None
+            trace["tags"] = []
+            trace["observations"] = []
+            trace["scores"] = []
+            trace["htmlPath"] = "/redacted"
+            trace["release"] = None
+            trace["version"] = None
+            trace["externalId"] = None
+
+    # Test scaffold: this `json.dumps` lives in test code, not a
+    # runtime path. The project's banned-import lint targets src/;
+    # the scrubber needs to round-trip parsed JSON back to a string.
+    cleaned_text = _json.dumps(parsed, sort_keys=True)
+    # Belt-and-suspenders: regex-scrub credential patterns from the
+    # serialized JSON in case a future Langfuse field grows a new
+    # echo path.
+    cleaned_text = _PUBLIC_KEY_RE.sub("pk-lf-FILTERED", cleaned_text)
+    cleaned_text = _SECRET_KEY_RE.sub("sk-lf-FILTERED", cleaned_text)
+    body["string"] = cleaned_text.encode("utf-8") if isinstance(raw, bytes) else cleaned_text
     return response
 
 

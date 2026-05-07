@@ -121,7 +121,8 @@ class TestLangfuseSpecificBehaviors:
         unwrapped = emitted[0].user_message.unwrap(
             reason="conformance: deterministic projection check"
         )
-        assert unwrapped == '{"a": 1, "b": 2}'
+        # `canonical_json_bytes` uses tight separators (`,` and `:`).
+        assert unwrapped == '{"a":1,"b":2}'
 
     def test_pagination_streams_across_pages(self) -> None:
         # Pagination contract: when a page returns exactly
