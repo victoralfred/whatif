@@ -83,6 +83,13 @@ warn_unused_ignores = true
 warn_return_any = true
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "packages"]
 addopts = "-ra --strict-markers"
 asyncio_mode = "auto"
+
+# Monorepo workspace per industry practice (cf. OpenTelemetry Python,
+# pytest plugins). The sibling adapter packages under `packages/`
+# have their own pyproject.toml and version, but share this venv
+# during development. PyPI publication is per-package.
+[tool.uv.workspace]
+members = ["packages/whatif-langfuse"]

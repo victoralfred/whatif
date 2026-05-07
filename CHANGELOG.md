@@ -12,6 +12,17 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+### Added — Phase 4B.1 (`whatif-langfuse` real adapter package)
+
+- **`packages/whatif-langfuse/`** — separate sibling package implementing `whatif.adapters.TraceSource` against the Langfuse v4 SDK (`langfuse.api.LangfuseAPI`). Industry-standard monorepo layout: own `pyproject.toml`, own `src/whatif_langfuse/` tree, own `README`, dependency on `whatif` via `[tool.uv.sources] whatif = { workspace = true }`.
+- **Library version pinning per industry practice** (lower bound + major-cap): `langfuse>=4.5.1,<5.0`. The next Langfuse major requires a coordinated migration; the cap reserves it.
+- **Cardinal alignment:** `Sensitive[str]` wrapping at the projection boundary (cardinal #5); generator-only `iter_traces` with paginated `api.trace.list(...)` (Phase 4 contract); deterministic `json.dumps(..., sort_keys=True)` for non-string `input`/`output` projection (cardinal #4); empty `cluster_key_support()` because Langfuse `user_id`/`session_id` aren't predeclared cluster signals (cardinal #10 — v0.2+ may add explicit opt-in).
+- **Two test surfaces:**
+  - **Mocked-client conformance** (`tests/test_conformance.py`) — runs the parent repo's `TraceSourceConformance` harness against an in-file fake `LangfuseAPI`. No network. CI runs it on every change. Plus 4 Langfuse-specific behaviors: deterministic dict-projection, multi-page pagination, `max_traces` cap, adapter-metadata sourcing.
+  - **Recorded real-network smoke** (`tests/test_recorded_smoke.py`) — uses `pytest-recording` (vcrpy). Replays from a committed cassette in CI; records from real Langfuse credentials when run locally with `--record-mode=once`. Filters secrets (`Authorization`, `x-langfuse-public-key`, `x-langfuse-sdk-*`, `user-agent`) before the cassette hits disk. Skips with an actionable message when neither cassette nor credentials are present. Accepts both `LANGFUSE_HOST` and `LANGFUSE_BASE_URL` env names.
+- **Workspace-aware lazy-load test** — extends `test_protocols.py::TestLazyLoad` with `test_core_modules_do_not_load_real_adapter_packages` asserting that `whatif_langfuse` (and the future `whatif_inspect_ai`) are NOT pulled by core modules. Phase 4B contract: real adapter packages ship as separate distributions; lazy-load is enforced at test time across the workspace.
+- **Cassette recording deferred** — the YAML cassette under `tests/cassettes/` is a contributor-supplied artifact. Recording requires real credentials AND a deliberate review of the cassette content (request/response bodies may contain user content from the recorder's Langfuse project). The README documents the record command; the smoke test skips cleanly until the cassette is committed.
+
 ### Added — Phase 9A.4 (failure injection across `FAILURE_CODE_REGISTRY`); Phase 9A complete
 
 - `tests/integration/test_failure_injection.py` — registry-coverage failure injection. For every code in `FAILURE_CODE_REGISTRY`: `make_failure_record` constructs cleanly with realistic required details; the resulting `FailureRecord` carries the spec's stage/scope/retryable defaults; the record round-trips through `project_to_report_v01` into `ReportV01.failures` with all fields intact. An exhaustiveness pin (`test_every_registered_code_is_covered`) fails if a future code is added to the registry without a corresponding entry in the test's coverage map.

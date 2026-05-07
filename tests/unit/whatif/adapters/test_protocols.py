@@ -326,3 +326,35 @@ class TestLazyLoad:
         assert result.stdout.strip() == "[]", (
             f"core modules triggered adapter imports: {result.stdout!r}"
         )
+
+    def test_core_modules_do_not_load_real_adapter_packages(self) -> None:
+        # Phase 4B contract: real adapter packages (`whatif_langfuse`,
+        # `whatif_inspect_ai`) ship as separate distributions and MUST
+        # NOT be imported by core. The previous test scans
+        # `whatif.adapters.*`; this one scans the sibling packages
+        # directly. If a workspace install puts both on the same
+        # `sys.path`, an accidental `import whatif_langfuse` from
+        # core code would silently land here without this test.
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import whatif.cli, whatif.diff, whatif.config, whatif.contract, "
+                "whatif.cache, whatif.render, sys; "
+                "loaded = sorted("
+                "m for m in sys.modules "
+                "if m == 'whatif_langfuse' or m.startswith('whatif_langfuse.') "
+                "or m == 'whatif_inspect_ai' or m.startswith('whatif_inspect_ai.')"
+                "); "
+                "print(loaded)",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.returncode == 0, (
+            f"subprocess failed (exit {result.returncode}); stderr:\n{result.stderr}"
+        )
+        assert result.stdout.strip() == "[]", (
+            f"core modules pulled real adapter packages: {result.stdout!r}"
+        )
