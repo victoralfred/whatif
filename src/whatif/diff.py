@@ -45,6 +45,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
+from whatif.render import VERDICT_LABEL
+
 
 class DiffError(Exception):
     """Raised when one of the input report files cannot be read or
@@ -105,13 +107,6 @@ class DiffReport:
     failures_new: int
     cohorts: tuple[CohortDelta, ...]
     findings: tuple[FindingDelta, ...]
-
-
-VERDICT_LABELS: dict[str, str] = {
-    "ship": "Ship",
-    "dont_ship": "Don't Ship",
-    "inconclusive": "Inconclusive",
-}
 
 
 def load_report(path: Path) -> dict[str, Any]:
@@ -236,8 +231,8 @@ def render_diff_markdown(report: DiffReport) -> str:
     lines.append("")
 
     # Verdict transition
-    prev_label = VERDICT_LABELS.get(report.verdict_state_prev, report.verdict_state_prev)
-    new_label = VERDICT_LABELS.get(report.verdict_state_new, report.verdict_state_new)
+    prev_label = VERDICT_LABEL.get(report.verdict_state_prev, report.verdict_state_prev)
+    new_label = VERDICT_LABEL.get(report.verdict_state_new, report.verdict_state_new)
     if report.verdict_state_prev == report.verdict_state_new:
         lines.append(f"**Verdict:** {new_label} (unchanged)")
     else:

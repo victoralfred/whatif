@@ -16,8 +16,19 @@ not raise for typed `ReportV01` inputs. Walkthrough-match tests
 `docs/walkthroughs/*.md` fixtures.
 """
 
+from whatif.render._constants import VERDICT_LABEL
 from whatif.render.ci_status import render_ci_status
 from whatif.render.markdown import render_full_report
 from whatif.render.summary import render_summary
 
-__all__ = ["render_ci_status", "render_full_report", "render_summary"]
+# `VERDICT_LABEL` is the canonical wire-state → human-readable map.
+# Re-exported so cross-package consumers (e.g., `whatif.diff`) can
+# import it from the package's public surface instead of reaching
+# into `_constants`. Internal renderers continue to import directly
+# from `_constants` since they live inside the package boundary.
+__all__ = [
+    "VERDICT_LABEL",
+    "render_ci_status",
+    "render_full_report",
+    "render_summary",
+]
