@@ -200,13 +200,20 @@ class TestTimeout:
         )
         assert isinstance(result, ReplayFailure)
         assert result.code == "runner_timeout"
-        # Give the loop one more tick so the cancelled task's
-        # finally has time to run after wait_for raises. Under
-        # Python 3.11+ wait_for awaits the cancellation before
-        # raising TimeoutError, so cleanup is already complete.
-        await asyncio.sleep(0)
+        # Python 3.11+ behavior pin: `asyncio.wait_for` AWAITS
+        # the cancellation (the runner's CancelledError-driven
+        # cleanup) before raising `TimeoutError`. So by the time
+        # the kernel's `except TimeoutError` returns, the runner's
+        # `finally` HAS ALREADY run. Assert `cleaned` BEFORE any
+        # additional event-loop tick so the test pins the
+        # synchronous-on-the-loop ordering, not a "eventually"
+        # property. The pyproject `requires-python = ">=3.11"`
+        # makes this assertion safe on every supported version.
         assert cleaned, (
-            "runner cleanup did not run on async timeout — leaked task or unclean cancellation"
+            "runner cleanup did not run synchronously on async timeout. "
+            "Python 3.11+ wait_for awaits cancellation before raising "
+            "TimeoutError; if this assertion fails, either the Python "
+            "floor moved or wait_for semantics changed."
         )
 
 
