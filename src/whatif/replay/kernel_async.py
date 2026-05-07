@@ -99,6 +99,27 @@ async def replay_one_trace_async(
     exactly this reason. Only the timeout's own `TimeoutError`
     becomes `ReplayFailure(runner_timeout)`.
     """
+    # Catch ordering, async vs sync:
+    #
+    # In the SYNC kernel (kernel.py), the catches are:
+    #     FuturesTimeoutError -> CacheMissError -> Exception
+    # The order matters because CacheMissError IS an Exception
+    # subclass, so it MUST be caught before the bare-Exception
+    # branch. FuturesTimeoutError comes from `Future.result(timeout
+    # =...)` — a fundamentally different mechanism that doesn't
+    # propagate from runner code, so its position is for clarity
+    # not correctness.
+    #
+    # Here in the ASYNC kernel, the catches are:
+    #     TimeoutError -> CacheMissError -> Exception
+    # TimeoutError is raised by `asyncio.wait_for` ONLY (not by
+    # the runner — async runners don't raise TimeoutError on their
+    # own clock; they're cancelled FROM OUTSIDE by wait_for). It
+    # does NOT overlap with CacheMissError or any user-runner
+    # exception. The ordering matches the sync kernel's intent
+    # (CacheMissError before bare Exception is the load-bearing
+    # constraint); the timeout-first position is parallel structure
+    # so the two kernels read alike.
     runner_coro = runner(trace_input, config, tool_cache)
     try:
         output = await asyncio.wait_for(runner_coro, timeout=timeout_seconds)
