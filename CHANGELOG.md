@@ -12,6 +12,17 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+### Added — Phase 4A.1 (adapter protocols + result types)
+
+- `src/whatif/adapters/__init__.py` + `protocols.py` — first slice of Phase 4A. Defines the adapter-side surface separate from the user-runner contract:
+  - `TraceSource` Protocol (runtime_checkable): `iter_traces()` (generator-only — Phase 4 forbids returning a list), `adapter_metadata()`, `cluster_key_support()` (mandatory per cardinal #10 — drives `MethodologyDisclosure.bootstrap.cluster_key`).
+  - `Scorer` Protocol (runtime_checkable): `score(case)`, `cache_key_components(case)` returning the existing `whatif.cache.keying.v1.CacheKeyComponents` (hashes pre-computed at the boundary so the cache subsystem never sees raw judge prompts — cardinal #5), `adapter_metadata()`.
+  - `RawTrace` (Pydantic, `extra="forbid"`): adapter-side trace shape with `user_message: Sensitive[str]` and `original_response: Sensitive[str]` typed fields. `cluster_key: str | None` per cardinal #10. `skip_reason: str | None` so structurally-unusable traces flow through as `FailureRecord` rather than silently dropping (cardinal #1).
+  - `JudgeResult` (Pydantic, `extra="forbid"`): scorer output with `rationale: Sensitive[str]`. `score: float | None` — None signals structural scoring failure (cardinal #1; surfaces as `FailureRecord` rather than substituting a neutral value). `judge_model_snapshot: str | None` with explicit-None contract so the cache-key field shape is constant.
+  - `AdapterMetadata` (frozen + slotted dataclass, cardinal #6): `adapter_id` / `package_version` / `sdk_version`. Surfaced into `RunManifest`.
+- 16 tests in `tests/unit/whatif/adapters/test_protocols.py` cover: protocol-shape isinstance assertions (good vs missing-method classes), `RawTrace`/`JudgeResult` strict construction + extra-field rejection + Sensitive-required (raw `str` rejected with `ValidationError`), `AdapterMetadata` frozen + slots, and the **lazy-load contract** — a subprocess-based test asserts `import whatif` does NOT trigger any `whatif.adapters.*` import.
+- No implementation. The synthetic stub adapter is Phase 4A.3; the conformance harness that parameterizes over the protocol is Phase 4A.2.
+
 ### Changed — Phase plan: split Phase 4 into 4A/4B and Phase 9 into 9A/9B (doctrine)
 
 - `.claude/skills/whatif-design/references/phases.md` — phase dependencies are now explicitly **gate-based, not strictly calendar-based**. The previous "no phase can begin until predecessors' gates are green" wording made the actual implementation order (Phases 5/6/7/8 against the runner-contract stub before completing real adapters) read as a violation. The split formalizes what already happened and de-risks future contributors reading the plan.
