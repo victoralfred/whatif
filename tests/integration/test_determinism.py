@@ -37,6 +37,7 @@ from whatif.serialization.determinism import (
     DeterministicSubsetWarning,
     deterministic_field_names,
     extract_deterministic_subset,
+    extract_deterministic_subset_from_report,
 )
 from whatif.serialization.encoder import encode_report_v01
 from whatif.types.policy import DecisionPolicy, TrustFloor
@@ -101,6 +102,28 @@ def test_deterministic_subset_byte_equal_across_runs(scenario_factory) -> None:
     assert canonical_json_bytes(subset_a) == canonical_json_bytes(subset_b)
 
 
+def test_extract_from_report_matches_round_trip() -> None:
+    # The typed `extract_deterministic_subset_from_report` helper
+    # MUST produce the same dict as the round-trip path
+    # (encode → json.loads → extract_deterministic_subset). Pin it
+    # so a future divergence between the two surfaces (e.g., the
+    # typed helper drifts from the encoder's canonical kwargs) fails
+    # loudly. CI diff gates downstream rely on this equivalence.
+    fx = scenario_clean_ship()
+    report = run_pipeline(
+        fx.trace_source,
+        delta_fn=fx.delta_fn,
+        floor=TrustFloor(),
+        policy=DecisionPolicy(),
+        runtime=fx.runtime,
+        methodology=fx.methodology,
+        cache_summary=fx.cache_summary,
+    )
+    via_helper = extract_deterministic_subset_from_report(report)
+    via_round_trip = extract_deterministic_subset(json.loads(encode_report_v01(report)))
+    assert via_helper == via_round_trip
+
+
 def test_runtime_field_excluded_from_subset() -> None:
     # The `runtime` field is tagged x-deterministic: false because
     # it carries timestamps, environment fingerprint, and the
@@ -153,6 +176,17 @@ def test_deterministic_field_set_matches_schema() -> None:
     # future schema change that adds a deterministic field surfaces
     # here so the byte-equality test above is updated to cover it
     # rather than silently dropping coverage.
+    #
+    # The `expected` literal is DELIBERATELY hardcoded, not derived
+    # from `deterministic_field_names()`. A self-deriving check would
+    # silently rubber-stamp a schema-only edit (extractor reads new
+    # field → `deterministic_field_names() == deterministic_field_names()`
+    # always passes), which is exactly the failure mode this test
+    # exists to catch. The friction of updating two places (schema +
+    # this literal) is the load-bearing tripwire that forces a
+    # contributor to ALSO extend the byte-equality parametrization
+    # below with a fixture that exercises the new field. Auto-derive
+    # was suggested in review and explicitly declined for this reason.
     expected = {
         "schema_version",
         "schema_uri",

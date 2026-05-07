@@ -35,7 +35,10 @@ import warnings
 from collections.abc import Mapping
 from functools import lru_cache
 from importlib.resources import files
-from typing import Any, TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict
+
+if TYPE_CHECKING:
+    from whatif.report.models_v01 import ReportV01
 
 # Functional TypedDict form because `x-deterministic` carries a
 # hyphen and isn't a valid Python identifier. `total=False` because
@@ -146,8 +149,34 @@ def extract_deterministic_subset(report_dict: Mapping[str, Any]) -> dict[str, An
     return {k: v for k, v in report_dict.items() if k in keep}
 
 
+def extract_deterministic_subset_from_report(
+    report: ReportV01,
+) -> dict[str, Any]:
+    """Project a `ReportV01` directly into the deterministic subset.
+
+    Convenience wrapper for non-test callers (CI diff gates,
+    determinism property tests, future cross-run comparison
+    tooling) that have a domain object in hand and don't want to
+    round-trip through `encode_report_v01` → `json.loads` →
+    `extract_deterministic_subset`. The round-trip path stays
+    available for tests that explicitly want to exercise the
+    serialization seam (`test_determinism.py` does this on
+    purpose).
+
+    Imports `encode_report_v01` lazily to avoid pulling the
+    encoder module into `whatif.serialization.determinism`'s import
+    graph at package load — keeps the determinism module light for
+    consumers that only call `deterministic_field_names()`.
+    """
+    from whatif.serialization.encoder import encode_report_v01
+
+    serialized = json.loads(encode_report_v01(report))
+    return extract_deterministic_subset(serialized)
+
+
 __all__ = [
     "DeterministicSubsetWarning",
     "deterministic_field_names",
     "extract_deterministic_subset",
+    "extract_deterministic_subset_from_report",
 ]
