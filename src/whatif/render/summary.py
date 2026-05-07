@@ -66,7 +66,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from whatif.render.ci_status import _COHORT_BASELINE, _COHORT_FAILURE
+from whatif.render.ci_status import (
+    _COHORT_BASELINE,
+    _COHORT_FAILURE,
+    _SEVERITY_RANK,
+)
 
 if TYPE_CHECKING:
     from whatif.report.models_v01 import ReportV01
@@ -151,18 +155,17 @@ def _stats_block(cohort_results: list[CohortResult]) -> list[str]:
     """
     by_name = {c.name: c for c in cohort_results}
     out: list[str] = []
-    failure = by_name.pop(_COHORT_FAILURE, None)
-    if failure is not None:
+    if (failure := by_name.get(_COHORT_FAILURE)) is not None:
         out.append(_cohort_line("Failures", failure))
-    baseline = by_name.pop(_COHORT_BASELINE, None)
-    if baseline is not None:
+    if (baseline := by_name.get(_COHORT_BASELINE)) is not None:
         out.append(_cohort_line("Baseline", baseline))
     # Any other cohorts (v0.2+ shapes) appear with their literal
     # name. Stable order via the original cohort_results list.
-    for cohort in cohort_results:
-        if cohort.name in {_COHORT_FAILURE, _COHORT_BASELINE}:
+    known = {_COHORT_FAILURE, _COHORT_BASELINE}
+    for c in cohort_results:
+        if c.name in known:
             continue
-        out.append(_cohort_line(cohort.name, cohort))
+        out.append(_cohort_line(c.name, c))
     return out
 
 
@@ -206,11 +209,9 @@ def _jump_link_bar(report: ReportV01) -> str:
 def _highest_severity_finding(
     findings: list[DecisionFinding],
 ) -> DecisionFinding | None:
-    # Reuse the CI-status severity rank rather than redefining;
-    # keeps the two formats consistent on which finding "wins"
-    # when multiple are present.
-    from whatif.render.ci_status import _SEVERITY_RANK
-
+    """Severity rank is shared with `whatif.render.ci_status` to
+    keep the two formats aligned on which finding 'wins' when
+    multiple are present (cross-format consistency)."""
     if not findings:
         return None
     return max(findings, key=lambda f: _SEVERITY_RANK[f.severity])

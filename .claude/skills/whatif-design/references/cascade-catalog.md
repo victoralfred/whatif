@@ -182,7 +182,7 @@ Each format is a pure function `(ReportV01) -> str`. Walkthrough-match tests aga
 
 **Rippled to:**
 - `whatif/render/ci_status.py` (Phase 7.3) — verdict glyph + label + reason; severity-ranked finding selection; floor-failure fallback; defensive fallback for contract-violation upstream.
-- `whatif/render/summary.py` (Phase 7.2) — 30-line block; degenerate compact-Ship form; anchored jump links to full-report sections.
+- `whatif/render/summary.py` (Phase 7.2, PR #48) — 30-line block; degenerate compact-Ship form; anchored jump links to full-report sections (`#fix`, `#replay-validity`, `manifest.json`). The summary's forward-reference jump links are the **canonical splice point for Phase 8 CLI**: `whatif fork` produces both summary (for PR-comment posting) and full-report (for `report.md` artifact); when concatenated with the full report, the forward references become live in-document navigation. Phase 8 must NOT rewrite the summary's anchor targets — Phase 7.1 will produce `<a id="fix">` / `<a id="replay-validity">` headings the summary points at.
 - `whatif/render/markdown.py` (Phase 7.1) — five-section structure (Verdict, Stats, Replay validity, Baseline integrity, Evidence) plus a Methodology block (cardinal #10). Fix-suggestion templates queried from `FIX_SUGGESTION_REGISTRY` for Inconclusive / Don't Ship verdicts.
 - `whatif/render/templates/` — one file per fix-suggestion code; placeholder consistency lint per phases.md.
 - Three-format consistency test (Phase 7 gate) — no contradiction across CI status / summary / full report.
