@@ -54,11 +54,20 @@ class TestInconclusiveInsufficientSampleScenario:
         cohorts = {c.name: c for c in report.cohort_results}
         baseline = cohorts["baseline"]
         assert baseline.floor_passed is False
-        # The min_scored_per_required_cohort rule is the load-bearing
-        # failure here; other rules may also fire (e.g., min_replayed
-        # depending on stub semantics) but THIS one MUST be present.
+        # Pin the EXACT set of rules that fire for the 8-selected /
+        # 3-replayed / 3-scored shape. min_selected (8 >= 5) passes;
+        # the other three fail. Asserting the exact set catches a
+        # future stub or floor change that silently moves the failing
+        # set — e.g., if min_replayed stops firing because the stub
+        # starts "replaying" skipped traces, this test fails loudly
+        # rather than continuing to pass on the back of
+        # min_scored_per_required_cohort alone.
         rules = {f.rule for f in baseline.floor_failures}
-        assert "min_scored_per_required_cohort" in rules
+        assert rules == {
+            "min_replayed_per_required_cohort",
+            "min_scored_per_required_cohort",
+            "min_replay_validity_ratio_per_required_cohort",
+        }
 
     def test_failure_cohort_floor_passes(self, report: ReportV01) -> None:
         # Failure cohort had 15 traces all scored — well above floor.

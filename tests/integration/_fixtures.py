@@ -310,6 +310,13 @@ def scenario_inconclusive_insufficient_sample() -> IntegrationFixture:
                 return 0.0
             return -0.10
         # Only the first 3 baseline specs (no skip_reason) reach here.
-        return 0.05  # all three "improve" slightly; still under epsilon=0.05? exactly == eps so unchanged.
+        # Boundary behavior pinned: pipeline.py classifies improved
+        # via `delta > eps` (strict), so delta == eps is *unchanged*.
+        # Returning 0.04 (strictly under eps=0.05) keeps this scenario
+        # robust to a future widening of the operator (e.g., `>=`)
+        # — the trace stays unchanged either way, isolating the
+        # scenario's verdict signal to the floor failure (insufficient
+        # baseline scoring), not to a borderline counter shift.
+        return 0.04
 
     return _build_fixture(failure_specs=failures, baseline_specs=baselines, delta_fn=delta_fn)
