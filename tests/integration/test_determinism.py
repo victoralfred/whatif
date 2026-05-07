@@ -130,6 +130,18 @@ def test_runtime_field_excluded_from_subset() -> None:
     # sensitive-unwrap audit log — all non-deterministic. Pin the
     # exclusion so a future "everything is deterministic" refactor
     # doesn't silently sweep `runtime` into the byte-equality check.
+    #
+    # Note: this test does NOT separately assert that two runs'
+    # `runtime` fields actually DIFFER. The fixtures here construct
+    # `RunManifest` from a fixed dict (`_default_runtime` in
+    # `_fixtures.py`), so the same fixture call produces the same
+    # runtime — they happen to be equal at the test level. The pin
+    # we care about is the EXCLUSION: regardless of whether two
+    # runs' runtime fields agree or not, the deterministic subset
+    # MUST NOT contain runtime. Real runs (CLI, integration smoke)
+    # populate runtime with wall-clock timestamps that differ; the
+    # byte-equality assertion above succeeds because runtime is
+    # excluded, not because runtime happens to match.
     subset = _run_and_extract_subset(scenario_clean_ship())
     assert "runtime" not in subset
 

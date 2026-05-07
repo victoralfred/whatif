@@ -167,6 +167,16 @@ def extract_deterministic_subset_from_report(
     encoder module into `whatif.serialization.determinism`'s import
     graph at package load — keeps the determinism module light for
     consumers that only call `deterministic_field_names()`.
+
+    **Performance note:** this helper internally round-trips through
+    `encode_report_v01` → `json.loads` → `extract_deterministic_subset`.
+    For one-shot extraction (CI diff gate, single comparison) the
+    cost is invisible. For performance-sensitive **repeated**
+    extraction over many reports (a hypothetical batch determinism
+    audit) — call `encode_report_v01(report)` once, parse to a dict
+    once, then call `extract_deterministic_subset(dict_)` many
+    times against in-memory variants. The round-trip dominates the
+    extraction cost; doing it once amortizes over the batch.
     """
     from whatif.serialization.encoder import encode_report_v01
 
