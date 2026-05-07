@@ -17,5 +17,6 @@ not raise for typed `ReportV01` inputs. Walkthrough-match tests
 """
 
 from whatif.render.ci_status import render_ci_status
+from whatif.render.summary import render_summary
 
-__all__ = ["render_ci_status"]
+__all__ = ["render_ci_status", "render_summary"]

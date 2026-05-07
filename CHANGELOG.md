@@ -12,6 +12,16 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+### Added — Phase 7.2 (compact summary renderer)
+
+- `src/whatif/render/summary.py::render_summary(report: ReportV01) -> str` — compact-form Markdown summary, ≤30 lines. Suitable for PR comments / Slack posts. Format: verdict header, bold reason line, per-cohort stats (failure / baseline first, then any others), replay-validity + cache one-liner, trailing jump-link bar.
+- **Compact-Ship degenerate case:** clean Ship omits the `Suggested next steps ↓` jump link (no actionable findings), lands at ≤12 lines.
+- **Forward-reference jump links:** `#fix`, `#replay-validity`, `manifest.json`. Targets the anchors Phase 7.1 will produce in the full report; consumers that splice summary + full-report (Phase 8 CLI) get working in-document navigation.
+- **Reason source:** clean Ship → "All floor rules passed. All policy rules passed." Non-Ship → highest-severity finding's message (severity rank shared with `render_ci_status` via `_SEVERITY_RANK` import). Floor-failure fallback for non-Ship + no findings; defensive contract-violation string mirrors the CI-status fallback wording for cross-format consistency.
+- **Budget enforcement:** `ValueError` raised if rendered output exceeds 30 lines — surfaces a renderer bug or shape regression rather than silently truncating (cardinal #1).
+- `tests/unit/whatif/render/test_summary.py` (15 tests) — verdict header per state, line budget per verdict, compact-Ship degenerate case (no `#fix` link, ≤12 lines, all-passed reason), non-Ship paths (highest-severity selection, fix-link present), stats block (failure/baseline ordering, generic per-cohort fallback for non-standard names), replay-validity line.
+- Reuses `_COHORT_FAILURE` / `_COHORT_BASELINE` / `_SEVERITY_RANK` from `whatif.render.ci_status` so the two formats stay aligned on which cohort is canonical and which finding "wins".
+
 ### Added — Phase 7.3 (CI status renderer)
 
 - `src/whatif/render/ci_status.py::render_ci_status(report: ReportV01) -> str` — one-line CI status string for a `ReportV01`, ≤80 visible chars. Format: `<glyph> whatif: <Verdict> — <reason>` where the glyph is `✓` (Ship) / `✗` (Don't Ship) / `⚠` (Inconclusive).
