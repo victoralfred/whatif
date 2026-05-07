@@ -140,6 +140,15 @@ def rebuild(cache_root: Path, *, force: bool) -> RebuildResult:
             # bucket subdirectories. Count + skip rather than
             # silently ignore so an operator running rebuild can
             # see the anomaly in the result.
+            #
+            # TODO(future): a `--strict` flag that errors on
+            # `non_bucket_skipped > 0` would surface anomalies
+            # more loudly. Deferred from v0.1 because the count
+            # in `RebuildResult` is sufficient feedback for the
+            # current operator surface (`whatif cache rebuild`
+            # prints it). If a real user encounters stray files
+            # often enough to want the hard error, that's the
+            # trigger.
             non_bucket_skipped += 1
             continue
         for entry_file in bucket.iterdir():

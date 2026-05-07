@@ -129,9 +129,23 @@ class TestUnlock:
         # alive when allocated and dead by the time we use it.
         import subprocess
 
+        import psutil
+
         proc = subprocess.Popen(["true"])
         proc.wait()
         dead_pid = proc.pid
+
+        # Explicit hermetic-PID precondition. If a future platform
+        # recycles PIDs faster than this test expects, this
+        # assertion fails BEFORE the real check, surfacing the
+        # test's brittleness rather than masquerading as a bug in
+        # `unlock`.
+        assert not psutil.pid_exists(dead_pid), (
+            f"test precondition: PID {dead_pid} is still alive "
+            "immediately after subprocess.wait(). The "
+            "subprocess-for-hermetic-PID approach broke; pick "
+            "another mechanism."
+        )
 
         lock = tmp_path / ".lock"
         lock.write_text(json.dumps({"pid": dead_pid}), encoding="utf-8")
