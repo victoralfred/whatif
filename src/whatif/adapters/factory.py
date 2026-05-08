@@ -97,9 +97,12 @@ def build_scorer(cfg: ScorerConfig) -> Scorer:
     """Construct a `Scorer` from `cfg.scorer`.
 
     Supported adapters in v0.1:
-    - `"stub"` — synthetic scorer that returns zero. Useful for
-      end-to-end CLI tests; production runs should use a real
-      scorer.
+    - `"stub"` — synthetic scorer whose default `score_fn` returns
+      the constant `0.5` for every case (NOT zero, NOT "no
+      judgment"). Useful for end-to-end CLI wiring tests;
+      production runs MUST use a real scorer or every trace will
+      appear to improve uniformly. Pinned by
+      `test_build_scorer_stub_default_score_fn_returns_constant_0_5`.
     - `"inspect_ai"` — real Inspect AI adapter. Requires the
       caller to wire a `score_fn`; v0.1 does NOT load `score_fn`
       from config (it's user code, not config data). The CLI
