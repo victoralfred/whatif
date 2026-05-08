@@ -12,6 +12,15 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+### Added — Phase 10.3 (CLI fork wiring; per-trace `delta_fn` closure)
+
+- **`src/whatif/cli_pipeline.py`** — `build_delta_fn(loaded_runner, scorer, change, replay_timeout_seconds)` returns a `Callable[[RawTrace], float]` suitable for `whatif.pipeline.run_pipeline`. The closure runs the user's runner through the appropriate replay kernel (sync `replay_one_trace` for `loaded_runner.kind == "sync"`, async `replay_one_trace_async` wrapped in `asyncio.run` for `kind == "async"`), projects the resulting `ReplayOutput` into a `ScoreCase`, calls `Scorer.score`, and returns `JudgeResult.score`.
+- **Cardinal #5 unwrap with explicit reason.** The closure unwraps `RawTrace.user_message` and `RawTrace.original_response` (both `Sensitive[str]`) at the runner-feed and ScoreCase-build sites with audit-log reasons naming the call site.
+- **Cardinal #1 failure mapping.** A `ReplayFailure` from the kernel raises `_ReplayStageError`; a `JudgeResult.score == None` raises `_ScorerStructuralError`. Both surface to the pipeline's `except Exception` capture, which constructs a `scorer_unavailable` `FailureRecord` with the underlying error message preserved. v0.1's `delta_fn`-shape pipeline collapses replay+score into one closure surface; Phase 11+ may widen `run_pipeline` to consume `ReplayResult` directly so replay failures get their own typed `FailureRecord` projection.
+- **Sync/async runner cast at the boundary.** `LoadedRunner.callable_` is typed `Callable[..., object]`; the closure narrows via `cast(Runner, ...)` / `cast(AsyncRunner, ...)` after Phase 10.2's loader has already validated the shape via `inspect.iscoroutinefunction` + Protocol `isinstance` belt-and-suspenders.
+- **Documented limitation: `asyncio.run`-per-trace.** One event loop per async-runner trace. Acceptable for v0.1 — the pipeline is I/O-bound and `run_pipeline`'s sequential iteration is already the concurrency bound. A future refinement could share a loop across the trace stream.
+- **7 new tests.** Sync runner, async runner via `asyncio.run`, runner exception → replay failure → pipeline exception, scorer None → structural-error path, ChangeConfig.system_prompt threading, StubScorer 0.5 sanity, closure docstring carries `LoadedRunner.reference`.
+
 ### Added — Phase 10.2 (CLI fork wiring; runner-target loader)
 
 - **`src/whatif/runner_loader.py`** — `load_runner(reference)` parses `python:<module.path>:<attr>` and returns `LoadedRunner(callable_, kind, reference)` where `kind ∈ {"sync", "async"}` selects the replay kernel. Module-private to the CLI wiring layer; `RunnerLoadError` carries actionable messages for every failure class (bad scheme, malformed shape, module not importable, attribute missing, non-callable, protocol-shape mismatch).
