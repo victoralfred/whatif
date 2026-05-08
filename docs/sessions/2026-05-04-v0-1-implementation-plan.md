@@ -5,15 +5,15 @@ started_at: 2026-05-04T19:00:00Z
 
 ## Session start
 
-**User request:** Develop a v0.1 implementation plan in plan mode, following the whatif-design skill guidelines.
+**User request:** Develop a v0.1 implementation plan in plan mode, following the whatifd-design skill guidelines.
 
 **Skill files read:**
-- .claude/skills/whatif-design/SKILL.md
-- .claude/skills/whatif-design/doctrine.md
-- .claude/skills/whatif-design/phases.md
-- .claude/skills/whatif-design/walkthroughs.md
-- .claude/skills/whatif-design/type-model.md
-- .claude/skills/whatif-design/references/cascade-catalog.md
+- .claude/skills/whatifd-design/SKILL.md
+- .claude/skills/whatifd-design/doctrine.md
+- .claude/skills/whatifd-design/phases.md
+- .claude/skills/whatifd-design/walkthroughs.md
+- .claude/skills/whatifd-design/type-model.md
+- .claude/skills/whatifd-design/references/cascade-catalog.md
 
 (Read across this and earlier sessions today; doctrine, phases, type-model, and walkthroughs all read recently. Cascade catalog re-checked for current open-cascade count.)
 
@@ -40,12 +40,12 @@ Rule #10 (statistical claims) is in the skill update queue (SKILL_UPDATE_PLAN.md
 
 **Artifacts produced:**
 - `/home/voseghale/.claude/plans/golden-swimming-globe.md`: v0.1 implementation plan (approved by user; auto mode active afterwards)
-- `~/projects/self_dev/.claude/skills/whatif-design/SKILL.md`, `doctrine.md`, `practices.md`, `contracts.md`, `type-model.md`, `statistical-defaults.md` (new): direct replacements per Phase A.1 of SKILL_UPDATE_PLAN.md
-- `~/projects/self_dev/.claude/skills/whatif-design/type-model.md`: `methodology: MethodologyDisclosure` field manually added to `ReportV01` (the update author's known omission)
-- `~/projects/self_dev/.claude/skills/whatif-design/references/cascade-catalog.md`: three-way merge — 28 open + 22 deferred + 1 template
-- `~/projects/self_dev/.claude/skills/whatif-design/enforcement.md`: 3 new structural-claim rows (methodology disclosure, causal-claim scope, per-trace inference)
-- `~/projects/self_dev/.claude/skills/whatif-design/phases.md`: Phase 1.7 statistical types, Phase 2.5 primary_endpoint_guard + clustering.py, Phase 5.1 methodology field, Phase 7.1 methodology block rendering
-- `~/projects/self_dev/.claude/skills/whatif-design/references/V0_1_DECISION_RECORD.md`: cardinal #10 addendum
+- `~/projects/self_dev/.claude/skills/whatifd-design/SKILL.md`, `doctrine.md`, `practices.md`, `contracts.md`, `type-model.md`, `statistical-defaults.md` (new): direct replacements per Phase A.1 of SKILL_UPDATE_PLAN.md
+- `~/projects/self_dev/.claude/skills/whatifd-design/type-model.md`: `methodology: MethodologyDisclosure` field manually added to `ReportV01` (the update author's known omission)
+- `~/projects/self_dev/.claude/skills/whatifd-design/references/cascade-catalog.md`: three-way merge — 28 open + 22 deferred + 1 template
+- `~/projects/self_dev/.claude/skills/whatifd-design/enforcement.md`: 3 new structural-claim rows (methodology disclosure, causal-claim scope, per-trace inference)
+- `~/projects/self_dev/.claude/skills/whatifd-design/phases.md`: Phase 1.7 statistical types, Phase 2.5 primary_endpoint_guard + clustering.py, Phase 5.1 methodology field, Phase 7.1 methodology block rendering
+- `~/projects/self_dev/.claude/skills/whatifd-design/references/V0_1_DECISION_RECORD.md`: cardinal #10 addendum
 - `~/projects/self_dev/SKILL_UPDATE_PLAN.md`: status updated to "Phase A.1 done; A.3 doctrine-layer done; A.2 paused"
 - `project/docs/concepts.md` (new): Phase 0.2 conceptual model document — eight sections plus glossary
 

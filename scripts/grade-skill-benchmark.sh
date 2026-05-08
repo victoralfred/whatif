@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # scripts/grade-skill-benchmark.sh
 #
-# Layer 3 of whatif-design skill instrumentation.
+# Layer 3 of whatifd-design skill instrumentation.
 # Auto-checks each benchmark result and produces a grading template
 # for manual review.
 #
@@ -102,12 +102,12 @@ for i in $(seq 0 $((count - 1))); do
             fi
         done
     else
-        # Negative test: should NOT reference any whatif-design files
+        # Negative test: should NOT reference any whatifd-design files
         if grep -qE "references/(doctrine|type-model|enforcement|contracts|cascade-catalog|practices|phases|walkthroughs)\.md" "$output_file"; then
-            echo "- ❌ Referenced whatif-design files (negative test: should not have)" >> "$GRADE_FILE"
+            echo "- ❌ Referenced whatifd-design files (negative test: should not have)" >> "$GRADE_FILE"
             file_check_passed=false
         else
-            echo "- ✅ Did not reference whatif-design files (negative test passes)" >> "$GRADE_FILE"
+            echo "- ✅ Did not reference whatifd-design files (negative test passes)" >> "$GRADE_FILE"
         fi
     fi
 

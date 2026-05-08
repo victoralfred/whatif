@@ -3,8 +3,8 @@
 ## Mandatory reading
 
 Before any architecture, design, or implementation work on this project,
-read `.claude/skills/whatif-design/SKILL.md` and the relevant reference
-files in `.claude/skills/whatif-design/references/`.
+read `.claude/skills/whatifd-design/SKILL.md` and the relevant reference
+files in `.claude/skills/whatifd-design/references/`.
 
 The skill encodes the convergent design from extensive deliberation. Do
 not re-litigate decisions captured in the cascade catalog without first
@@ -39,7 +39,7 @@ of these, the proposal is rejected regardless of rationale.
 
 ## Working with the design
 
-The cascade catalog (`.claude/skills/whatif-design/references/cascade-catalog.md`)
+The cascade catalog (`.claude/skills/whatifd-design/references/cascade-catalog.md`)
 tracks open architectural decisions. When you make a change with
 downstream consequences, update the catalog in the same PR. When you
 discover a new gap during implementation, file it in the catalog before
@@ -69,10 +69,10 @@ the load-bearing concepts are intentional.
 
 ---
 
-## Session telemetry (whatif-design skill)
+## Session telemetry (whatifd-design skill)
 
-This project uses the `whatif-design` skill installed at
-`.claude/skills/whatif-design/`. To support iteration on the skill, log
+This project uses the `whatifd-design` skill installed at
+`.claude/skills/whatifd-design/`. To support iteration on the skill, log
 every significant work session using the protocol below.
 
 ### At session start
@@ -91,8 +91,8 @@ started_at: <iso-8601 timestamp>
 **User request:** <one-line summary of what the user asked for>
 
 **Skill files read:**
-- .claude/skills/whatif-design/SKILL.md
-- .claude/skills/whatif-design/references/<each-file>.md
+- .claude/skills/whatifd-design/SKILL.md
+- .claude/skills/whatifd-design/references/<each-file>.md
   (list every reference file you actually read this session,
    in the order you read them)
 

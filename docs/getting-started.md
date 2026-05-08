@@ -2,13 +2,13 @@
 
 A worked, end-to-end example that runs the whatif pipeline and produces a `Ship` / `Don't Ship` / `Inconclusive` verdict report. Read top-to-bottom.
 
-> **What works today (v0.1):** the programmatic API (`whatif.pipeline.run_pipeline`) drives the full pipeline end-to-end with both real adapters (`whatif-langfuse`, `whatif-inspect-ai`) in the path. The `whatif fork` CLI command is wired through config + the cardinal-#7 two-affirmation gate but its dispatcher body is a documented stub for v0.1.0; see [`phases.md`](../.claude/skills/whatif-design/references/phases.md) "Implementation gaps." The integration-test suite (`tests/integration/test_real_adapters.py`) is the load-bearing reference for the pattern below.
+> **What works today (v0.1):** the programmatic API (`whatifd.pipeline.run_pipeline`) drives the full pipeline end-to-end with both real adapters (`whatifd-langfuse`, `whatifd-inspect-ai`) in the path. The `whatif fork` CLI command is wired through config + the cardinal-#7 two-affirmation gate but its dispatcher body is a documented stub for v0.1.0; see [`phases.md`](../.claude/skills/whatifd-design/references/phases.md) "Implementation gaps." The integration-test suite (`tests/integration/test_real_adapters.py`) is the load-bearing reference for the pattern below.
 
 ## Install
 
 ```bash
 # Once published to PyPI:
-uv pip install whatif whatif-langfuse whatif-inspect-ai
+uv pip install whatif whatifd-langfuse whatifd-inspect-ai
 
 # From source (uv workspace):
 git clone https://github.com/victoralfred/whatif
@@ -20,7 +20,7 @@ uv sync --all-extras --dev --group workspace
 
 A whatif run has six inputs:
 
-1. **A `TraceSource`** — your tracer's adapter. v0.1 ships `whatif-langfuse`. The synthetic `whatif.adapters.stub.StubTraceSource` is in-tree for tests and out-of-tree adapter authors.
+1. **A `TraceSource`** — your tracer's adapter. v0.1 ships `whatifd-langfuse`. The synthetic `whatifd.adapters.stub.StubTraceSource` is in-tree for tests and out-of-tree adapter authors.
 2. **A `delta_fn(RawTrace) -> float`** — the per-trace effect size. In v0.1 you build this from a `Scorer` (see [Wiring a real scorer](#wiring-a-real-scorer) below).
 3. **A `TrustFloor`** — the cardinal-#2 floor. Defaults are reasonable for v0.1.
 4. **A `DecisionPolicy`** — the above-floor policy thresholds.
@@ -37,14 +37,14 @@ This script runs the pipeline end-to-end against the in-tree synthetic stub adap
 from collections.abc import Callable
 from types import MappingProxyType
 
-from whatif.adapters.protocols import RawTrace
-from whatif.adapters.stub import StubTraceSource, StubTraceSpec
-from whatif.cache.summary import CachePolicySnapshot, CacheSummary
-from whatif.pipeline import run_pipeline
-from whatif.serialization import encode_report_v01
-from whatif.types.manifest import EnvironmentFingerprint, RunManifest
-from whatif.types.policy import DecisionPolicy, TrustFloor
-from whatif.types.statistical import (
+from whatifd.adapters.protocols import RawTrace
+from whatifd.adapters.stub import StubTraceSource, StubTraceSpec
+from whatifd.cache.summary import CachePolicySnapshot, CacheSummary
+from whatifd.pipeline import run_pipeline
+from whatifd.serialization import encode_report_v01
+from whatifd.types.manifest import EnvironmentFingerprint, RunManifest
+from whatifd.types.policy import DecisionPolicy, TrustFloor
+from whatifd.types.statistical import (
     BootstrapMethodDisclosure,
     EffectSizeDisclosure,
     JudgeMethodDisclosure,
@@ -186,11 +186,11 @@ with open("report.json", "wb") as fh:
 Replace the deterministic `delta_fn` above with a closure over a real `Scorer`. Pattern from `tests/integration/test_real_adapters.py`:
 
 ```python
-from whatif.contract import ReplayOutput, ScoreCase, TraceInput, TraceOutput
-from whatif_inspect_ai import InspectAIScorer
+from whatifd.contract import ReplayOutput, ScoreCase, TraceInput, TraceOutput
+from whatifd_inspect_ai import InspectAIScorer
 
 scorer = InspectAIScorer(
-    score_fn=my_inspect_scorer,           # see whatif-inspect-ai README
+    score_fn=my_inspect_scorer,           # see whatifd-inspect-ai README
     judge_provider="anthropic",
     judge_model_id="claude-opus-4-7",
     rubric_id="faithfulness-v1",
@@ -218,7 +218,7 @@ def delta_fn(rt: RawTrace) -> float:
     return result.score
 ```
 
-The same pattern works with `whatif_langfuse.LangfuseTraceSource` instead of the stub: hand it a Langfuse `api` client (see [whatif-langfuse README](../packages/whatif-langfuse/README.md)).
+The same pattern works with `whatifd_langfuse.LangfuseTraceSource` instead of the stub: hand it a Langfuse `api` client (see [whatifd-langfuse README](../packages/whatifd-langfuse/README.md)).
 
 ## Reading the verdict
 
@@ -233,7 +233,7 @@ The same pattern works with `whatif_langfuse.LangfuseTraceSource` instead of the
 Render the full report:
 
 ```python
-from whatif.render.markdown import render_full_report
+from whatifd.render.markdown import render_full_report
 print(render_full_report(report))
 ```
 
@@ -250,7 +250,7 @@ The five-section structure (header → cohort table → findings → cache + met
 
 Two CLI-friendly placeholders ship with whatif core for credentialless smokes:
 
-- **`source.adapter: "stub"`** — `whatif.adapters.factory.build_trace_source` returns `StubTraceSource(specs=[])`. **Empty by design** — the factory's job is dispatch, not fixture provisioning. Tests/users that need traces construct `StubTraceSource(specs=[...])` directly. A `whatif fork` smoke run with the empty stub source produces a Floor-failure Inconclusive verdict (cardinal #2: no data → not Ship), not a crash.
+- **`source.adapter: "stub"`** — `whatifd.adapters.factory.build_trace_source` returns `StubTraceSource(specs=[])`. **Empty by design** — the factory's job is dispatch, not fixture provisioning. Tests/users that need traces construct `StubTraceSource(specs=[...])` directly. A `whatif fork` smoke run with the empty stub source produces a Floor-failure Inconclusive verdict (cardinal #2: no data → not Ship), not a crash.
 - **`scorer.adapter: "stub"`** — `StubScorer()` with the default `score_fn` that returns the constant **`0.5` for every case**, not "no judgment" and not zero. Each trace gets a deterministic 0.5 delta. This is intentional: the stub is for wiring-validation, not behavioral evaluation. **A real run that accidentally uses `scorer.adapter: "stub"` will appear to improve uniformly across every trace** — a misleading Ship verdict pattern. If you see uniform 0.5 deltas in a real run, check your scorer config.
 
 The stub is the right default for an end-to-end CLI smoke that proves the wiring works. It is the wrong default for an experiment whose verdict you want to act on.
@@ -261,4 +261,4 @@ The stub is the right default for an end-to-end CLI smoke that proves the wiring
 - CI bounds are empirical 5th/95th percentiles, not stratified bootstrap. The methodology disclosure declares this with `bootstrap.method="unavailable"` so consumers see the truth.
 - Cache `verify` does structural checks but not cryptographic content-hash. Deferred to v0.2.
 
-See [`phases.md` § "Implementation gaps"](../.claude/skills/whatif-design/references/phases.md) for the full list and closure paths.
+See [`phases.md` § "Implementation gaps"](../.claude/skills/whatifd-design/references/phases.md) for the full list and closure paths.

@@ -36,7 +36,7 @@ body:
       multiple: true
       options:
         - CLI
-        - Runner contract (src/whatif/contract/)
+        - Runner contract (src/whatifd/contract/)
         - Source adapter (ingest)
         - Scorer
         - Cache policy

@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/p/whatif
+      url: https://pypi.org/p/whatifd
     permissions:
       # Required for PyPI Trusted Publishing (OIDC).
       id-token: write

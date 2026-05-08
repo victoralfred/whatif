@@ -31,16 +31,16 @@ from importlib.resources import files
 
 import pytest
 
-from whatif.pipeline import run_pipeline
-from whatif.serialization.canonical import canonical_json_bytes
-from whatif.serialization.determinism import (
+from whatifd.pipeline import run_pipeline
+from whatifd.serialization.canonical import canonical_json_bytes
+from whatifd.serialization.determinism import (
     DeterministicSubsetWarning,
     deterministic_field_names,
     extract_deterministic_subset,
     extract_deterministic_subset_from_report,
 )
-from whatif.serialization.encoder import encode_report_v01
-from whatif.types.policy import DecisionPolicy, TrustFloor
+from whatifd.serialization.encoder import encode_report_v01
+from whatifd.types.policy import DecisionPolicy, TrustFloor
 
 from ._fixtures import (
     IntegrationFixture,
@@ -169,7 +169,7 @@ def test_runtime_explicitly_tagged_false_in_schema() -> None:
     # extractor's "include only if tagged true". Catching the
     # negation here keeps the schema's explicit-opt-in contract
     # intact (cardinal #4: determinism is opt-in per field).
-    schema_resource = files("whatif.report.schema").joinpath("v0.1.schema.json")
+    schema_resource = files("whatifd.report.schema").joinpath("v0.1.schema.json")
     schema = json.loads(schema_resource.read_text(encoding="utf-8"))
     runtime_property = schema["properties"]["runtime"]
     assert runtime_property.get("x-deterministic") is False, (

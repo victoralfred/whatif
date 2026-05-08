@@ -25,7 +25,7 @@ from collections.abc import Iterator
 
 import pytest
 
-from whatif.adapters import (
+from whatifd.adapters import (
     AdapterMetadata,
     ClusterKeySupport,
     JudgeResult,
@@ -33,9 +33,9 @@ from whatif.adapters import (
     Scorer,
     TraceSource,
 )
-from whatif.cache.keying.v1 import CacheKeyComponents
-from whatif.contract import ScoreCase
-from whatif.types.sensitive import Sensitive
+from whatifd.cache.keying.v1 import CacheKeyComponents
+from whatifd.contract import ScoreCase
+from whatifd.types.sensitive import Sensitive
 
 from .conformance import (
     ScorerConformance,

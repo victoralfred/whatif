@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # scripts/skill-dashboard.sh
 #
-# Layer 4 of whatif-design skill instrumentation.
+# Layer 4 of whatifd-design skill instrumentation.
 # Aggregates session telemetry (Layer 2) and benchmark results (Layer 3)
 # into a single Markdown dashboard.
 #
@@ -19,7 +19,7 @@ set -euo pipefail
 PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$PROJECT_ROOT"
 
-SKILL_DIR=".claude/skills/whatif-design"
+SKILL_DIR=".claude/skills/whatifd-design"
 SESSIONS_DIR="docs/sessions"
 BENCHMARKS_DIR="tests/skill-benchmarks/results"
 
@@ -45,7 +45,7 @@ done
 
 # --- Header ---
 cat <<EOF
-# whatif-design Skill Dashboard
+# whatifd-design Skill Dashboard
 
 **Generated:** $(date -u +%Y-%m-%dT%H:%M:%SZ)
 **Project:** $(basename "$PROJECT_ROOT")

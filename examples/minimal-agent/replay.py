@@ -15,7 +15,7 @@ provider.
 Use it as a copy-paste starting point — the load-bearing surface is
 the function signature, not the body.
 
-Usage (programmatic, via `whatif.pipeline.run_pipeline`):
+Usage (programmatic, via `whatifd.pipeline.run_pipeline`):
 
     from examples.minimal_agent.replay import run as my_runner
     # ... pass `my_runner` to your replay-kernel call site
@@ -27,7 +27,7 @@ Usage (CLI, when Phase 10 wires the runner-target loader):
 
 from __future__ import annotations
 
-from whatif.contract import ReplayConfig, ReplayOutput, ToolCache, TraceInput
+from whatifd.contract import ReplayConfig, ReplayOutput, ToolCache, TraceInput
 
 
 def run(

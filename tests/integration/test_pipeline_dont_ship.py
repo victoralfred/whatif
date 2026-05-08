@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import pytest
 
-from whatif.pipeline import run_pipeline
-from whatif.report.models_v01 import ReportV01
-from whatif.types.policy import DecisionPolicy, TrustFloor
+from whatifd.pipeline import run_pipeline
+from whatifd.report.models_v01 import ReportV01
+from whatifd.types.policy import DecisionPolicy, TrustFloor
 
 from ._fixtures import (
     scenario_dont_ship_failure_rescue_gap,

@@ -1,5 +1,5 @@
 [project]
-name = "whatif"
+name = "whatifd"
 version = "0.0.1"
 description = "Open experiment runner for LLM behavior changes. Fork production traces, replay with a proposed change, score the diff, emit a PR-ready verdict report."
 readme = "README.md"
@@ -31,7 +31,7 @@ dependencies = [
   "rich>=15.0.0",
   # psutil is gated to non-Windows platforms: the cache lock module
   # imports it via fcntl-guarded code, and the Windows guard in
-  # whatif/cache/lock.py refuses module load before any psutil call.
+  # whatifd/cache/lock.py refuses module load before any psutil call.
   # Marking it here makes the platform constraint visible at install
   # time and avoids a useless dependency on Windows.
   "psutil>=6.0; sys_platform != 'win32'",
@@ -46,7 +46,7 @@ dev = [
   "pytest-asyncio>=1.3.0",
   "pytest-cov>=7.1.0",
   # `pytest-recording` (vcrpy-based) drives the recorded-smoke
-  # tests in `packages/whatif-langfuse/tests/test_recorded_smoke.py`.
+  # tests in `packages/whatifd-langfuse/tests/test_recorded_smoke.py`.
   # CI replays from cassette; local recording uses --record-mode=once.
   "pytest-recording>=0.13",
   # Direct `vcrpy` pin alongside `pytest-recording`: pytest-recording
@@ -74,12 +74,12 @@ dev = [
 # extra above; `pip install ".[dev]"` correctly skips it.
 [dependency-groups]
 workspace = [
-  "whatif-langfuse",
-  "whatif-inspect-ai",
+  "whatifd-langfuse",
+  "whatifd-inspect-ai",
 ]
 
 [project.scripts]
-whatif = "whatif.cli:app"
+whatif = "whatifd.cli:app"
 
 [project.urls]
 Homepage      = "https://github.com/victoralfred/whatif"
@@ -91,7 +91,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/whatif"]
+packages = ["src/whatifd"]
 
 [tool.ruff]
 line-length = 100
@@ -111,8 +111,8 @@ warn_return_any = true
 testpaths = ["tests", "packages"]
 # `--import-mode=importlib` avoids module-name collisions across
 # packages with identically-named test files (e.g.,
-# `packages/whatif-langfuse/tests/test_conformance.py` and
-# `packages/whatif-inspect-ai/tests/test_conformance.py`). The
+# `packages/whatifd-langfuse/tests/test_conformance.py` and
+# `packages/whatifd-inspect-ai/tests/test_conformance.py`). The
 # default `prepend` mode treats both as `tests.test_conformance`
 # and raises `ImportPathMismatchError`. importlib mode is the
 # modern pytest recommendation for monorepo / multi-package layouts.
@@ -124,12 +124,12 @@ asyncio_mode = "auto"
 # have their own pyproject.toml and version, but share this venv
 # during development. PyPI publication is per-package.
 [tool.uv.workspace]
-members = ["packages/whatif-langfuse", "packages/whatif-inspect-ai"]
+members = ["packages/whatifd-langfuse", "packages/whatifd-inspect-ai"]
 
 # Resolve the workspace adapter packages from the in-tree path
 # instead of PyPI. With this binding, `uv sync` installs them
 # editably alongside `whatif`; the CI test job picks up
-# `packages/whatif-*/tests/` cleanly.
+# `packages/whatifd-*/tests/` cleanly.
 [tool.uv.sources]
-whatif-langfuse = { workspace = true }
-whatif-inspect-ai = { workspace = true }
+whatifd-langfuse = { workspace = true }
+whatifd-inspect-ai = { workspace = true }

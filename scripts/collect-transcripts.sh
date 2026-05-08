@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # scripts/collect-transcripts.sh
 #
-# Layer 1 of whatif-design skill instrumentation.
+# Layer 1 of whatifd-design skill instrumentation.
 # Copies Claude Code session logs from ~/.claude/projects/<project-key>/
 # into docs/sessions/raw/ for analysis.
 #

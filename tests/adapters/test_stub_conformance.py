@@ -7,7 +7,7 @@ synthetic stub at 4A.3 and is green."
 This file is the inverse of `test_conformance_self_test.py`:
 - Self-test uses minimum-viable in-file fakes to prove the harness
   machinery is correct (4A.2's own coverage).
-- This file uses the actual `whatif.adapters.stub` module to prove
+- This file uses the actual `whatifd.adapters.stub` module to prove
   the stub itself satisfies every conformance property.
 
 Phase 4B will add `test_langfuse_conformance.py` and
@@ -18,8 +18,8 @@ from __future__ import annotations
 
 import pytest
 
-from whatif.adapters import Scorer, TraceSource
-from whatif.adapters.stub import (
+from whatifd.adapters import Scorer, TraceSource
+from whatifd.adapters.stub import (
     StubScorer,
     StubTraceSource,
     StubTraceSpec,

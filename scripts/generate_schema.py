@@ -14,16 +14,16 @@ hand-written shape. Generating from the dataclass eliminates a class
 of drift bugs (schema says one thing, dataclass says another) and
 makes schema review = code review of `models_v01.py`.
 
-The committed `v0.1.schema.json` in `src/whatif/report/schema/` is
+The committed `v0.1.schema.json` in `src/whatifd/report/schema/` is
 the output of this script. The drift test
-(`tests/unit/whatif/report/test_schema.py`) re-runs the generator
+(`tests/unit/whatifd/report/test_schema.py`) re-runs the generator
 and asserts byte equality with the committed file. A schema change
 that isn't accompanied by a regenerate produces a failing CI.
 
 ## CLI
 
 - `python scripts/generate_schema.py` — write to canonical path under
-  `src/whatif/report/schema/v0.1.schema.json`.
+  `src/whatifd/report/schema/v0.1.schema.json`.
 - `python scripts/generate_schema.py --stdout` — print to stdout
   (used by the drift test and `diff` workflows).
 
@@ -64,13 +64,13 @@ from typing import Any, Literal, Union, get_args, get_origin
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_REPO_ROOT / "src"))
 
-from whatif.report.models_v01 import (  # noqa: E402
+from whatifd.report.models_v01 import (  # noqa: E402
     REPORT_SCHEMA_URI,
     REPORT_SCHEMA_VERSION,
     ReportV01,
 )
 
-_SCHEMA_FILE = _REPO_ROOT / "src" / "whatif" / "report" / "schema" / "v0.1.schema.json"
+_SCHEMA_FILE = _REPO_ROOT / "src" / "whatifd" / "report" / "schema" / "v0.1.schema.json"
 
 # Top-level fields annotated `x-deterministic: false` per cardinal #4.
 # Everything else defaults to deterministic. Per-field annotations
@@ -218,7 +218,7 @@ def build_schema() -> dict[str, Any]:
         "title": "WhatifReportV01",
         "description": (
             "v0.1 wire-format report emitted by `whatif fork`. "
-            "Hand-written types in `whatif/report/models_v01.py`; this "
+            "Hand-written types in `whatifd/report/models_v01.py`; this "
             "schema is generated from them by `scripts/generate_schema.py`."
         ),
         "schema_version": REPORT_SCHEMA_VERSION,

@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from whatif.contract import (
+from whatifd.contract import (
     ReplayConfig,
     ReplayOutput,
     Runner,

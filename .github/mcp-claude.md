@@ -46,7 +46,7 @@ the PR checker is a doctrine-aligned tool reviewing a doctrine-aligned project.
   (`gh pr view --json title,body,...`) AND the diff (`gh pr diff`), and
   passes both to `tools/pr_checker.py`.
 - The system prompt in `tools/pr_checker.py` explicitly enumerates the ten
-  cardinal rules from `.claude/skills/whatif-design/SKILL.md`. When a cardinal
+  cardinal rules from `.claude/skills/whatifd-design/SKILL.md`. When a cardinal
   rule changes, update the prompt in lockstep.
 - The reviewer is advisory; it does not replace human review. It's a first-pass
   filter that catches obvious doctrine violations before maintainers look.

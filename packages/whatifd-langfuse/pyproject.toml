@@ -1,0 +1,92 @@
+[project]
+name = "whatifd-langfuse"
+version = "0.1.0"
+description = "Langfuse `TraceSource` adapter for whatif. Phase 4B.1 of the v0.1 plan."
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.11"
+authors = [
+  { name = "victoralfred" },
+]
+keywords = ["whatif", "langfuse", "llm", "tracing", "evaluation"]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Software Development :: Testing",
+]
+
+# Library-style version pinning per industry practice: lower bound +
+# major-version cap. The lower bound matches the Langfuse SDK shape
+# this adapter targets (v4 introduced `LangfuseAPI` with the
+# `trace.list(...)` surface used here); the cap reserves the next
+# major for a coordinated migration if Langfuse changes that shape.
+dependencies = [
+  "whatifd",
+  "langfuse>=4.5.1,<5.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=9.0.3",
+  # `pytest-recording` (vcrpy-based) drives the recorded-smoke
+  # test in `tests/test_recorded_smoke.py`. Required for both
+  # cassette playback (CI default) and recording
+  # (`--record-mode=once` locally).
+  "pytest-recording>=0.13",
+  # Direct `vcrpy` pin alongside `pytest-recording` — mirrors the
+  # root pyproject's pin. vcrpy controls the cassette YAML format;
+  # pinning the major directly catches a vcrpy 9.x bump that
+  # would silently break committed cassettes. An out-of-tree
+  # install of `whatifd-langfuse[dev]` (without the parent's pin)
+  # MUST get the same cap; that's why the constraint is repeated
+  # here, not just in the root.
+  "vcrpy>=8.0,<9.0",
+  # `pytest-asyncio` is intentionally NOT listed here. v0.1.0 of
+  # this adapter is purely synchronous. The Langfuse SDK exposes
+  # async client surfaces (`AsyncLangfuseAPI`) that v0.2+ may add
+  # as `LangfuseAsyncTraceSource`; that's the point at which
+  # pytest-asyncio earns its keep here.
+]
+
+[project.urls]
+Homepage = "https://github.com/victoralfred/whatif"
+Issues   = "https://github.com/victoralfred/whatif/issues"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/whatifd_langfuse"]
+
+[tool.uv.sources]
+# Inside this monorepo, depend on the in-tree `whatif` editable
+# install rather than the published PyPI version. Strips the
+# `whatif` constraint to a workspace-local path so day-to-day
+# development against an unreleased `whatif` works cleanly. PyPI
+# consumers see only the public `dependencies` block above.
+whatifd = { workspace = true }
+
+# Self-contained tooling settings for out-of-tree / standalone-
+# install consumers. The values mirror the parent repo's root
+# pyproject.toml so a contributor running `uv pip install -e
+# packages/whatifd-langfuse` outside the monorepo gets the same
+# discipline. Inside the workspace, the root pyproject already
+# applies these rules; this block is harmless duplication.
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "N", "RUF"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unused_ignores = true
+warn_return_any = true

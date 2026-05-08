@@ -2,13 +2,13 @@
 
 The `Runner` protocol is whatif's only user-facing extension point in v0.1. You implement it; whatif calls it once per selected trace during replay.
 
-The canonical Pydantic models live in [`src/whatif/contract/__init__.py`](../src/whatif/contract/__init__.py) — that file is the source of truth. This page is the consumer-facing reference.
+The canonical Pydantic models live in [`src/whatifd/contract/__init__.py`](../src/whatifd/contract/__init__.py) — that file is the source of truth. This page is the consumer-facing reference.
 
 ## The protocol
 
 ```python
 from typing import Awaitable, Protocol, runtime_checkable
-from whatif.contract import ReplayConfig, ReplayOutput, ToolCache, TraceInput
+from whatifd.contract import ReplayConfig, ReplayOutput, ToolCache, TraceInput
 
 
 @runtime_checkable
@@ -86,8 +86,8 @@ The agent's final response.
 
 Sync and async runners are **not interchangeable**. Pick one for your project:
 
-- **Sync runner** → `whatif.replay.kernel.replay_one_trace` runs you on a `ThreadPoolExecutor` worker.
-- **Async runner** → `whatif.replay.kernel_async.replay_one_trace_async` awaits you directly with portable `asyncio.wait_for(timeout=...)` cancellation.
+- **Sync runner** → `whatifd.replay.kernel.replay_one_trace` runs you on a `ThreadPoolExecutor` worker.
+- **Async runner** → `whatifd.replay.kernel_async.replay_one_trace_async` awaits you directly with portable `asyncio.wait_for(timeout=...)` cancellation.
 
 Detection happens at runner-target import time when the CLI loads `python:<module>:<attr>`. If you return a coroutine from a function declared as a sync `Runner`, the kernel treats it as a value (and likely fails the `isinstance(out, ReplayOutput)` check downstream). Match the protocol you declared.
 
@@ -123,4 +123,4 @@ whatif fork --target "python:my_agent.replay:run" \
             --score "inspect_ai:faithfulness"
 ```
 
-The runner-target loader resolves `python:<module>:<attr>` via `importlib`. The `_run_fork_pipeline` dispatcher in `src/whatif/cli.py` is currently a documented stub for v0.1.0; the signature is stable (witness-token thread per cardinal #7), so closing the wiring is a body fill, not a contract change.
+The runner-target loader resolves `python:<module>:<attr>` via `importlib`. The `_run_fork_pipeline` dispatcher in `src/whatifd/cli.py` is currently a documented stub for v0.1.0; the signature is stable (witness-token thread per cardinal #7), so closing the wiring is a body fill, not a contract change.

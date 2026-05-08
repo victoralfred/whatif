@@ -8,10 +8,10 @@ started_at: 2026-05-05T07:00:00Z
 **User request:** Continue v0.1 work — close Phase 0.3 (audience-distribution decision) and Phase 0.4 (enforcement audit), then start Phase 1.1 if Phase 0 gate clears. User explicitly asked to refresh on the skill and run telemetry.
 
 **Skill files read:**
-- .claude/skills/whatif-design/SKILL.md (post-cardinal-#10 update)
-- .claude/skills/whatif-design/references/V0_1_DECISION_RECORD.md (with cardinal #10 addendum and audience-scope addendum)
-- .claude/skills/whatif-design/enforcement.md (10 baseline rows + 3 cardinal-#10 rows)
-- .claude/skills/whatif-design/references/cascade-catalog.md (cross-checked open cascades)
+- .claude/skills/whatifd-design/SKILL.md (post-cardinal-#10 update)
+- .claude/skills/whatifd-design/references/V0_1_DECISION_RECORD.md (with cardinal #10 addendum and audience-scope addendum)
+- .claude/skills/whatifd-design/enforcement.md (10 baseline rows + 3 cardinal-#10 rows)
+- .claude/skills/whatifd-design/references/cascade-catalog.md (cross-checked open cascades)
 - Earlier: doctrine.md, type-model.md, contracts.md, practices.md, statistical-defaults.md, walkthroughs.md (read in prior sessions today and yesterday; not re-read)
 
 **Cardinal rules cited:**
@@ -30,16 +30,16 @@ started_at: 2026-05-05T07:00:00Z
 ## Session end
 
 **Artifacts produced:**
-- `~/.claude/skills/whatif-design/references/V0_1_DECISION_RECORD.md` (skill, no git): audience-distribution decision addendum (Phase 0.3) — ship `failure_rescue` only, ROADMAP `regression_check` for v0.2, revisit after first 5 production users
-- `~/.claude/skills/whatif-design/doctrine.md` (skill, no git): rephrased "baseline-required-for-Ship structural rule" → "policy default" (Phase 0.4 finding)
-- `~/.claude/skills/whatif-design/enforcement.md` (skill, no git): added "Paired-delta is the unit of analysis" row (Phase 0.4 finding; cardinal #10)
+- `~/.claude/skills/whatifd-design/references/V0_1_DECISION_RECORD.md` (skill, no git): audience-distribution decision addendum (Phase 0.3) — ship `failure_rescue` only, ROADMAP `regression_check` for v0.2, revisit after first 5 production users
+- `~/.claude/skills/whatifd-design/doctrine.md` (skill, no git): rephrased "baseline-required-for-Ship structural rule" → "policy default" (Phase 0.4 finding)
+- `~/.claude/skills/whatifd-design/enforcement.md` (skill, no git): added "Paired-delta is the unit of analysis" row (Phase 0.4 finding; cardinal #10)
 - `project/docs/internal/PHASE_0_4_ENFORCEMENT_AUDIT.md`: audit report with 14-row enforcement-table inventory and cascade cross-reference (Phase 0.4 closure)
 - `project/docs/sessions/2026-05-05-phase-0-completion.md`: this file
-- `project/src/whatif/types/__init__.py`: types package init with re-exports + Phase 1 sub-ordering docstring (Phase 1.1)
-- `project/src/whatif/types/primitives.py`: `DecimalString` (NewType) + `JsonPrimitive` union (Phase 1.1)
-- `project/src/whatif/types/sensitive.py`: `Sensitive[T]` wrapper + `SensitiveUnwrap` audit record + `_AuditLog` thread-safe collector + `_infer_caller` helper + `SensitiveSerializationError` and `UnredactedSensitiveError` (Phase 1.2; cardinal #5)
-- `project/tests/unit/whatif/types/test_primitives.py`: 5 smoke tests including import-budget (Phase 1.1)
-- `project/tests/unit/whatif/types/test_sensitive.py`: 17 tests covering redacted-repr/str/format, pickle-blocked, slots discipline, unwrap audit, concurrent audit-log writes, infer-caller, exception type distinction (Phase 1.2)
+- `project/src/whatifd/types/__init__.py`: types package init with re-exports + Phase 1 sub-ordering docstring (Phase 1.1)
+- `project/src/whatifd/types/primitives.py`: `DecimalString` (NewType) + `JsonPrimitive` union (Phase 1.1)
+- `project/src/whatifd/types/sensitive.py`: `Sensitive[T]` wrapper + `SensitiveUnwrap` audit record + `_AuditLog` thread-safe collector + `_infer_caller` helper + `SensitiveSerializationError` and `UnredactedSensitiveError` (Phase 1.2; cardinal #5)
+- `project/tests/unit/whatifd/types/test_primitives.py`: 5 smoke tests including import-budget (Phase 1.1)
+- `project/tests/unit/whatifd/types/test_sensitive.py`: 17 tests covering redacted-repr/str/format, pickle-blocked, slots discipline, unwrap audit, concurrent audit-log writes, infer-caller, exception type distinction (Phase 1.2)
 - `project/tests/unit/{,whatif/{,types/}}__init__.py`: nested-test-package init files
 
 **Cascade catalog items:**

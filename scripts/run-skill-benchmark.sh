@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # scripts/run-skill-benchmark.sh
 #
-# Layer 3 of whatif-design skill instrumentation.
+# Layer 3 of whatifd-design skill instrumentation.
 # Runs each prompt in tests/skill-benchmarks/prompts.json through Claude Code
 # in non-interactive mode and saves the responses for grading.
 #

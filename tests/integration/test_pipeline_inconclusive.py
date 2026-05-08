@@ -8,12 +8,12 @@ Walkthroughs 05 (cache corruption) and 06 (rerun-after-fix / diff)
 are deliberately NOT covered here:
 
 - **05 cache corruption** is a recovery-path scenario exercised by
-  the `whatif.cache.recovery` unit tests + the `whatif cache verify`
+  the `whatifd.cache.recovery` unit tests + the `whatif cache verify`
   CLI surface. It produces Inconclusive via the cache-policy guard,
   not the integration pipeline. Surfacing it here would require a
   parallel CLI integration harness — Phase 9A.4 territory.
 - **06 rerun-after-fix** is the `whatif diff` surface, fully tested
-  in `tests/unit/whatif/test_diff.py` end-to-end against synthetic
+  in `tests/unit/whatifd/test_diff.py` end-to-end against synthetic
   reports. The pipeline that produces the inputs IS exercised here
   (scenario 1 produces "before-fix"; downstream scenarios produce
   "after-fix"); the diff itself is tested at its own seam.
@@ -26,9 +26,9 @@ from __future__ import annotations
 
 import pytest
 
-from whatif.pipeline import run_pipeline
-from whatif.report.models_v01 import ReportV01
-from whatif.types.policy import DecisionPolicy, TrustFloor
+from whatifd.pipeline import run_pipeline
+from whatifd.report.models_v01 import ReportV01
+from whatifd.types.policy import DecisionPolicy, TrustFloor
 
 from ._fixtures import scenario_inconclusive_insufficient_sample
 

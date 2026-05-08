@@ -4,7 +4,7 @@ Constructs a minimal whatif config (stub source + stub scorer +
 test-fixture runner), invokes the typer CLI via `CliRunner`, and
 asserts the exit code, stderr/stdout, and that the JSON+Markdown
 artifacts were written. This is the proof that the CLI dispatcher
-in `src/whatif/cli.py::_run_fork_pipeline` actually wires the
+in `src/whatifd/cli.py::_run_fork_pipeline` actually wires the
 factory + loader + delta_fn + run_pipeline + render path
 end-to-end, not just compiles.
 """
@@ -19,8 +19,8 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from whatif.cli import EXIT_INCONCLUSIVE_OR_SETUP_FAILURE, app
-from whatif.contract import ReplayConfig, ReplayOutput, ToolCache, TraceInput
+from whatifd.cli import EXIT_INCONCLUSIVE_OR_SETUP_FAILURE, app
+from whatifd.contract import ReplayConfig, ReplayOutput, ToolCache, TraceInput
 
 _RUNNER_FIXTURE_MODULE = "_whatif_cli_fork_e2e_fixture"
 

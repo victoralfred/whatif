@@ -1,7 +1,7 @@
-## Session telemetry (whatif-design skill)
+## Session telemetry (whatifd-design skill)
 
-This project uses the `whatif-design` skill installed at
-`.claude/skills/whatif-design/`. To support iteration on the skill, log every
+This project uses the `whatifd-design` skill installed at
+`.claude/skills/whatifd-design/`. To support iteration on the skill, log every
 significant work session using the protocol below.
 
 ### At session start
@@ -20,8 +20,8 @@ started_at: <iso-8601 timestamp>
 **User request:** <one-line summary of what the user asked for>
 
 **Skill files read:**
-- .claude/skills/whatif-design/SKILL.md
-- .claude/skills/whatif-design/references/<each-file>.md
+- .claude/skills/whatifd-design/SKILL.md
+- .claude/skills/whatifd-design/references/<each-file>.md
   (list every reference file you actually read this session,
    in the order you read them)
 

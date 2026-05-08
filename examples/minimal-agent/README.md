@@ -1,6 +1,6 @@
 # minimal-agent
 
-Reference `Runner` for the whatif v0.1 contract. The smallest legal implementation that satisfies `whatif.contract.Runner` (the `Protocol` that whatif calls during replay).
+Reference `Runner` for the whatif v0.1 contract. The smallest legal implementation that satisfies `whatifd.contract.Runner` (the `Protocol` that whatif calls during replay).
 
 **This is a shape, not a working agent.** The body returns a deterministic echo so the example is testable without an LLM provider; replace the body with your real replay logic.
 
@@ -17,7 +17,7 @@ Reference `Runner` for the whatif v0.1 contract. The smallest legal implementati
 ## Wire it up (programmatic — works today)
 
 ```python
-from whatif.pipeline import run_pipeline
+from whatifd.pipeline import run_pipeline
 from examples.minimal_agent.replay import run as my_runner
 # ... build your TraceSource, delta_fn, floor, policy, runtime,
 #     methodology, cache_summary and call run_pipeline(...)
@@ -41,4 +41,4 @@ The `python:<module>:<attr>` syntax is the v0.1 runner-target loader. The CLI di
 
 - `docs/runner-contract.md` — the full contract reference
 - `docs/getting-started.md` — worked end-to-end example
-- `src/whatif/contract/__init__.py` — the canonical Pydantic models
+- `src/whatifd/contract/__init__.py` — the canonical Pydantic models

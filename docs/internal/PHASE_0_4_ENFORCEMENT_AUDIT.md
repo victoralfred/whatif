@@ -2,7 +2,7 @@
 
 **Date**: 2026-05-05
 **Status**: ✅ complete
-**Source**: `.claude/skills/whatif-design/phases.md` § 0.4
+**Source**: `.claude/skills/whatifd-design/phases.md` § 0.4
 **Closes**: Phase 0 gate (Phase 0.1 ✅, 0.2 ✅, 0.3 ✅, 0.4 ✅ — Phase 1 unblocked)
 
 ## What this audit checked
@@ -124,6 +124,6 @@ All open cascades are accounted for in `phases.md`. No orphan cascades.
 
 ## What unblocks next
 
-Phase 1 (type model): smallest possible code start is `src/whatif/types/primitives.py` with `DecimalString` and `JsonPrimitive` types. After Phase 1 tests are green, Phase 2 (decision pipeline) begins.
+Phase 1 (type model): smallest possible code start is `src/whatifd/types/primitives.py` with `DecimalString` and `JsonPrimitive` types. After Phase 1 tests are green, Phase 2 (decision pipeline) begins.
 
 The `methodology` field on `ReportV01` (cardinal #10) will land in Phase 5 (public report model). The `cohort: str` schema flexibility (per Phase 0.3 decision) is preserved by typing `cohort` as `str` rather than `Literal["failure", "baseline"]`, with v0.1 runtime accepting only `"failure"` and `"baseline"` values.

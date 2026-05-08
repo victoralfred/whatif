@@ -123,7 +123,7 @@ Beyond cardinal rules, also check:
 - Cascade catalog updated if the PR has architectural follow-on consequences (look for `references/cascade-catalog.md` changes)
 - `CHANGELOG.md` updated for user-facing changes
 - Imports follow project discipline: Pydantic at boundaries, `@dataclass(frozen=True, slots=True)` for internal types
-- `json.dumps` not used outside `whatif/serialization/` (banned-import lint)
+- `json.dumps` not used outside `whatifd/serialization/` (banned-import lint)
 
 Respond ONLY with valid JSON in this exact shape (no markdown fences, no prose around it):
 

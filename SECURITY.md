@@ -42,9 +42,9 @@ Please do not publicly disclose the issue or open public PRs that reference it u
 **In scope:**
 
 - The `whatif` library and CLI itself.
-- The runner-contract Pydantic models in `src/whatif/contract/`.
-- Official adapters shipped under `src/whatif/ingest/`.
-- The default scorer wrappers in `src/whatif/score/`.
+- The runner-contract Pydantic models in `src/whatifd/contract/`.
+- Official adapters shipped under `src/whatifd/ingest/`.
+- The default scorer wrappers in `src/whatifd/score/`.
 - The default report templates and exit-code policy.
 
 **Out of scope** (these are the user's responsibility):

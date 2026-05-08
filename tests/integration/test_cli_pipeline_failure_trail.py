@@ -15,16 +15,16 @@ from __future__ import annotations
 
 from typing import Any
 
-from whatif.adapters.protocols import AdapterMetadata, JudgeResult
-from whatif.adapters.stub import StubTraceSource, StubTraceSpec
-from whatif.cache.keying.v1 import CacheKeyComponents
-from whatif.cli_pipeline import build_delta_fn
-from whatif.config import ChangeConfig
-from whatif.contract import ReplayConfig, ReplayOutput, ScoreCase, ToolCache, TraceInput
-from whatif.pipeline import run_pipeline
-from whatif.runner_loader import LoadedRunner
-from whatif.types.policy import DecisionPolicy, TrustFloor
-from whatif.types.sensitive import Sensitive
+from whatifd.adapters.protocols import AdapterMetadata, JudgeResult
+from whatifd.adapters.stub import StubTraceSource, StubTraceSpec
+from whatifd.cache.keying.v1 import CacheKeyComponents
+from whatifd.cli_pipeline import build_delta_fn
+from whatifd.config import ChangeConfig
+from whatifd.contract import ReplayConfig, ReplayOutput, ScoreCase, ToolCache, TraceInput
+from whatifd.pipeline import run_pipeline
+from whatifd.runner_loader import LoadedRunner
+from whatifd.types.policy import DecisionPolicy, TrustFloor
+from whatifd.types.sensitive import Sensitive
 
 from ._fixtures import (
     _default_cache_summary,

@@ -14,7 +14,7 @@
 # Changes here need extra care; the design should rarely change without
 # a corresponding DESIGN.md update.
 DESIGN.md                      @victoralfred
-src/whatif/contract/           @victoralfred
+src/whatifd/contract/           @victoralfred
 
 # CI / security / release plumbing requires careful change.
 .github/workflows/             @victoralfred

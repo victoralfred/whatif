@@ -22,7 +22,7 @@ When you change a prompt, model, or tool in an LLM system, you don't actually kn
 
 ## Status
 
-**Pre-alpha; v0.1 release candidate.** The library API runs end-to-end against the synthetic stub adapter and against the real `whatif-langfuse` + `whatif-inspect-ai` adapters; the `whatif fork` CLI dispatcher is wired through the full factory → runner-loader → delta_fn → run_pipeline → render path. PyPI publication is pending.
+**Pre-alpha; v0.1 release candidate.** The library API runs end-to-end against the synthetic stub adapter and against the real `whatifd-langfuse` + `whatifd-inspect-ai` adapters; the `whatif fork` CLI dispatcher is wired through the full factory → runner-loader → delta_fn → run_pipeline → render path. PyPI publication is pending.
 
 | Version | Target | What it does |
 |---|---|---|
@@ -35,7 +35,7 @@ When you change a prompt, model, or tool in an LLM system, you don't actually kn
 
 ```bash
 # Once published to PyPI:
-uv pip install whatif whatif-langfuse whatif-inspect-ai
+uv pip install whatif whatifd-langfuse whatifd-inspect-ai
 
 # From source (uv workspace):
 git clone https://github.com/victoralfred/whatif
@@ -48,12 +48,12 @@ uv sync --all-extras --dev --group workspace
 The library API is the load-bearing surface. The snippet below is **shape-only** — it omits `RunManifest`, `MethodologyDisclosure`, and `CacheSummary` construction plus the actual `run_pipeline(...)` call to keep the README focused. The full runnable end-to-end example lives at [`docs/getting-started.md`](./docs/getting-started.md). Minimal shape:
 
 ```python
-from whatif.adapters.stub import StubTraceSource, StubTraceSpec
-from whatif.adapters.factory import build_scorer
-from whatif.cli_pipeline import build_delta_fn
-from whatif.config import ChangeConfig, ScorerConfig
-from whatif.pipeline import run_pipeline
-from whatif.runner_loader import load_runner
+from whatifd.adapters.stub import StubTraceSource, StubTraceSpec
+from whatifd.adapters.factory import build_scorer
+from whatifd.cli_pipeline import build_delta_fn
+from whatifd.config import ChangeConfig, ScorerConfig
+from whatifd.pipeline import run_pipeline
+from whatifd.runner_loader import load_runner
 
 # Your runner satisfies the contract Protocol — see docs/runner-contract.md
 loaded_runner = load_runner("python:my_agent.replay:run")
@@ -107,7 +107,7 @@ uv run whatif fork --config whatif.config.yaml
 #   2 = Inconclusive verdict / setup failure / floor violation
 ```
 
-Real Langfuse traces require `LANGFUSE_HOST` (or `LANGFUSE_BASE_URL`) + `LANGFUSE_PUBLIC_KEY` + `LANGFUSE_SECRET_KEY` in the environment. Real Inspect AI scoring requires the programmatic API in v0.1 (config-loaded `score_fn` is a v0.2 cascade entry — see [phases.md](./.claude/skills/whatif-design/references/phases.md)).
+Real Langfuse traces require `LANGFUSE_HOST` (or `LANGFUSE_BASE_URL`) + `LANGFUSE_PUBLIC_KEY` + `LANGFUSE_SECRET_KEY` in the environment. Real Inspect AI scoring requires the programmatic API in v0.1 (config-loaded `score_fn` is a v0.2 cascade entry — see [phases.md](./.claude/skills/whatifd-design/references/phases.md)).
 
 ## How it composes
 
@@ -138,7 +138,7 @@ Real Langfuse traces require `LANGFUSE_HOST` (or `LANGFUSE_BASE_URL`) + `LANGFUS
 
 ## Design
 
-The full design — problem framing, prior art, runner contract, report shape, eval target, milestones, risks — lives in [DESIGN.md](./DESIGN.md). The doctrine and cardinal rules are in [`.claude/skills/whatif-design/SKILL.md`](./.claude/skills/whatif-design/SKILL.md).
+The full design — problem framing, prior art, runner contract, report shape, eval target, milestones, risks — lives in [DESIGN.md](./DESIGN.md). The doctrine and cardinal rules are in [`.claude/skills/whatifd-design/SKILL.md`](./.claude/skills/whatifd-design/SKILL.md).
 
 ## Contributing
 

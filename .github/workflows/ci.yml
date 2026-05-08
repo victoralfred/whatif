@@ -31,11 +31,11 @@ jobs:
       - name: Ruff format check
         run: uv run ruff format --check .
       # Phase-tracking sentinel: cascade-catalog
-      # "Monorepo workspace + whatif-langfuse distribution (Phase 4B.1)"
+      # "Monorepo workspace + whatifd-langfuse distribution (Phase 4B.1)"
       # mandates the `# TODO(4B.2): drop this comment when
-      # whatif_inspect_ai is workspace-registered.` marker in
-      # `tests/unit/whatif/adapters/test_protocols.py` be removed
-      # in the SAME PR that registers `whatif_inspect_ai`. This
+      # whatifd_inspect_ai is workspace-registered.` marker in
+      # `tests/unit/whatifd/adapters/test_protocols.py` be removed
+      # in the SAME PR that registers `whatifd_inspect_ai`. This
       # step is the machine-checkable gate: when 4B.2 lands, the
       # marker is gone and CI passes; if a future contributor adds
       # a new `TODO(4B.X)` marker for the next sub-phase, the
@@ -87,7 +87,7 @@ jobs:
       - name: Install
         run: uv sync --all-extras --dev --group workspace
       - name: Pytest
-        run: uv run pytest --cov=whatif --cov-report=term-missing --cov-report=xml -v
+        run: uv run pytest --cov=whatifd --cov-report=term-missing --cov-report=xml -v
       - name: Upload coverage (3.12 only)
         if: matrix.python-version == '3.12'
         uses: actions/upload-artifact@v7

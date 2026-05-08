@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pytest
 
-from whatif.contract import ReplayConfig, ReplayOutput, Runner, ToolCache, TraceInput
+from whatifd.contract import ReplayConfig, ReplayOutput, Runner, ToolCache, TraceInput
 
 _REPLAY_PATH = Path(__file__).resolve().parents[2] / "examples" / "minimal-agent" / "replay.py"
 

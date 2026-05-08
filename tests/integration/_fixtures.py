@@ -2,7 +2,7 @@
 
 Each scenario builder produces a `(StubTraceSource, delta_fn,
 RunManifest, MethodologyDisclosure, CacheSummary)` tuple ready to
-feed into `whatif.pipeline.run_pipeline`. Future sub-phases (9A.2)
+feed into `whatifd.pipeline.run_pipeline`. Future sub-phases (9A.2)
 extend this module with the remaining walkthrough scenarios; the
 current module ships scenario 1 (Clean Ship) only.
 """
@@ -13,12 +13,12 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from types import MappingProxyType
 
-from whatif.adapters.protocols import RawTrace
-from whatif.adapters.stub import StubTraceSource, StubTraceSpec
-from whatif.cache.summary import CachePolicySnapshot, CacheSummary
-from whatif.types.manifest import EnvironmentFingerprint, RunManifest
-from whatif.types.policy import DecisionPolicy, TrustFloor
-from whatif.types.statistical import (
+from whatifd.adapters.protocols import RawTrace
+from whatifd.adapters.stub import StubTraceSource, StubTraceSpec
+from whatifd.cache.summary import CachePolicySnapshot, CacheSummary
+from whatifd.types.manifest import EnvironmentFingerprint, RunManifest
+from whatifd.types.policy import DecisionPolicy, TrustFloor
+from whatifd.types.statistical import (
     BootstrapMethodDisclosure,
     EffectSizeDisclosure,
     JudgeMethodDisclosure,

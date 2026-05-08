@@ -1,8 +1,8 @@
 """Phase 9B — Real-adapter smoke (product proof).
 
 End-to-end pipeline runs that exercise both real adapter packages
-(`whatif_langfuse.LangfuseTraceSource` and
-`whatif_inspect_ai.InspectAIScorer`) through `run_pipeline`. Three
+(`whatifd_langfuse.LangfuseTraceSource` and
+`whatifd_inspect_ai.InspectAIScorer`) through `run_pipeline`. Three
 scenarios — Ship, Don't Ship, Inconclusive — match the verdict
 contract from Phase 9A but with the real adapter projection layers
 in the path.
@@ -15,7 +15,7 @@ in the path.
   `iter_traces` / `_project` / `Sensitive` wrapping / pagination
   logic — the load-bearing surface — runs unchanged. This mirrors
   the conformance harness pattern in
-  `packages/whatif-langfuse/tests/test_conformance.py`; the
+  `packages/whatifd-langfuse/tests/test_conformance.py`; the
   cassette-replay test in `test_recorded_smoke.py` proves the same
   shape against real Langfuse responses, so swapping in the
   synthetic API here doesn't lose coverage.
@@ -34,8 +34,8 @@ stub returning `EXIT_INCONCLUSIVE_OR_SETUP_FAILURE` with a clear
 is Phase 10 release work; Phase 9B's gate item is "three smoke
 scenarios pass" against the real adapters at the contract surface,
 which is `run_pipeline`. The lazy-load assertion (real adapters
-not imported by `import whatif`) is already covered in
-`tests/unit/whatif/adapters/test_protocols.py::
+not imported by `import whatifd`) is already covered in
+`tests/unit/whatifd/adapters/test_protocols.py::
 test_core_modules_do_not_load_real_adapter_packages`.
 """
 
@@ -47,13 +47,13 @@ from types import MappingProxyType
 from typing import Any
 
 import pytest
-from whatif_inspect_ai import InspectAIScorer
-from whatif_langfuse import LangfuseTraceSource
+from whatifd_inspect_ai import InspectAIScorer
+from whatifd_langfuse import LangfuseTraceSource
 
-from whatif.adapters.protocols import RawTrace
-from whatif.contract import ReplayOutput, ScoreCase, TraceInput, TraceOutput
-from whatif.pipeline import run_pipeline
-from whatif.types.policy import DecisionPolicy, TrustFloor
+from whatifd.adapters.protocols import RawTrace
+from whatifd.contract import ReplayOutput, ScoreCase, TraceInput, TraceOutput
+from whatifd.pipeline import run_pipeline
+from whatifd.types.policy import DecisionPolicy, TrustFloor
 
 from ._fixtures import (
     _default_cache_summary,
@@ -63,7 +63,7 @@ from ._fixtures import (
 
 # ---------------------------------------------------------------------------
 # Synthetic Langfuse SDK shapes (mirrors
-# `packages/whatif-langfuse/tests/test_conformance.py::_FakeTrace`).
+# `packages/whatifd-langfuse/tests/test_conformance.py::_FakeTrace`).
 # ---------------------------------------------------------------------------
 
 
@@ -327,14 +327,14 @@ def test_real_adapter_metadata_surfaces() -> None:
 
 @pytest.mark.parametrize(
     "module_name",
-    ["whatif_langfuse", "whatif_inspect_ai"],
+    ["whatifd_langfuse", "whatifd_inspect_ai"],
 )
 def test_real_adapter_lazy_load(module_name: str) -> None:
     """Phase 4B contract pinned at the integration boundary.
 
-    `import whatif` MUST NOT pull either real adapter package into
+    `import whatifd` MUST NOT pull either real adapter package into
     `sys.modules`. The unit-level test in
-    `tests/unit/whatif/adapters/test_protocols.py` runs this in a
+    `tests/unit/whatifd/adapters/test_protocols.py` runs this in a
     subprocess; this duplicate is cheaper and runs alongside the
     smoke scenarios so a Phase 9B regression that wires the adapter
     into the core import graph fails here too."""
@@ -346,7 +346,7 @@ def test_real_adapter_lazy_load(module_name: str) -> None:
             sys.executable,
             "-c",
             (
-                "import whatif, whatif.cli, whatif.pipeline; "
+                "import whatifd, whatifd.cli, whatifd.pipeline; "
                 f"import sys; "
                 f"loaded = [m for m in sys.modules if m == {module_name!r} "
                 f"or m.startswith({module_name!r} + '.')]; "

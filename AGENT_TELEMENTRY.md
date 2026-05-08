@@ -1,7 +1,7 @@
-# whatif-design Skill Instrumentation Bundle
+# whatifd-design Skill Instrumentation Bundle
 
-Four-layer instrumentation for the `whatif-design` skill. Drop this into your
-project root alongside the `.claude/skills/whatif-design/` skill folder and
+Four-layer instrumentation for the `whatifd-design` skill. Drop this into your
+project root alongside the `.claude/skills/whatifd-design/` skill folder and
 your `CLAUDE.md`.
 
 ## What's in here
@@ -98,7 +98,7 @@ grep -hE "rule #?[0-9]+|cardinal rule [0-9]+" docs/sessions/*.md \
   | sort | uniq -c | sort -rn
 
 # Which references never get read in 30 days?
-for f in .claude/skills/whatif-design/references/*.md; do
+for f in .claude/skills/whatifd-design/references/*.md; do
     name=$(basename "$f")
     count=$(grep -lc "$name" docs/sessions/*.md 2>/dev/null | wc -l)
     echo "$count $name"

@@ -17,9 +17,9 @@ from __future__ import annotations
 
 import pytest
 
-from whatif.pipeline import run_pipeline
-from whatif.report.models_v01 import ReportV01
-from whatif.types.policy import DecisionPolicy, TrustFloor
+from whatifd.pipeline import run_pipeline
+from whatifd.report.models_v01 import ReportV01
+from whatifd.types.policy import DecisionPolicy, TrustFloor
 
 from ._fixtures import scenario_clean_ship
 
@@ -102,7 +102,7 @@ class TestPipelineFailurePaths:
         # the cohort is implicit from the trace.
         #
         # Audit (Phase 9A.4 review): no production code in
-        # src/whatif/ reads `FailureRecord.cohort` for routing — the
+        # src/whatifd/ reads `FailureRecord.cohort` for routing — the
         # field is informational only. Cohort-routed handling
         # happens via `ReportV01.cohort_results[*].floor_failures`,
         # which is a different field on a different type. So

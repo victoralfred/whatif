@@ -15,7 +15,7 @@ behavioral simulation. It does NOT exercise the specific
 adapter/runner/scorer paths that produce each code in production.
 That coverage lives in:
 
-- `tests/unit/whatif/cache/test_recovery.py` for cache-corruption
+- `tests/unit/whatifd/cache/test_recovery.py` for cache-corruption
   paths.
 - Adapter-package tests (Phase 4B) for ingest / replay / score
   failure modes (the conformance harness defines the contract;
@@ -39,15 +39,15 @@ from collections.abc import Mapping
 
 import pytest
 
-from whatif.decision.failure_codes import (
+from whatifd.decision.failure_codes import (
     FAILURE_CODE_REGISTRY,
     make_failure_record,
 )
-from whatif.report.projection import project_to_report_v01
-from whatif.types.failure import FailureRecord
-from whatif.types.policy import DecisionPolicy, TrustFloor
-from whatif.types.primitives import JsonPrimitive
-from whatif.types.verdict import Inconclusive
+from whatifd.report.projection import project_to_report_v01
+from whatifd.types.failure import FailureRecord
+from whatifd.types.policy import DecisionPolicy, TrustFloor
+from whatifd.types.primitives import JsonPrimitive
+from whatifd.types.verdict import Inconclusive
 
 from ._fixtures import (
     _default_cache_summary,

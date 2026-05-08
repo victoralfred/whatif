@@ -116,5 +116,5 @@ These six observations are filed as cascade entries. None are surprising; all ar
 
 - The six `.md` files are the **canonical rendered output**. Phase 7's renderer test asserts byte-equality against them.
 - This README is the **context** — setup, underlying state, CI status line, design pressure observed.
-- The skill reference at `.claude/skills/whatif-design/walkthroughs.md` is the **upstream source** for these files. When the skill changes, this directory updates.
-- Cascade entries surfaced by these scenarios live in `.claude/skills/whatif-design/references/cascade-catalog.md` under "Open cascades."
+- The skill reference at `.claude/skills/whatifd-design/walkthroughs.md` is the **upstream source** for these files. When the skill changes, this directory updates.
+- Cascade entries surfaced by these scenarios live in `.claude/skills/whatifd-design/references/cascade-catalog.md` under "Open cascades."

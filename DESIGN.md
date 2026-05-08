@@ -86,7 +86,7 @@ The contract:
 
 ```python
 # my_agent/replay.py
-from whatif.contract import TraceInput, ReplayConfig, ToolCache, ReplayOutput
+from whatifd.contract import TraceInput, ReplayConfig, ToolCache, ReplayOutput
 
 def run(trace_input: TraceInput, config: ReplayConfig, tool_cache: ToolCache) -> ReplayOutput:
     """
@@ -195,19 +195,19 @@ Explicitly **not in v0.1** even though tempting:
                                   │ pull (Langfuse API in v0.1)
                                   ▼
                   ┌──────────────────────────────────┐
-                  │ whatif.ingest.<adapter>          │
+                  │ whatifd.ingest.<adapter>          │
                   │ → normalize to internal Trace    │
                   └───────────────┬──────────────────┘
                                   │
                   ┌───────────────┴──────────────────┐
-                  │ whatif.fork                      │
+                  │ whatifd.fork                      │
                   │ + apply change (prompt override) │
                   │ + assemble cohorts (fail+base)   │
                   │ → fork plan                      │
                   └───────────────┬──────────────────┘
                                   ▼
                   ┌──────────────────────────────────┐
-                  │ whatif.replay.engine             │
+                  │ whatifd.replay.engine             │
                   │ for each trace:                  │
                   │   call user-supplied --target    │
                   │   pass TraceInput, ReplayConfig, │
@@ -216,12 +216,12 @@ Explicitly **not in v0.1** even though tempting:
                   └───────────────┬──────────────────┘
                                   ▼
                   ┌──────────────────────────────────┐
-                  │ whatif.score (wraps Inspect AI)  │
+                  │ whatifd.score (wraps Inspect AI)  │
                   │ original_score, replayed_score   │
                   └───────────────┬──────────────────┘
                                   ▼
                   ┌──────────────────────────────────┐
-                  │ whatif.diff                      │
+                  │ whatifd.diff                      │
                   │ per-trace delta + aggregate      │
                   │ + bootstrap CI                   │
                   │ + cohort-aware breakdown         │

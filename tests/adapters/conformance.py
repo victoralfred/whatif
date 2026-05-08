@@ -3,7 +3,7 @@
 Parameterized base classes that any concrete `TraceSource` /
 `Scorer` adapter must subclass and pass. Single source of truth for
 "what makes an adapter valid"; runs against the synthetic stub at
-Phase 4A.3 and against `whatif-langfuse` / `whatif-inspect-ai` at
+Phase 4A.3 and against `whatifd-langfuse` / `whatifd-inspect-ai` at
 Phase 4B.
 
 ## How to use this harness
@@ -52,7 +52,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from whatif.adapters import (
+from whatifd.adapters import (
     AdapterMetadata,
     ClusterKeySupport,
     JudgeResult,
@@ -60,14 +60,14 @@ from whatif.adapters import (
     Scorer,
     TraceSource,
 )
-from whatif.cache.keying.v1 import CacheKeyComponents
-from whatif.contract import (
+from whatifd.cache.keying.v1 import CacheKeyComponents
+from whatifd.contract import (
     ReplayOutput,
     ScoreCase,
     TraceInput,
     TraceOutput,
 )
-from whatif.types.sensitive import Sensitive
+from whatifd.types.sensitive import Sensitive
 
 if TYPE_CHECKING:
     pass

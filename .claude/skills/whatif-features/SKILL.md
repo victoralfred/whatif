@@ -7,13 +7,13 @@ description: Deferred-work catalog for `whatif`. Use when triaging whether an id
 
 ## Hard constraint: this skill is a workshop, not a driver
 
-**Do NOT use this skill to drive in-flight implementation.** The active plan lives in `whatif-design/references/phases.md` and is the source of truth for what gets built and in what order. This skill is a **read-from / append-to** surface only — entries here promote *into* the active plan when their trigger fires; nothing flows the other way without that trigger.
+**Do NOT use this skill to drive in-flight implementation.** The active plan lives in `whatifd-design/references/phases.md` and is the source of truth for what gets built and in what order. This skill is a **read-from / append-to** surface only — entries here promote *into* the active plan when their trigger fires; nothing flows the other way without that trigger.
 
 If you're tempted to start implementing an entry here directly, that's the signal to STOP and either (a) confirm the trigger has fired and promote the entry, or (b) re-read the active plan and find the actual next step.
 
 ## Purpose
 
-`whatif-design` encodes the doctrine and the active phased plan. That plan is the source of truth for what gets built and in what order. This skill is a **separate** catalog of ideas that came up during implementation but were correctly judged out-of-scope for the current sub-phase.
+`whatifd-design` encodes the doctrine and the active phased plan. That plan is the source of truth for what gets built and in what order. This skill is a **separate** catalog of ideas that came up during implementation but were correctly judged out-of-scope for the current sub-phase.
 
 ## How to use
 
@@ -30,8 +30,8 @@ If the idea is new, add a reference file under `references/` rather than expandi
 ## What does NOT go here
 
 - **Active in-flight work.** That belongs in the merged phase plan.
-- **Doctrine.** That belongs in `whatif-design/references/doctrine.md`.
-- **Cascade-tracked open items.** Those live in `whatif-design/references/cascade-catalog.md` because they have a structural contract with the design.
+- **Doctrine.** That belongs in `whatifd-design/references/doctrine.md`.
+- **Cascade-tracked open items.** Those live in `whatifd-design/references/cascade-catalog.md` because they have a structural contract with the design.
 
 ## Boundary with the cascade catalog
 

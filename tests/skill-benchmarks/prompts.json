@@ -1,7 +1,7 @@
 {
-  "skill_name": "whatif-design",
+  "skill_name": "whatifd-design",
   "version": "1.1.0",
-  "description": "Benchmark prompts for whatif-design skill. 8 should-trigger + 3 should-not-trigger.",
+  "description": "Benchmark prompts for whatifd-design skill. 8 should-trigger + 3 should-not-trigger.",
   "evaluations": [
     {
       "id": "cardinal-rule-9-cpu-tools",
@@ -79,7 +79,7 @@
       "id": "should-not-trigger-generic-python",
       "category": "negative-test",
       "prompt": "Show me how to read a CSV file in Python and compute the mean of one column.",
-      "expected_behavior": "Should NOT invoke the whatif-design skill. This is a generic Python question with no whatif relevance. Should answer the question directly without consulting whatif-design references or citing cardinal rules.",
+      "expected_behavior": "Should NOT invoke the whatifd-design skill. This is a generic Python question with no whatif relevance. Should answer the question directly without consulting whatifd-design references or citing cardinal rules.",
       "should_read": [],
       "should_cite_rule": null,
       "should_refuse": false
@@ -88,7 +88,7 @@
       "id": "should-not-trigger-unrelated-llm",
       "category": "negative-test",
       "prompt": "Help me write a system prompt for a customer service chatbot that handles refund requests.",
-      "expected_behavior": "Should NOT invoke the whatif-design skill. LLM-related but unrelated to whatif's domain (experiment running, verdict reports, trace replay). Should answer the prompting question directly without consulting whatif-design references.",
+      "expected_behavior": "Should NOT invoke the whatifd-design skill. LLM-related but unrelated to whatif's domain (experiment running, verdict reports, trace replay). Should answer the prompting question directly without consulting whatifd-design references.",
       "should_read": [],
       "should_cite_rule": null,
       "should_refuse": false
@@ -97,7 +97,7 @@
       "id": "should-not-trigger-deployment",
       "category": "negative-test",
       "prompt": "Help me write a Dockerfile for a Python web service. It needs to support multi-stage builds.",
-      "expected_behavior": "Should NOT invoke the whatif-design skill. Generic devops/Docker question. Should answer directly without consulting whatif-design references.",
+      "expected_behavior": "Should NOT invoke the whatifd-design skill. Generic devops/Docker question. Should answer directly without consulting whatifd-design references.",
       "should_read": [],
       "should_cite_rule": null,
       "should_refuse": false
