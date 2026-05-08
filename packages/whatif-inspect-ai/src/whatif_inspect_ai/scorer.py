@@ -84,7 +84,13 @@ class InspectAIScorer:
        Score | None]`. The caller wires their Inspect AI scorer
        into this callable — typically a small lambda that builds
        a `TaskState` from the `ScoreCase` and invokes the Inspect
-       scorer. Async return values are awaited via `asyncio.run`.
+       scorer. Async return values are awaited via `asyncio.run`,
+       which creates a fresh event loop and therefore CANNOT be
+       called from within an already-running loop (e.g., Jupyter,
+       FastAPI, async test runners). Callers in async contexts
+       should run `score()` on a worker thread (e.g.,
+       `asyncio.to_thread(scorer.score, case)`) or pre-resolve the
+       coroutine before passing a sync `score_fn`.
     - `judge_provider` / `judge_model_id` / `judge_model_snapshot`:
        the model-provider identifiers for cache-key components and
        methodology disclosure. `judge_model_snapshot` is `str |
