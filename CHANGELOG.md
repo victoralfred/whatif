@@ -12,6 +12,13 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+### Added — Phase 10.2 (CLI fork wiring; runner-target loader)
+
+- **`src/whatif/runner_loader.py`** — `load_runner(reference)` parses `python:<module.path>:<attr>` and returns `LoadedRunner(callable_, kind, reference)` where `kind ∈ {"sync", "async"}` selects the replay kernel. Module-private to the CLI wiring layer; `RunnerLoadError` carries actionable messages for every failure class (bad scheme, malformed shape, module not importable, attribute missing, non-callable, protocol-shape mismatch).
+- **Sync vs async classification uses `inspect.iscoroutinefunction`, not Protocol `isinstance` alone.** Real Python limitation surfaced during implementation: `runtime_checkable` Protocols verify attribute presence only — both sync and async functions satisfy `Runner` and `AsyncRunner` structurally. Misclassifying an `async def` runner as sync would let the sync kernel treat the returned coroutine as a `ReplayOutput` (it isn't), producing a confusing downstream type error. The loader's check inspects the actual coroutine-function nature; `isinstance(candidate, AsyncRunner)` and `isinstance(candidate, Runner)` then run as belt-and-suspenders so a future Protocol-shape extension catches the regression at load time. Pinned by `test_async_classified_before_sync`.
+- **Error surface is structured (cardinal #1).** Every failure path raises `RunnerLoadError` — never leaks `ImportError`, `AttributeError`, `TypeError` to the operator. The CLI's `_run_fork_pipeline` (Phase 10.4) catches and converts to setup-failure exit code.
+- **12 new tests** covering each parse/resolve/validation branch. 1071 tests pass total.
+
 ### Added — Phase 10.1 (CLI fork wiring foundation; adapter factory)
 
 - **`src/whatif/adapters/factory.py`** — `build_trace_source(cfg.source)` and `build_scorer(cfg.scorer)` dispatch the validated config's adapter name to a concrete instance. `AdapterFactoryError` carries actionable messages naming the missing env var or config field; the CLI dispatcher converts these to stderr + setup-failure exit code per cardinal #1.
