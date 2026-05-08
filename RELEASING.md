@@ -60,7 +60,7 @@ After the workflow completes:
 - [ ] GitHub Release created at `https://github.com/victoralfred/whatifd/releases/tag/v0.1.0` with auto-generated notes
 - [ ] `pip install whatifd whatifd-langfuse whatifd-inspect-ai` in a clean venv resolves cleanly
 - [ ] `whatif --help` works after install
-- [ ] Schema URL `https://whatif.codes/schema/report/v0.1.json` resolves (post hosting deploy)
+- [ ] **Schema URL `https://whatif.codes/schema/report/v0.1.json` resolves with HTTP 200** (every report's `schema_uri` field points here; a 404 silently breaks any consumer that fetches the schema for validation). If the URL still 404s post-tag-push, deploy `src/whatifd/report/schema/v0.1.schema.json` to the static host backing `whatif.codes` BEFORE announcing the release. This is a load-bearing post-release step, not optional.
 
 ### 4. Announce
 
@@ -83,9 +83,9 @@ The build job builds all three in sequence; a failure in one fails the whole tag
 
 If `whatifd` publishes but one of the adapters fails, the resulting state is inconsistent (e.g., users can install `whatifd` but the adapters reference a now-orphaned version). The recovery is:
 
-1. Bump the two unpublished packages to the next patch (e.g., `0.1.1`).
-2. Update their `dependencies` to require `whatifd>=0.1.0`.
-3. Tag `v0.1.1` and re-run the workflow with only the adapter publish jobs (or accept that `whatifd 0.1.1` will be a no-op republish and let it run).
+1. **Bump ALL three packages to the next patch** (e.g., `0.1.1` everywhere — root + both adapters). Three-way version parity is a release invariant that operator-facing docs (README version table, CHANGELOG, schema URI mapping) depend on. Skipping the root bump would orphan `whatifd 0.1.0` against `whatifd-langfuse 0.1.1` / `whatifd-inspect-ai 0.1.1`, breaking the "three packages, one version" mental model.
+2. Update the adapters' `dependencies` to require `whatifd==0.1.1` (or `>=0.1.1` if you don't need to enforce parity at the dependency level).
+3. Tag `v0.1.1` and re-run the workflow. The root `whatifd 0.1.1` is a fresh PyPI publish (PyPI rejects republishing the same version, so the bump is necessary even if no `whatifd` source changed). The adapters publish at `0.1.1` after `whatifd 0.1.1` succeeds.
 
 **Cleanest prevention: TestPyPI dry-run on a pre-release tag.** Before pushing the real `v0.1.0` tag, push `v0.1.0rc1` (or any PEP 440 pre-release suffix — `a1`, `b1`, `rc1` all work) against TestPyPI first. This proves the entire publish path end-to-end without committing to a permanent PyPI version.
 
