@@ -112,6 +112,48 @@ def test_build_trace_source_langfuse_partial_credentials_raises(
         assert label in msg, f"expected {label!r} in error message; got: {msg}"
 
 
+def test_build_trace_source_langfuse_import_failure_wraps_to_factory_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`_build_langfuse_source`'s `except ImportError` branch converts a
+    missing-package failure into an actionable `AdapterFactoryError`,
+    NOT a leaked `ImportError` (which would surface as a stack trace
+    rather than a typed setup failure).
+
+    Simulate the missing-package case by injecting an `__import__`
+    hook that raises `ImportError` for the Langfuse SDK after credentials
+    are present. The credential check runs first; without these env vars
+    set, the function returns before the import would fire and this test
+    couldn't reach the wrapping branch.
+    """
+    monkeypatch.setenv("LANGFUSE_HOST", "https://example")
+    monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk-test")
+    monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-test")
+
+    import builtins
+    import sys
+
+    real_import = builtins.__import__
+
+    def _raise_for_langfuse(name: str, *args: object, **kwargs: object):  # type: ignore[no-untyped-def]
+        if name == "langfuse" or name.startswith("langfuse.") or name == "whatif_langfuse":
+            raise ImportError(f"simulated: {name} not installed")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", _raise_for_langfuse)
+    # Drop already-cached modules so the patched __import__ runs.
+    for cached in ("langfuse", "whatif_langfuse"):
+        monkeypatch.delitem(sys.modules, cached, raising=False)
+
+    with pytest.raises(AdapterFactoryError) as excinfo:
+        build_trace_source(SourceConfig(adapter="langfuse"))
+    msg = str(excinfo.value)
+    assert "langfuse adapter import failed" in msg
+    # Actionable: the message names the install command an operator
+    # can run to fix the missing package.
+    assert "pip install whatif-langfuse" in msg
+
+
 def test_build_scorer_stub_returns_stub_scorer() -> None:
     scorer = build_scorer(ScorerConfig(adapter="stub"))
     assert isinstance(scorer, StubScorer)
