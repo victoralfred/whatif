@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import sys
 import types
+from collections.abc import Generator
 
 import pytest
 
@@ -44,9 +45,17 @@ _NOT_A_CALLABLE = 42
 
 
 @pytest.fixture(autouse=True)
-def _register_fixture_module() -> object:
+def _register_fixture_module() -> Generator[types.ModuleType, None, None]:
     """Inject an in-memory module exposing the runner fixtures, then
-    drop it from sys.modules at teardown so each test starts clean."""
+    drop it from sys.modules at teardown so each test starts clean.
+
+    The yield type is `types.ModuleType` (not `object`) so consumers
+    that bind the fixture as a parameter get accurate typing. Note:
+    the per-attribute `# type: ignore[attr-defined]` comments on the
+    inner assignments stay regardless — `ModuleType` doesn't
+    statically declare arbitrary attributes, so dynamic
+    `module.<name> = ...` is always `attr-defined` to mypy.
+    """
     module = types.ModuleType(_FIXTURE_MODULE_NAME)
     module.sync_runner = _sync_runner  # type: ignore[attr-defined]
     module.async_runner = _async_runner  # type: ignore[attr-defined]
