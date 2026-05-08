@@ -806,6 +806,32 @@ These tests run on every PR, not just at phase gates:
 - Cache version-bump check (if cache directories touched)
 - Schema version bump check (if `models_v01.py` touched)
 
+## Implementation gaps still open against v0.1 (as of 2026-05-08)
+
+These are intentional shortcuts taken during phase landings — each is structurally documented in the code, each preserves a stable contract surface so the closure work doesn't reshape the architecture, and each has a defined closure path. They are listed separately from the phase plan above so a reader can see at a glance what is **scoped but not yet complete**, distinct from what is **complete and gated**.
+
+### Blockers for v0.1.0 release
+
+- **`_run_fork_pipeline` body is a stub** (`src/whatif/cli.py:172-229`). The dispatcher loads config, runs the cardinal-#7 two-affirmation gate, then exits with the setup-failure code and prints *"fork pipeline requires Phase 4 adapter integration, which is not yet wired into the v0.1 CLI."* The signature `_run_fork_pipeline(cfg, proof) -> int` is stable — the witness-token threading is structural and pinned by `test_run_fork_pipeline_signature_requires_proof`. **Closure:** Phase 10 wires the body to load adapters from `cfg.source.adapter` / `cfg.scorer.adapter`, load the runner-target via the `python:module:attr` syntax, drive the replay kernel, and call `whatif.pipeline.run_pipeline`. This is the **single load-bearing gap** between today and an end-to-end `whatif fork` run.
+- **Examples + getting-started docs unwritten.** `examples/minimal-agent/` (work-in-progress on the Phase 9B branch); `docs/getting-started.md`, `docs/runner-contract.md`, `docs/schema/v0.1.md` — none yet created. **Closure:** Phase 10 release packaging.
+- **README final pass not done.** The current Quickstart shows aspirational CLI flags that don't all work yet (the fork dispatcher is stubbed). **Closure:** Phase 10 — rewrite to lead with the v0.1 doctrine sentence and accurately describe what ships.
+- **Schema URL not hosted.** `https://whatif.codes/schema/report/v0.1.json` is referenced as the canonical schema URI but isn't yet published. **Closure:** Phase 10 release.
+
+### Disclosed shortcuts (NOT release blockers)
+
+These are documented at their call sites, declared truthfully in `MethodologyDisclosure`, and carry an upgrade path that doesn't change the contract surface.
+
+- **Pipeline `delta_fn` shortcut** (`src/whatif/pipeline.py`, Phase 9A.1 markers). `run_pipeline` takes a caller-supplied `delta_fn(trace) -> float` instead of running a real `Scorer` over (original, replayed) pairs. Real paired scoring needs a `Runner` in scope; that wires up alongside the CLI fork body. The `"stub"` provider literal at `pipeline.py:163` is the same shortcut. **Closure:** completes naturally with the CLI wiring above.
+- **Empirical-percentile CI bounds** (`src/whatif/pipeline.py:207-215`). Uses `statistics.quantiles(..., n=20)` 5th/95th percentiles instead of stratified bootstrap. Adequate for cardinal-#2 floor-passing verdicts. `MethodologyDisclosure.bootstrap.method = "unavailable"` declares this truthfully to consumers. **Closure:** v0.2 stats layer.
+- **Cache content-hash verification deferred** (`src/whatif/cache/recovery.py:345`, `src/whatif/cache/lock.py:70`). `verify` does structural checks (file presence, JSON validity, schema-version match) but no cryptographic content-hash check. NFS-safe locking is also limited. **Closure:** v0.2 — `CacheEntry` gains a stored content hash field.
+- **Cardinal-#5 graph walk not yet a single mandatory call** (`src/whatif/serialization/encoder.py:188`). The encoder rejects unwrapped `Sensitive` at the boundary (the leak point); the full report-tree graph walk (Phase 5.4) is a defense-in-depth pass that's documented but not yet enforced as one mandatory call before serialization. **Closure:** Phase 10 wires `assert_no_unredacted_sensitive(report)` into `encode_report_v01`.
+- **`runtime_checkable` Protocol `isinstance` caveat** (`src/whatif/adapters/protocols.py:190, 230`). `isinstance` only checks attribute presence, not signatures. Python language limit; the conformance harness covers signatures empirically. Informational TODO, not deferred work.
+
+### Mislabeled — actually complete
+
+- **CLI subcommand "stubs"** (`src/whatif/cli.py:233-446`). The module header comment calls `whatif cache rebuild|unlock|verify`, `whatif diff`, `whatif report-migrate` "Phase 8.3/8.4/8.5 stubs," but those commands all work end-to-end. The label is stale comment from when they were placeholders. **Closure:** strip the stale "stub" labels in the Phase 10 README pass.
+- **`src/whatif/adapters/stub.py`.** Synthetic in-memory `TraceSource`/`Scorer` for the Phase 4A gate. Not deferred work — intentionally synthetic; consumed by Phase 9A integration tests and out-of-tree adapter authors.
+
 ## What completion looks like
 
 v0.1 is complete when:
