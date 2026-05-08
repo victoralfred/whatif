@@ -77,6 +77,15 @@ def _cassette_for(name: str) -> Path:
 _PUBLIC_KEY_RE = re.compile(r"pk-lf-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 _SECRET_KEY_RE = re.compile(r"sk-lf-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 
+# Module-level counter so per-trace placeholder ids are GLOBALLY
+# unique across all responses in a recording session, not per-page.
+# A future bug where the adapter emits duplicate trace_id across
+# pages would otherwise be invisible — the scrubber's enumerate(...)
+# would silently overwrite both pages with the same redacted-trace-000
+# / 001 / 002 sequence. Globally unique ids preserve the duplicate
+# signal even after redaction.
+_TRACE_PLACEHOLDER_COUNTER = [0]
+
 
 def _scrub_response_body(response: dict[str, object]) -> dict[str, object]:
     """vcrpy `before_record_response` hook: scrub the response body
@@ -139,10 +148,11 @@ def _scrub_response_body(response: dict[str, object]) -> dict[str, object]:
         return response
 
     if isinstance(parsed, dict) and isinstance(parsed.get("data"), list):
-        for idx, trace in enumerate(parsed["data"]):
+        for trace in parsed["data"]:
             if not isinstance(trace, dict):
                 continue
-            trace["id"] = f"redacted-trace-{idx:03d}"
+            trace["id"] = f"redacted-trace-{_TRACE_PLACEHOLDER_COUNTER[0]:03d}"
+            _TRACE_PLACEHOLDER_COUNTER[0] += 1
             trace["projectId"] = "redacted-project-id"
             trace["name"] = "redacted-trace-name"
             trace["input"] = "[REDACTED USER CONTENT]"

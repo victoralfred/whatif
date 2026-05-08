@@ -66,8 +66,10 @@ class _FakeTraceClient:
     ) -> _FakeTracesResponse:
         # Reject negative/zero pages structurally — the Langfuse
         # API is 1-indexed, and an adapter that emits page=0 is
-        # broken.
-        assert page is None or page >= 1, f"page must be ≥1; got {page}"
+        # broken. `if/raise` instead of `assert` so the guard
+        # survives `python -O` (asserts strip under optimized builds).
+        if page is not None and page < 1:
+            raise ValueError(f"page must be ≥1; got {page}")
         self.requested_pages.append(page)
         # Single-page mock: return everything on page 1, empty on 2+.
         # The harness's `test_iter_traces_is_generator_or_iterator`

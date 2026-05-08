@@ -121,6 +121,16 @@ These together cover ~3 of the 9 matrix cells with regression-grade pins. The re
 
 ---
 
+## 10. Machine-checkable `whatif-json-dumps` allowlist
+
+**What:** Extend the AST-walking banned-import lint at `tests/unit/whatif/serialization/test_banned_imports.py` to ALSO walk `packages/*/tests/` and `tests/integration/` with an explicit allowlist of call sites carrying the `# whatif-json-dumps: test-scaffold-allowed` marker comment. The lint then enforces the test-scaffold carve-out machine-checkably instead of relying on the comment-as-convention.
+
+**Why deferred:** The current lint targets `src/whatif/` only, which IS the cardinal-#5 enforcement boundary. Test-scaffold `json.dumps` calls (notably `_scrub_response_body` in `packages/whatif-langfuse/tests/test_recorded_smoke.py`) live in `packages/*/tests/` and `tests/`, which are out of scope by design. Building a marker-comment-respecting allowlist now is forward-looking machinery for a lint scope expansion that hasn't happened yet.
+
+**Trigger to promote:** Whenever someone proposes broadening the banned-import lint to cover `packages/`, `tests/`, or both. At that point this entry's marker convention (`# whatif-json-dumps: test-scaffold-allowed`) becomes load-bearing and needs the AST recognition. Land the lint extension and the allowlist parser in the same PR. Until that proposal lands, the marker comment is a search anchor, not enforcement.
+
+**Existing markers to preserve:** at least one `# whatif-json-dumps: test-scaffold-allowed` in `packages/whatif-langfuse/tests/test_recorded_smoke.py::_scrub_response_body`. Future test-scaffold usage of `json.dumps` should add the same marker.
+
 ## How to add a new entry
 
 Use this template:
