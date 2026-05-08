@@ -12,6 +12,15 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+### Added — Phase 10.4 (`whatif fork` CLI dispatcher body wired end-to-end)
+
+- **`src/whatif/cli.py::_run_fork_pipeline`** body filled in. The dispatcher now actually runs: (1) `build_trace_source(cfg.source)` from Phase 10.1, (2) `build_scorer(cfg.scorer)` from Phase 10.1, (3) `load_runner(cfg.target.runner)` from Phase 10.2, (4) `build_delta_fn(...)` from Phase 10.3, (5) construct `RunManifest` + `MethodologyDisclosure` + `CacheSummary`, (6) `run_pipeline(...)` → `ReportV01`, (7) `assert_no_unredacted_sensitive(report)` graph-walk BEFORE serialization (closes the cardinal-#5 graph-walk gap from `phases.md`), (8) `encode_report_v01` → JSON + `render_full_report` → Markdown to `./reports/whatif-fork-<date>.{md,json}`, (9) exit code from `verdict_state` (`ship` → 0, `dont_ship` → 1, `inconclusive` → 2; floor-failure Inconclusive always wins per cardinal #2).
+- **Cardinal-#1 boundary**. Every adapter / loader / pipeline exception is caught and converted to setup-failure stderr + exit 2. No stack traces leak. Three failure surfaces pinned: `AdapterFactoryError`, `RunnerLoadError`, generic pipeline `Exception` — each produces a typed message.
+- **Cardinal-#5 graph-walk wired** at `cli.py` artifact-write site per cascade-catalog entry "Artifact-write call-site sequencing for graph walk". Encoder's `default()` reject-unwrapped-Sensitive is the last-line fallback; the graph walk is the primary defense and runs first.
+- **End-to-end CLI smoke** in `tests/integration/test_cli_fork_e2e.py` — three scenarios: (a) successful dispatcher run with stub source/scorer + fixture runner producing artifacts at `./reports/`, (b) unknown-adapter setup failure with no artifacts written, (c) malformed runner-target reference setup failure.
+- **`tests/unit/whatif/test_cli.py`** updated: the two existing "reaches Phase 4 stub" tests now assert "reaches dispatcher setup failure" — the witness-token threading is still proven (the dispatcher body runs only after the cardinal-#7 witness check), the message just changed because the dispatcher actually works now instead of being a documented stub.
+- **Closes the v0.1 release blocker** flagged in `phases.md`'s "Implementation gaps" section. `whatif fork` runs end-to-end against stub adapters with no credentials needed; against real Langfuse + Inspect AI when env credentials and a programmatic score_fn are wired (the latter remains a Phase 11 cascade entry — `inspect_ai` config-loaded score_fn).
+
 ### Added — Phase 10.3 (CLI fork wiring; per-trace `delta_fn` closure)
 
 - **`src/whatif/cli_pipeline.py`** — `build_delta_fn(loaded_runner, scorer, change, replay_timeout_seconds)` returns a `Callable[[RawTrace], float]` suitable for `whatif.pipeline.run_pipeline`. The closure runs the user's runner through the appropriate replay kernel (sync `replay_one_trace` for `loaded_runner.kind == "sync"`, async `replay_one_trace_async` wrapped in `asyncio.run` for `kind == "async"`), projects the resulting `ReplayOutput` into a `ScoreCase`, calls `Scorer.score`, and returns `JudgeResult.score`.

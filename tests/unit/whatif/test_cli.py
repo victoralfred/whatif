@@ -170,16 +170,23 @@ class TestForkTwoAffirmation:
         assert result.exit_code == EXIT_INCONCLUSIVE_OR_SETUP_FAILURE
         assert "CLI invocation did not include" in _all_output(result)
 
-    def test_both_forensic_reaches_phase_4_stub(self, runner: CliRunner, tmp_path) -> None:
+    def test_both_forensic_reaches_dispatcher_setup_failure(
+        self, runner: CliRunner, tmp_path
+    ) -> None:
         # Both surfaces forensic-aligned → two-affirmation passes;
-        # exits at the Phase 4 adapter-integration stub. Pinning
-        # this confirms the witness-token path runs end-to-end.
+        # CLI proceeds into _run_fork_pipeline. The minimal config
+        # uses inspect_ai scorer, which requires a programmatic
+        # score_fn config can't load (Phase 10.1 documented behavior),
+        # so the dispatcher exits 2 with a setup-failure message.
+        # The witness-token threading is proven by reaching the
+        # dispatcher body at all — the stderr is the real adapter
+        # factory error, not a witness-token bypass.
         p = tmp_path / "forensic.json"
         p.write_text(json.dumps(_forensic_config_dict()), encoding="utf-8")
 
         result = runner.invoke(app, ["fork", "--config", str(p), "--profile", "forensic"])
         assert result.exit_code == EXIT_INCONCLUSIVE_OR_SETUP_FAILURE
-        assert "Phase 4 adapter integration" in _all_output(result)
+        assert "setup failure" in _all_output(result)
 
 
 # ---------------------------------------------------------------------------
@@ -188,16 +195,22 @@ class TestForkTwoAffirmation:
 
 
 class TestForkDefaultFlow:
-    def test_default_profile_reaches_phase_4_stub(self, runner: CliRunner, tmp_path) -> None:
+    def test_default_profile_reaches_dispatcher_setup_failure(
+        self, runner: CliRunner, tmp_path
+    ) -> None:
         # Non-forensic config + no --profile → two-affirmation
         # returns proof with forensic_active=False; CLI proceeds
-        # to the Phase 4 stub. Setup-failure exit is correct
-        # because the pipeline can't actually run yet.
+        # into _run_fork_pipeline. The minimal config uses
+        # inspect_ai scorer (config can't load score_fn) so the
+        # dispatcher's adapter factory raises AdapterFactoryError →
+        # setup-failure stderr → exit 2 (cardinal #1: structured
+        # data, not stack trace). Pin that the path completes
+        # cleanly, not that any specific stub message appears.
         p = tmp_path / "cfg.json"
         p.write_text(json.dumps(_minimal_config_dict()), encoding="utf-8")
         result = runner.invoke(app, ["fork", "--config", str(p)])
         assert result.exit_code == EXIT_INCONCLUSIVE_OR_SETUP_FAILURE
-        assert "Phase 4 adapter integration" in _all_output(result)
+        assert "setup failure" in _all_output(result)
 
 
 # ---------------------------------------------------------------------------

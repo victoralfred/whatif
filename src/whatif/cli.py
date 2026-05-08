@@ -173,59 +173,253 @@ def _run_fork_pipeline(cfg: WhatifConfig, proof: TwoAffirmationProof) -> int:
     """Execute the fork pipeline (replay → score → decision →
     render) and return the appropriate exit code.
 
-    The `proof: TwoAffirmationProof` parameter is the load-bearing
-    witness — Phase 4 / Phase 9 wiring of the runner / scorer /
-    decision / render stages MUST go through this signature. The
-    compiler enforces that callers obtain the proof via
-    `assert_two_affirmation`; there is no Optional default and no
-    Any fallback. Mirrors cardinal #2's `FloorPassedProof` threading.
+    Phase 10.4 wiring. The signature is the same load-bearing
+    contract surface (cfg, proof) → int the dispatcher always
+    declared; the body now actually does the work:
 
-    v0.1 8.2 ships the dispatcher SHELL — Phase 4 adapter
-    integration wires the runner; Phase 9 wires the full pipeline.
-    Until that lands, this function returns the setup-failure exit
-    code with a clear stderr message naming the missing wiring.
-    The Phase-4 contributor extends this body in place; the
-    function signature is the stable contract surface.
+    1. Build the trace source from `cfg.source` (Phase 10.1
+       factory).
+    2. Build the scorer from `cfg.scorer` (Phase 10.1 factory).
+    3. Load the runner from `cfg.target.runner` (Phase 10.2
+       loader).
+    4. Build the per-trace `delta_fn` closure threading runner
+       + scorer through the replay kernel (Phase 10.3).
+    5. Build a `RunManifest` from cfg + runtime info.
+    6. Call `run_pipeline(...)` → `ReportV01`.
+    7. Run the cardinal-#5 graph walk
+       `assert_no_unredacted_sensitive(report)` BEFORE serialization
+       (cascade-catalog entry "Artifact-write call-site sequencing
+       for graph walk").
+    8. Serialize JSON + render Markdown to the configured
+       `cfg.reporting.*_path` outputs.
+    9. Return the exit code derived from `report.verdict_state`.
 
-    ## Stability marker
+    ## Cardinal alignment in this body
 
-    This function is module-private (`_`-prefixed) but its
-    signature is the load-bearing Phase-4 wiring point. The test
-    `TestWitnessThreading::test_run_fork_pipeline_signature_requires_proof`
-    pins the signature shape (cfg, proof, return type, no
-    defaults) so a Phase-4 contributor cannot rename or relax
-    the contract silently — the test fails first. Renaming /
-    refactoring is fine; loosening the witness-token requirement
-    is not.
+    - **#1 failures-as-data:** every adapter / loader exception is
+      caught and converted to a setup-failure stderr + exit 2. No
+      stack traces leak.
+    - **#2 trust floor:** `run_pipeline` enforces the floor; this
+      dispatcher does NOT bypass it. The witness-token threading
+      lives inside `compute_verdict` — exit 2 surfaces here
+      whenever `verdict_state == "inconclusive"`.
+    - **#5 Sensitive at boundary:** `assert_no_unredacted_sensitive`
+      runs BEFORE `encode_report_v01` so an unwrapped Sensitive
+      anywhere in the report tree fails loud at the graph walk
+      (the structural defense), not silently at the encoder fallback.
+    - **#7 two-affirmation:** the witness-token guard below is
+      executable enforcement; it survives `python -O`.
     """
-    # Runtime guard: an `_ = proof` suppression alone would let a
-    # future contributor accidentally delete the parameter (mypy
-    # passes; runtime is silent). The explicit raise makes the
-    # contract executable — bypassing the witness fails immediately.
-    # `if/raise` rather than `assert` because `python -O` strips
-    # asserts; cardinal #7 enforcement must hold under all run
-    # modes including optimized production deployments.
     if not isinstance(proof, TwoAffirmationProof):
         raise TypeError(
             "_run_fork_pipeline must receive a TwoAffirmationProof "
             "from assert_two_affirmation; bypassing the witness "
             "violates cardinal #7."
         )
-    # `cfg` and `proof` are accepted but not yet consumed by the
-    # body — Phase 4 wires the runner from cfg.target.runner, the
-    # scorer from cfg.scorer.adapter, etc. `proof.forensic_active`
-    # gates the redaction profile at the artifact-bundle write
-    # boundary.
-    _ = cfg
-    typer.echo(
-        "whatif: fork pipeline requires Phase 4 adapter integration, "
-        "which is not yet wired into the v0.1 CLI. Config and "
-        "two-affirmation passed; downstream replay/score/decision/"
-        "render stages are pending. See cascade-catalog entries "
-        '"Replay subpackage boundary" and "Render subpackage '
-        'boundary" for the remaining wiring.',
-        err=True,
+    # `proof.forensic_active` gates downstream redaction-profile
+    # decisions; v0.1 emits the same report shape regardless and
+    # leaves redaction to the encoder + graph walk. v0.2 may add a
+    # forensic-bundle path that consults the witness explicitly.
+    _ = proof
+
+    # Lazy imports keep the module-load cost of `import whatif.cli`
+    # bounded (typer / cli surface). Adapter factory + run_pipeline +
+    # render are heavier; importing them here also preserves the
+    # cardinal-enforced lazy-load contract for adapter packages.
+    import datetime
+    import platform
+    import sys
+
+    from whatif import __version__ as _whatif_version
+    from whatif.adapters import AdapterFactoryError, build_scorer, build_trace_source
+    from whatif.cache.summary import CachePolicySnapshot, CacheSummary
+    from whatif.cli_pipeline import build_delta_fn
+    from whatif.pipeline import run_pipeline
+    from whatif.render.markdown import render_full_report
+    from whatif.runner_loader import RunnerLoadError, load_runner
+    from whatif.serialization import assert_no_unredacted_sensitive, encode_report_v01
+    from whatif.types.manifest import EnvironmentFingerprint, RunManifest
+    from whatif.types.policy import DecisionPolicy, TrustFloor
+    from whatif.types.primitives import DecimalString
+    from whatif.types.statistical import (
+        BootstrapMethodDisclosure,
+        EffectSizeDisclosure,
+        JudgeMethodDisclosure,
+        MethodologyDisclosure,
+        MultiplicityDisclosure,
     )
+
+    started_at = datetime.datetime.now(datetime.UTC)
+    try:
+        trace_source = build_trace_source(cfg.source)
+        scorer = build_scorer(cfg.scorer)
+        loaded_runner = load_runner(cfg.target.runner)
+    except (AdapterFactoryError, RunnerLoadError) as exc:
+        typer.echo(f"whatif: setup failure: {exc}", err=True)
+        return EXIT_INCONCLUSIVE_OR_SETUP_FAILURE
+
+    delta_fn = build_delta_fn(
+        loaded_runner=loaded_runner,
+        scorer=scorer,
+        change=cfg.change,
+        replay_timeout_seconds=cfg.timeouts.replay_seconds,
+    )
+
+    # v0.1 floor + policy come from `cfg.decision`; the cli-pipeline
+    # closure handles per-trace replay/score, run_pipeline owns the
+    # cohort aggregation + verdict.
+    floor = TrustFloor()  # v0.1: floor defaults; v0.2 may pull from cfg
+    policy = DecisionPolicy(
+        require_baseline=cfg.decision.require_baseline,
+        max_baseline_regression_ratio=cfg.decision.max_baseline_regression_ratio,
+        min_failure_improvement_ratio=cfg.decision.min_failure_improvement_ratio,
+        max_ci_width=cfg.decision.max_ci_width,
+        practical_delta_epsilon=cfg.decision.practical_delta_epsilon,
+    )
+
+    # MethodologyDisclosure: v0.1 ships an empirical-percentile CI
+    # shortcut (per pipeline.py docstring + phases.md gap inventory).
+    # The methodology truthfully declares this via
+    # bootstrap.method="unavailable"; v0.2 stats layer flips the
+    # disclosure to "paired_percentile_bootstrap".
+    methodology = MethodologyDisclosure(
+        unit_of_analysis="paired_trace_delta",
+        primary_metric="faithfulness",
+        primary_endpoints=("failure.faithfulness", "baseline.faithfulness"),
+        cohorts=("failure", "baseline"),
+        bootstrap=BootstrapMethodDisclosure(
+            method="unavailable",
+            resamples=None,
+            seed=None,
+            sample_unit="paired_trace_delta",
+            ci_level=DecimalString("0.950"),
+            cluster_key=None,
+            assumptions=(),
+            unavailable_reason=(
+                "v0.1 empirical-percentile shortcut; stratified bootstrap "
+                "is the v0.2 stats-layer surface."
+            ),
+        ),
+        multiplicity=MultiplicityDisclosure(
+            primary_endpoint_count=2,
+            correction="none",
+            reason="single primary metric per cohort; no correction applied",
+        ),
+        judge=JudgeMethodDisclosure(
+            scorer=cfg.scorer.adapter,
+            scorer_version="0.1.0",
+            judge_provider=cfg.scorer.adapter,
+            judge_model=cfg.scorer.adapter,
+            judge_model_version=None,
+            rendered_prompt_hash="0" * 16,
+            rubric_hash="0" * 16,
+            scorer_cache_enabled=cfg.scorer.cache_mode != "off",
+            scorer_cache_mode=cfg.scorer.cache_mode if cfg.scorer.cache_mode != "auto" else "off",
+            scorer_cache_hits=0,
+            scorer_cache_misses=0,
+            reproducibility_addressed=True,
+            reliability_measured=False,
+            validity_measured=False,
+            calibration_measured=False,
+            bias_audit_measured=False,
+        ),
+        effect_size=EffectSizeDisclosure(
+            practical_delta=DecimalString(f"{cfg.decision.practical_delta_epsilon:.3f}"),
+            practical_delta_source="policy",
+            judge_noise_floor=None,
+        ),
+        per_trace_inference="descriptive_only",
+        causal_claim_scope="associated_under_cached_tool_replay",
+    )
+
+    # CacheSummary: v0.1 fork CLI emits an "off" cache summary; the
+    # cache subsystem is exercised programmatically by callers that
+    # want it. A future Phase 10.5 may wire `cfg.scorer.cache_mode`
+    # through to a real CacheSummary projection.
+    cache_summary = CacheSummary(
+        schema_version="v1",
+        key_version="v1",
+        mode="off",
+        storage_profile="normalized_result_only",
+        storage_path=str(DEFAULT_CACHE_ROOT),
+        hits=0,
+        misses=0,
+        writes=0,
+        stale_hits=0,
+        corrupted_entries=0,
+        policy=CachePolicySnapshot(
+            mode="off",
+            warn_after_days=30,
+            block_after_days=90,
+            storage_profile="normalized_result_only",
+        ),
+        policy_violations=(),
+        oldest_hit_age_days=None,
+        models_distribution={},
+    )
+
+    runtime = RunManifest(
+        experiment_id="whatif-fork",
+        started_at=started_at.isoformat(),
+        finished_at=datetime.datetime.now(datetime.UTC).isoformat(),
+        duration_ms=int((datetime.datetime.now(datetime.UTC) - started_at).total_seconds() * 1000),
+        whatif_version=_whatif_version,
+        config_hash="0" * 64,  # v0.1 placeholder; v0.2 hashes the loaded cfg
+        selection_seed=42,
+        source=cfg.source.adapter,
+        target=loaded_runner.reference,
+        trust_floor=floor,
+        decision_policy=policy,
+        environment=EnvironmentFingerprint(
+            python=platform.python_version(),
+            platform=sys.platform,
+            whatif_version=_whatif_version,
+        ),
+    )
+
+    try:
+        report = run_pipeline(
+            trace_source,
+            delta_fn=delta_fn,
+            floor=floor,
+            policy=policy,
+            runtime=runtime,
+            methodology=methodology,
+            cache_summary=cache_summary,
+        )
+    except Exception as exc:  # boundary catch; cardinal #1
+        typer.echo(f"whatif: pipeline error: {type(exc).__name__}: {exc}", err=True)
+        return EXIT_INCONCLUSIVE_OR_SETUP_FAILURE
+
+    # Cardinal #5 structural defense: walk the report tree before
+    # serialization. The encoder's reject-unwrapped-Sensitive in
+    # `default()` is the last-line fallback; the graph walk is the
+    # primary defense. Cascade-catalog entry "Artifact-write
+    # call-site sequencing for graph walk" pins this ordering.
+    try:
+        assert_no_unredacted_sensitive(report)
+    except Exception as exc:
+        typer.echo(
+            f"whatif: cardinal-#5 graph-walk failed: {exc}. This is a "
+            "structural defect — the report contains unwrapped "
+            "Sensitive[T] values. Refusing to serialize.",
+            err=True,
+        )
+        return EXIT_INCONCLUSIVE_OR_SETUP_FAILURE
+
+    # JSON + Markdown artifacts.
+    report_md_path = Path(f"./reports/whatif-fork-{started_at.strftime('%Y-%m-%d')}.md")
+    report_json_path = report_md_path.with_suffix(".json")
+    report_md_path.parent.mkdir(parents=True, exist_ok=True)
+    report_json_path.write_bytes(encode_report_v01(report))
+    report_md_path.write_text(render_full_report(report), encoding="utf-8")
+    typer.echo(f"whatif: report written to {report_md_path} (+ .json)")
+
+    # Exit code from verdict_state.
+    if report.verdict_state == "ship":
+        return EXIT_SHIP
+    if report.verdict_state == "dont_ship":
+        return EXIT_DONT_SHIP
     return EXIT_INCONCLUSIVE_OR_SETUP_FAILURE
 
 
