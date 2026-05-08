@@ -27,7 +27,7 @@ test (`python -c "import whatif"` doesn't import any adapter)
 enforces the boundary.
 """
 
-from whatif.adapters.factory import AdapterFactoryError
+from whatif.adapters.factory import AdapterFactoryError, build_scorer, build_trace_source
 from whatif.adapters.protocols import (
     AdapterMetadata,
     JudgeResult,
@@ -51,4 +51,6 @@ __all__ = [
     "RawTrace",
     "Scorer",
     "TraceSource",
+    "build_scorer",
+    "build_trace_source",
 ]

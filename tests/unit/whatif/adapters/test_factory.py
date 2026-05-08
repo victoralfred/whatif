@@ -154,6 +154,36 @@ def test_build_trace_source_langfuse_import_failure_wraps_to_factory_error(
     assert "pip install whatif-langfuse" in msg
 
 
+def test_build_trace_source_langfuse_empty_string_host_treated_as_absent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`os.environ.get(k)` returns the literal empty string for an
+    explicitly-empty env var; the credential check uses `if not host`,
+    so empty-string is correctly treated as absent (not as a valid
+    host that would surface deeper as a connection error). Pin this
+    behavior so a refactor that switches to `is None` (which would
+    accept "" as valid) fails first."""
+    monkeypatch.setenv("LANGFUSE_HOST", "")
+    monkeypatch.setenv("LANGFUSE_BASE_URL", "")
+    monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk")
+    monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk")
+
+    with pytest.raises(AdapterFactoryError) as excinfo:
+        build_trace_source(SourceConfig(adapter="langfuse"))
+    assert "LANGFUSE_HOST" in str(excinfo.value)
+
+
+def test_factory_re_exports_from_adapters_package() -> None:
+    """`AdapterFactoryError`, `build_trace_source`, `build_scorer` are
+    importable from `whatif.adapters` directly so callers don't need
+    to know the implementation module path."""
+    from whatif import adapters
+
+    assert hasattr(adapters, "AdapterFactoryError")
+    assert hasattr(adapters, "build_trace_source")
+    assert hasattr(adapters, "build_scorer")
+
+
 def test_build_scorer_stub_returns_stub_scorer() -> None:
     scorer = build_scorer(ScorerConfig(adapter="stub"))
     assert isinstance(scorer, StubScorer)
