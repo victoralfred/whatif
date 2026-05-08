@@ -35,8 +35,27 @@ class _FakeTracesResponse:
 
 
 class _FakeTraceClient:
+    """Single-page Langfuse `trace.list` fake.
+
+    Behavior:
+    - Page 1 (or unspecified): returns every fixture trace.
+    - Page ≥ 2: returns empty data (the standard exhaust signal).
+    - Tracks requested pages so the fixture can detect adapter bugs
+      that re-fetch page 1 — a future conformance test asserting
+      "no duplicate traces across pages" would catch that bug
+      because both calls return identical data; this fake records
+      the call sequence to make the bug auditable.
+
+    What this fake does NOT simulate:
+    - True multi-page pagination with distinct content per page.
+      That contract is exercised in
+      `TestLangfuseSpecificBehaviors::test_pagination_streams_across_pages`
+      via a dedicated `_PaginatingClient`.
+    """
+
     def __init__(self, traces: list[_FakeTrace]) -> None:
         self._traces = traces
+        self.requested_pages: list[int | None] = []
 
     def list(
         self,
@@ -45,6 +64,11 @@ class _FakeTraceClient:
         limit: int | None = None,
         **kwargs: Any,
     ) -> _FakeTracesResponse:
+        # Reject negative/zero pages structurally — the Langfuse
+        # API is 1-indexed, and an adapter that emits page=0 is
+        # broken.
+        assert page is None or page >= 1, f"page must be ≥1; got {page}"
+        self.requested_pages.append(page)
         # Single-page mock: return everything on page 1, empty on 2+.
         # The harness's `test_iter_traces_is_generator_or_iterator`
         # only consumes the iterator's first batch and asserts

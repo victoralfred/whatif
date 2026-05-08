@@ -108,6 +108,19 @@ def _scrub_response_body(response: dict[str, object]) -> dict[str, object]:
     """
     import json as _json  # local: keeps the canonical-import lint clean
 
+    # Strip Content-Length from response headers — the body-scrub
+    # below shrinks the body, so any preserved Content-Length would
+    # mismatch the actual cassette bytes. vcrpy 8.x ignores it on
+    # replay, but a future strict-mode vcrpy could raise. The
+    # `filter_headers` config above runs before this hook fires
+    # and the response-side scrub didn't take in vcrpy 8.x; doing
+    # it here is the reliable point.
+    headers = response.get("headers", {})
+    if isinstance(headers, dict):
+        for key in list(headers.keys()):
+            if key.lower() == "content-length":
+                headers.pop(key, None)
+
     body = response.get("body", {})
     if not isinstance(body, dict):
         return response
@@ -146,15 +159,14 @@ def _scrub_response_body(response: dict[str, object]) -> dict[str, object]:
             trace["externalId"] = None
 
     # Test scaffold: this `json.dumps` lives in test code, not a
-    # runtime path. The project's banned-import lint targets `src/`
-    # files (`whatif/serialization/` is the only src-tree module
-    # allowed to call `json.dumps`), and `tests/` is explicitly
-    # outside that scope. The scrubber needs to round-trip parsed
-    # JSON back to a string for the cassette body; routing through
-    # `whatif.serialization.canonical_json_bytes` would work but
-    # adds a runtime dep on the canonical module just for a test
-    # helper. Keeping `_json.dumps` here is the right call.
-    cleaned_text = _json.dumps(parsed, sort_keys=True)
+    # runtime path. The project's banned-import lint
+    # (tests/unit/whatif/serialization/test_banned_imports.py)
+    # walks `src/whatif/` only — `tests/` and `packages/*/tests/`
+    # are out of scope by design. If the lint is ever extended to
+    # cover `packages/`, this call needs an explicit allowlist
+    # entry; the marker-comment below is the search anchor for
+    # that future audit.
+    cleaned_text = _json.dumps(parsed, sort_keys=True)  # whatif-json-dumps: test-scaffold-allowed
     # Belt-and-suspenders: regex-scrub credential patterns from the
     # serialized JSON in case a future Langfuse field grows a new
     # echo path.
@@ -176,6 +188,13 @@ def vcr_config() -> dict[str, object]:
             ("x-langfuse-sdk-name", "FILTERED"),
             ("x-langfuse-sdk-version", "FILTERED"),
             ("user-agent", "FILTERED"),
+            # Stripped because the body-scrub hook
+            # (`_scrub_response_body`) shrinks the response after
+            # vcrpy captures the original Content-Length. vcrpy 8.x
+            # ignores the header on replay, but a future strict-mode
+            # vcrpy 9+ would raise on the mismatch. Filtering out
+            # makes the cassette future-proof.
+            ("content-length", None),
         ],
         "filter_query_parameters": [
             ("publicKey", "FILTERED"),

@@ -32,12 +32,16 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "pytest>=9.0.3",
-  "pytest-asyncio>=1.3.0",
   # `pytest-recording` (vcrpy-based) drives the recorded-smoke
   # test in `tests/test_recorded_smoke.py`. Required for both
   # cassette playback (CI default) and recording
   # (`--record-mode=once` locally).
   "pytest-recording>=0.13",
+  # `pytest-asyncio` is intentionally NOT listed here. v0.1.0 of
+  # this adapter is purely synchronous. The Langfuse SDK exposes
+  # async client surfaces (`AsyncLangfuseAPI`) that v0.2+ may add
+  # as `LangfuseAsyncTraceSource`; that's the point at which
+  # pytest-asyncio earns its keep here.
 ]
 
 [project.urls]
