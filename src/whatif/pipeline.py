@@ -139,31 +139,48 @@ def _bucket_by_cohort(
             # validates the code, supplies stage/scope defaults, and
             # enforces the required-details contract. `provider` and
             # `reason` are the registered required keys for
-            # `scorer_unavailable`; `exc_type` is an extension key
-            # (extra keys allowed per cardinal #6 extension point).
+            # `scorer_unavailable`; `exc_type` and the optional
+            # structured projections below are extension keys (extra
+            # keys allowed per cardinal #6 extension point).
+            details: dict[str, str] = {
+                # TODO(Phase 4B): replace the hardcoded "stub" with a
+                # real provider identifier sourced from the scorer
+                # adapter's `adapter_metadata().adapter_id`. Forensic
+                # reports under the real adapter MUST attribute scorer
+                # failures to the actual provider (e.g.,
+                # "inspect_ai", "anthropic") so the audit trail is
+                # accurate. The 9A.1 shortcut hardcodes "stub" because
+                # the pipeline doesn't yet receive the scorer in this
+                # scope; that wires in 9A.2+ / Phase 4B.
+                "provider": "stub",
+                "reason": str(exc),
+                "exc_type": type(exc).__name__,
+            }
+            # Phase 10.3 cardinal-#1 widening: the cli_pipeline
+            # closure raises `_ReplayStageError(replay_code=...)` for
+            # kernel ReplayFailure projection and
+            # `_ScorerStructuralError(rationale_classification=...)`
+            # for cardinal-#1 None-score paths. Project both typed
+            # attributes into `details` so consumers walking the
+            # report graph read structured fields, NOT parsed
+            # strings (cardinal #1: every expected failure is
+            # structured data). `getattr(..., None)` skips the
+            # projection cleanly when the exception type doesn't
+            # carry the attribute (e.g., a generic RuntimeError from
+            # a programmatic caller bypassing the closure).
+            replay_code = getattr(exc, "replay_code", None)
+            if isinstance(replay_code, str):
+                details["replay_code"] = replay_code
+            rationale_classification = getattr(exc, "rationale_classification", None)
+            if isinstance(rationale_classification, str):
+                details["rationale_classification"] = rationale_classification
             failures.append(
                 make_failure_record(
                     _PIPELINE_SCORER_FAILURE_CODE,
                     id=f"delta-fn-{rt.trace_id}",
                     message=f"delta_fn raised: {exc}",
                     trace_id=rt.trace_id,
-                    details={
-                        # TODO(Phase 4B): replace the hardcoded
-                        # "stub" with a real provider identifier
-                        # sourced from the scorer adapter's
-                        # `adapter_metadata().adapter_id`. Forensic
-                        # reports under the real adapter MUST
-                        # attribute scorer failures to the actual
-                        # provider (e.g., "inspect_ai", "anthropic")
-                        # so the audit trail is accurate. The 9A.1
-                        # shortcut hardcodes "stub" because the
-                        # pipeline doesn't yet receive the scorer
-                        # in this scope; that wires in 9A.2+ /
-                        # Phase 4B.
-                        "provider": "stub",
-                        "reason": str(exc),
-                        "exc_type": type(exc).__name__,
-                    },
+                    details=details,
                 )
             )
     buckets = tuple(

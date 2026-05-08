@@ -214,7 +214,12 @@ def test_replay_stage_error_replay_code_reaches_failure_record() -> None:
         f for f in report.failures if f.details.get("exc_type") == "_ReplayStageError"
     ]
     assert replay_failures, [f.details for f in report.failures]
-    # The kernel code (e.g., runner_exception) reaches the report
-    # via the reason field embedded in the exception message.
-    reasons = [f.details.get("reason", "") for f in replay_failures]
-    assert any("runner_exception" in str(r) for r in reasons), reasons
+    # Cardinal #1: the kernel's ReplayFailure.code reaches the
+    # report as a STRUCTURED FIELD via details["replay_code"] —
+    # NOT only via string-extraction from the message. The
+    # pipeline's exception capture reads `getattr(exc,
+    # "replay_code", None)` into details. Pin the typed projection
+    # so a future refactor that drops the projection (collapsing
+    # back to message-only) fails first.
+    replay_codes = [f.details.get("replay_code") for f in replay_failures]
+    assert all(rc == "runner_exception" for rc in replay_codes), replay_codes

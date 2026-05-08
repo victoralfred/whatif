@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 import pytest
 
@@ -94,8 +94,8 @@ def _change() -> ChangeConfig:
     return ChangeConfig(system_prompt="new prompt", model=None)
 
 
-def _loaded(callable_: Any, kind: str) -> LoadedRunner:
-    return LoadedRunner(callable_=callable_, kind=kind, reference="python:test:fixture")  # type: ignore[arg-type]
+def _loaded(callable_: Any, kind: Literal["sync", "async"]) -> LoadedRunner:
+    return LoadedRunner(callable_=callable_, kind=kind, reference="python:test:fixture")
 
 
 def test_sync_runner_runs_through_kernel_and_produces_score() -> None:
