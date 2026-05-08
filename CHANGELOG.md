@@ -12,6 +12,16 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+### Added — Phase 4B.2 (`whatif-inspect-ai` real adapter package; closes Phase 4B)
+
+- **`packages/whatif-inspect-ai/`** — second sibling distribution under the uv workspace, implementing `whatif.adapters.Scorer` against the Inspect AI scorer abstraction. Per the Phase 4B.2 reviewer checklist landed with PR #65, all 5 gate items satisfied: separate package, workspace registration, TODO(4B.2) marker + false-green prose removed from `tests/unit/whatif/adapters/test_protocols.py`, conformance harness reused via the same conftest sys.path pattern as `whatif-langfuse`, recorded smoke deliberately skipped (Inspect AI is a local eval framework, not a hosted API — no cassette target).
+- **Library version pinning per industry practice** (lower bound + minor-cap, since Inspect AI is pre-1.0): `inspect-ai>=0.3.216,<0.4`.
+- **`InspectAIScorer`** — `score_fn: Callable[[ScoreCase], Score | None | Awaitable[Score | None]]` injected at construction; the caller wires their Inspect AI scorer (and any `TaskState`/`Target` construction) into this callable. Async return values are awaited via `asyncio.run`. `judge_provider` / `judge_model_id` / `judge_model_snapshot` / `rubric_id` / `rubric_text` / `scoring_parameters` flow through to `cache_key_components`. Cardinal-#1 surfaces: `score_fn` raising or returning `None` produces `JudgeResult(score=None)` with a structured `Sensitive[str]` rationale, NOT a propagated exception. A non-numeric `Score.value` (e.g., a categorical label) projects to `score=None` instead of crashing on `float()`.
+- **Cardinal alignment:** `Sensitive[str]` wrapping at the projection boundary (cardinal #5 — the conformance harness pins it; package-specific `test_judge_rationale_is_sensitive` re-pins on the explicit-None and exception paths). Adapter-agnostic to the metric (cardinal #10 — methodology disclosure flows through cache-key components, not the scorer).
+- **Mocked-only conformance** in `tests/test_conformance.py` — runs the parent harness's `ScorerConformance` and `StructuralFailureScorerConformance` against fake `score_fn` callables, plus 7 Inspect-AI-specific behaviors (async awaiting, exception → None projection, non-numeric coercion, deterministic cache keys, distinct-rubric distinct-hash, adapter-metadata sourcing, Sensitive-on-failure-paths).
+- **Pytest `--import-mode=importlib`** added to root `pyproject.toml` `addopts`. Both packages have a `tests/test_conformance.py`; the default `prepend` mode raises `ImportPathMismatchError` on the basename collision. importlib mode is the modern pytest recommendation for monorepo / multi-package layouts.
+- **Phase 4B complete.** Both real adapters ship; the conformance harness is green against both. Phase 9B (real-adapter smoke through the CLI) and Phase 10 (release) remain for v0.1.
+
 ### Added — Phase 4B.1 (`whatif-langfuse` real adapter package)
 
 - **`packages/whatif-langfuse/`** — separate sibling package implementing `whatif.adapters.TraceSource` against the Langfuse v4 SDK (`langfuse.api.LangfuseAPI`). Industry-standard monorepo layout: own `pyproject.toml`, own `src/whatif_langfuse/` tree, own `README`, dependency on `whatif` via `[tool.uv.sources] whatif = { workspace = true }`.

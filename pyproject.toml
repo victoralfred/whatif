@@ -75,6 +75,7 @@ dev = [
 [dependency-groups]
 workspace = [
   "whatif-langfuse",
+  "whatif-inspect-ai",
 ]
 
 [project.scripts]
@@ -108,7 +109,14 @@ warn_return_any = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "packages"]
-addopts = "-ra --strict-markers"
+# `--import-mode=importlib` avoids module-name collisions across
+# packages with identically-named test files (e.g.,
+# `packages/whatif-langfuse/tests/test_conformance.py` and
+# `packages/whatif-inspect-ai/tests/test_conformance.py`). The
+# default `prepend` mode treats both as `tests.test_conformance`
+# and raises `ImportPathMismatchError`. importlib mode is the
+# modern pytest recommendation for monorepo / multi-package layouts.
+addopts = "-ra --strict-markers --import-mode=importlib"
 asyncio_mode = "auto"
 
 # Monorepo workspace per industry practice (cf. OpenTelemetry Python,
@@ -116,11 +124,12 @@ asyncio_mode = "auto"
 # have their own pyproject.toml and version, but share this venv
 # during development. PyPI publication is per-package.
 [tool.uv.workspace]
-members = ["packages/whatif-langfuse"]
+members = ["packages/whatif-langfuse", "packages/whatif-inspect-ai"]
 
 # Resolve the workspace adapter packages from the in-tree path
 # instead of PyPI. With this binding, `uv sync` installs them
 # editably alongside `whatif`; the CI test job picks up
-# `packages/whatif-langfuse/tests/` cleanly.
+# `packages/whatif-*/tests/` cleanly.
 [tool.uv.sources]
 whatif-langfuse = { workspace = true }
+whatif-inspect-ai = { workspace = true }
