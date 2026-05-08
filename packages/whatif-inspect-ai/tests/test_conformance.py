@@ -210,6 +210,47 @@ class TestInspectAISpecificBehaviors:
         assert meta.package_version  # non-empty
         assert meta.sdk_version == "0.3.217-test"
 
+    def test_resolve_sdk_version_override(self) -> None:
+        from whatif_inspect_ai.scorer import _resolve_sdk_version
+
+        assert _resolve_sdk_version("9.9.9-pin") == "9.9.9-pin"
+
+    def test_resolve_sdk_version_missing_attribute(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # Simulate an inspect_ai SDK that imports but doesn't expose
+        # __version__ — `getattr(..., None)` falls back to the
+        # "unknown" placeholder. CacheKeyComponents rejects empty
+        # strings on scorer_package_version, so the placeholder MUST
+        # be non-empty.
+        import sys
+        import types
+
+        from whatif_inspect_ai.scorer import _resolve_sdk_version
+
+        fake = types.ModuleType("inspect_ai")
+        monkeypatch.setitem(sys.modules, "inspect_ai", fake)
+        assert _resolve_sdk_version(None) == "unknown"
+
+    def test_resolve_sdk_version_import_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # Simulate inspect_ai not installed — ImportError surfaces
+        # as the "unknown" placeholder, not an exception.
+        import builtins
+
+        from whatif_inspect_ai.scorer import _resolve_sdk_version
+
+        real_import = builtins.__import__
+
+        def _raise_for_inspect_ai(name: str, *args: object, **kwargs: object) -> Any:
+            if name == "inspect_ai":
+                raise ImportError("simulated: inspect_ai not installed")
+            return real_import(name, *args, **kwargs)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(builtins, "__import__", _raise_for_inspect_ai)
+        # If inspect_ai was already imported, drop it so the import path runs.
+        import sys
+
+        monkeypatch.delitem(sys.modules, "inspect_ai", raising=False)
+        assert _resolve_sdk_version(None) == "unknown"
+
     def test_judge_rationale_is_sensitive(self) -> None:
         # Cardinal #5 pin at the package boundary: the rationale
         # field on every JudgeResult MUST be a Sensitive instance,
