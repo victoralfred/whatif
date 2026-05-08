@@ -45,12 +45,21 @@ dev = [
   "pytest>=9.0.3",
   "pytest-asyncio>=1.3.0",
   "pytest-cov>=7.1.0",
+  # `pytest-recording` (vcrpy-based) drives the recorded-smoke
+  # tests in `packages/whatif-langfuse/tests/test_recorded_smoke.py`.
+  # CI replays from cassette; local recording uses --record-mode=once.
+  "pytest-recording>=0.13",
   "ruff>=0.15.12",
   "mypy>=1.20.2",
   "hypothesis>=6.152.4",
   "pre-commit>=4.4.1",
   "types-psutil>=6.0",
   "types-PyYAML>=6.0",
+  # Workspace adapter packages — installed editably so the CI
+  # test job collects `packages/whatif-langfuse/tests/` and the
+  # imports resolve. Sourced via `[tool.uv.sources]` below to
+  # point at the in-tree workspace member instead of PyPI.
+  "whatif-langfuse",
 ]
 
 [project.scripts]
@@ -93,3 +102,10 @@ asyncio_mode = "auto"
 # during development. PyPI publication is per-package.
 [tool.uv.workspace]
 members = ["packages/whatif-langfuse"]
+
+# Resolve the workspace adapter packages from the in-tree path
+# instead of PyPI. With this binding, `uv sync` installs them
+# editably alongside `whatif`; the CI test job picks up
+# `packages/whatif-langfuse/tests/` cleanly.
+[tool.uv.sources]
+whatif-langfuse = { workspace = true }
