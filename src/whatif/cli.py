@@ -11,8 +11,8 @@ surface:
     The actual fork execution is gated on Phase 4 adapter
     integration; missing adapter → exit 2 with a clear setup
     message, NOT a silent fallback.
-  - `whatif report-migrate <prev.json> <new.json>` — v0.1.x no-op
-    (no schema breaks within v0.1.x); real migration logic when v0.2
+  - `whatif report-migrate <report.json>` — v0.1.x no-op (no
+    schema breaks within v0.1.x); real migration logic when v0.2
     ships
   - `whatif cache rebuild|unlock|verify` — full Phase 8.3 implementations
   - `whatif diff <prev.json> <new.json>` — full Phase 8.4 diff renderer

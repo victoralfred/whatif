@@ -45,7 +45,7 @@ uv sync --all-extras --dev --group workspace
 
 ## Quickstart (programmatic — works today)
 
-The library API is the load-bearing surface. A worked end-to-end example lives at [`docs/getting-started.md`](./docs/getting-started.md). Minimal shape:
+The library API is the load-bearing surface. The snippet below is **shape-only** — it omits `RunManifest`, `MethodologyDisclosure`, and `CacheSummary` construction plus the actual `run_pipeline(...)` call to keep the README focused. The full runnable end-to-end example lives at [`docs/getting-started.md`](./docs/getting-started.md). Minimal shape:
 
 ```python
 from whatif.adapters.stub import StubTraceSource, StubTraceSpec
