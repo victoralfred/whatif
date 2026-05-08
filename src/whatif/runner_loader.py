@@ -8,11 +8,16 @@ satisfies the `Runner` or `AsyncRunner` protocol from
 
 ## Design points
 
-- **Module-private to `whatif.cli`.** This is wiring code, not a
-  user-facing API. A future v0.2 may add `module:` (no prefix) or
-  other runner-reference families; keeping the loader inside the
-  CLI subpackage means those additions don't widen the public
-  surface.
+- **Top-level module, CLI-wiring scope.** The file lives at
+  `src/whatif/runner_loader.py` (top-level) rather than under a
+  `whatif/cli/` subpackage because the existing `whatif/cli.py`
+  module would collide with a `whatif/cli/` package directory.
+  Despite the placement, the loader is *consumed only by CLI
+  fork wiring* (Phase 10.4's `_run_fork_pipeline`); no other
+  whatif core module imports it. Future v0.2 may add `module:`
+  (no prefix) or other runner-reference families to this same
+  loader. The placement is a pragmatic resolution of the
+  cli/cli.py collision, not a public-API claim.
 - **Sync/async classification at load time.** The replay kernel
   is split between `kernel.py` (sync, ThreadPoolExecutor) and
   `kernel_async.py` (async, asyncio.wait_for). Picking the right
