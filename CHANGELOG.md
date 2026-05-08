@@ -12,6 +12,16 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-05-09
+
+### Added — Phase 10.6 (release prep)
+
+- Root `pyproject.toml` version bumped from `0.0.1` to `0.1.0` to align with the adapter packages.
+- `Development Status` classifier bumped from `2 - Pre-Alpha` to `3 - Alpha` across all three packages.
+- **`RELEASING.md`** — runbook for cutting releases. One-time PyPI Trusted Publisher setup (per-package, per-environment claim), per-release checklist, failure-mode recovery, hot-fix flow, v0.2+ schema-migration notes.
+- **`.github/workflows/release.yml` extended** — now builds and publishes all three distributions (`whatifd`, `whatifd-langfuse`, `whatifd-inspect-ai`) on a single `v*.*.*` tag push. Each PyPI publish runs in its own GitHub environment (`pypi-whatifd`, `pypi-whatifd-langfuse`, `pypi-whatifd-inspect-ai`) so PyPI's OIDC verifier can scope the Trusted Publisher per project. Adapters publish only after the root `whatifd` succeeds, so a partial-failure state where adapters reference an unpublished `whatifd` is impossible.
+- **GitHub repo URL references re-applied** — the URL renames from PR #73's third commit didn't make it through the squash merge to `main`; this branch re-applies them across `README.md`, `CONTRIBUTING.md`, `SECURITY.md`, `pyproject.toml`, both adapter `pyproject.toml`/`README.md`, `docs/getting-started.md`, `.github/ISSUE_TEMPLATE/config.yml`, and `CHANGELOG.md`.
+
 ### Added — Phase 10.5 (release polish)
 
 - **`docs/schema/v0.1.md`** — `ReportV01` consumer compatibility guide. Documents the v0.1.x stability contract, top-level shape, `verdict_state` ↔ exit-code mapping, determinism subset (cardinal #4), methodology disclosure (cardinal #10), failure + finding code registries, and a programmatic-read example.
@@ -537,4 +547,5 @@ Skill references updated: `type-model.md` (CohortResult split + accept_no_ci rem
 
 ---
 
-[Unreleased]: https://github.com/victoralfred/whatif/commits/main
+[Unreleased]: https://github.com/victoralfred/whatifd/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/victoralfred/whatifd/releases/tag/v0.1.0

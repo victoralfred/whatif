@@ -1,6 +1,6 @@
 # whatifd-inspect-ai
 
-Inspect AI `Scorer` adapter for [whatif](https://github.com/victoralfred/whatif). Phase 4B.2 of the v0.1 plan.
+Inspect AI `Scorer` adapter for [whatif](https://github.com/victoralfred/whatifd). Phase 4B.2 of the v0.1 plan.
 
 ## Install
 

@@ -20,7 +20,7 @@ If you've not yet read [DESIGN.md](./DESIGN.md), do that first - many *"why is i
 ## Development setup
 
 ```bash
-git clone https://github.com/victoralfred/whatif
+git clone https://github.com/victoralfred/whatifd
 cd whatif
 uv sync --all-extras --dev
 

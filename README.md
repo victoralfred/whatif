@@ -1,6 +1,6 @@
 # whatif
 
-[![CI](https://github.com/victoralfred/whatif/actions/workflows/ci.yml/badge.svg)](https://github.com/victoralfred/whatif/actions/workflows/ci.yml)
+[![CI](https://github.com/victoralfred/whatifd/actions/workflows/ci.yml/badge.svg)](https://github.com/victoralfred/whatifd/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
@@ -38,7 +38,7 @@ When you change a prompt, model, or tool in an LLM system, you don't actually kn
 uv pip install whatif whatifd-langfuse whatifd-inspect-ai
 
 # From source (uv workspace):
-git clone https://github.com/victoralfred/whatif
+git clone https://github.com/victoralfred/whatifd
 cd whatif
 uv sync --all-extras --dev --group workspace
 ```

@@ -10,44 +10,107 @@ permissions:
 
 jobs:
   build:
-    name: build distribution
+    name: build distributions
     runs-on: ubuntu-latest
+    outputs:
+      ref-name: ${{ github.ref_name }}
     steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@v3
         with:
           python-version: "3.12"
           enable-cache: true
-      - name: Build sdist + wheel
-        run: uv build
-      - name: List build artifacts
-        run: ls -la dist/
+      - name: Build root distribution (whatifd)
+        run: uv build --out-dir dist-whatifd
+      - name: Build whatifd-langfuse distribution
+        run: uv build --package whatifd-langfuse --out-dir dist-whatifd-langfuse
+      - name: Build whatifd-inspect-ai distribution
+        run: uv build --package whatifd-inspect-ai --out-dir dist-whatifd-inspect-ai
+      - name: List artifacts
+        run: |
+          ls -la dist-whatifd dist-whatifd-langfuse dist-whatifd-inspect-ai
       - uses: actions/upload-artifact@v7
         with:
-          name: dist
-          path: dist/
+          name: dist-whatifd
+          path: dist-whatifd/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist-whatifd-langfuse
+          path: dist-whatifd-langfuse/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist-whatifd-inspect-ai
+          path: dist-whatifd-inspect-ai/
           if-no-files-found: error
 
-  publish-pypi:
-    name: publish to PyPI (Trusted Publisher)
+  # Each package publishes from its own job because PyPI Trusted
+  # Publishing requires a 1:1 mapping between (workflow,
+  # environment) and the PyPI project. The `environment.name` MUST
+  # match the "Pending Publisher" or active publisher configured on
+  # PyPI for that project.
+  #
+  # PyPI configuration (one-time, per package):
+  #   1. Go to https://pypi.org/manage/project/<name>/settings/publishing/
+  #   2. Add a Trusted Publisher: owner=victoralfred,
+  #      repository=whatifd, workflow=release.yml,
+  #      environment=<matching name below>.
+  # For an unregistered project, configure under "Pending Publisher"
+  # at https://pypi.org/manage/account/publishing/.
+  publish-whatifd:
+    name: publish whatifd to PyPI
     needs: build
     runs-on: ubuntu-latest
     environment:
-      name: pypi
+      name: pypi-whatifd
       url: https://pypi.org/p/whatifd
     permissions:
-      # Required for PyPI Trusted Publishing (OIDC).
       id-token: write
     steps:
       - uses: actions/download-artifact@v8
         with:
-          name: dist
+          name: dist-whatifd
           path: dist/
-      - name: Publish
-        uses: pypa/gh-action-pypi-publish@release/v1
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
+  publish-whatifd-langfuse:
+    name: publish whatifd-langfuse to PyPI
+    needs: publish-whatifd
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi-whatifd-langfuse
+      url: https://pypi.org/p/whatifd-langfuse
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist-whatifd-langfuse
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
+  publish-whatifd-inspect-ai:
+    name: publish whatifd-inspect-ai to PyPI
+    needs: publish-whatifd
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi-whatifd-inspect-ai
+      url: https://pypi.org/p/whatifd-inspect-ai
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist-whatifd-inspect-ai
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
 
   github-release:
     name: github release with notes
-    needs: publish-pypi
+    needs: [publish-whatifd, publish-whatifd-langfuse, publish-whatifd-inspect-ai]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -57,7 +120,8 @@ jobs:
           fetch-depth: 0
       - uses: actions/download-artifact@v8
         with:
-          name: dist
+          pattern: dist-*
+          merge-multiple: true
           path: dist/
       - name: Create GitHub release
         env:

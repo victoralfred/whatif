@@ -13,7 +13,7 @@ This project is pre-alpha. Security fixes will be issued for the most recent min
 
 **Please do not open public GitHub issues for security reports.**
 
-Use [GitHub's private vulnerability reporting](https://github.com/victoralfred/whatif/security/advisories/new) to file the report privately. You will receive an acknowledgement within **7 days**.
+Use [GitHub's private vulnerability reporting](https://github.com/victoralfred/whatifd/security/advisories/new) to file the report privately. You will receive an acknowledgement within **7 days**.
 
 If GitHub Advisories is not an option for you, email:
 

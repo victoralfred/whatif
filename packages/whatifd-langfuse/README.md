@@ -1,6 +1,6 @@
 # whatifd-langfuse
 
-Langfuse `TraceSource` adapter for [whatif](https://github.com/victoralfred/whatif). Phase 4B.1 of the v0.1 plan.
+Langfuse `TraceSource` adapter for [whatif](https://github.com/victoralfred/whatifd). Phase 4B.1 of the v0.1 plan.
 
 ## Install
 
