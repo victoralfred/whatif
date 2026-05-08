@@ -73,16 +73,31 @@ if TYPE_CHECKING:
 
 class _ReplayStageError(Exception):
     """Internal: replay-stage failure raised inside the `delta_fn`
-    closure to signal the pipeline's exception capture. The
-    pipeline converts this to a `scorer_unavailable` `FailureRecord`
-    (v0.1 shape); v0.2 may widen to a per-stage `FailureRecord`.
+    closure to signal the pipeline's exception capture.
+
+    Carries the kernel's `ReplayFailure.code` as a structured
+    attribute (not only baked into the message). Cardinal #1: a
+    consumer walking the exception sees a typed code, not a
+    parsed string. The pipeline converts this to a
+    `scorer_unavailable` `FailureRecord` at the top-level `code`
+    field (v0.1 scope); Phase 11+ may widen to per-stage codes.
     """
+
+    def __init__(self, *, replay_code: str, message: str) -> None:
+        super().__init__(message)
+        self.replay_code = replay_code
 
 
 class _ScorerStructuralError(Exception):
     """Internal: `JudgeResult.score is None` (cardinal-#1) raised
     so the pipeline's exception path captures it as a structured
-    `FailureRecord`."""
+    `FailureRecord`. Carries the rationale's `classification` as
+    a typed attribute so downstream consumers attribute the
+    failure without parsing the message string."""
+
+    def __init__(self, *, rationale_classification: str, message: str) -> None:
+        super().__init__(message)
+        self.rationale_classification = rationale_classification
 
 
 def build_delta_fn(
@@ -163,7 +178,8 @@ def build_delta_fn(
 
         if isinstance(replay_result, ReplayFailure):
             raise _ReplayStageError(
-                f"replay failed [{replay_result.code}]: {replay_result.message}"
+                replay_code=replay_result.code,
+                message=f"replay failed [{replay_result.code}]: {replay_result.message}",
             )
         # The kernel's contract is `ReplaySuccess | ReplayFailure`;
         # mypy doesn't narrow without an explicit type assertion.
@@ -185,8 +201,11 @@ def build_delta_fn(
             # the pipeline's `make_failure_record` doesn't bake
             # rationale text into a FailureRecord.message field.
             raise _ScorerStructuralError(
-                "scorer returned JudgeResult(score=None); see "
-                f"rationale (classification={judge.rationale.classification!r})"
+                rationale_classification=judge.rationale.classification,
+                message=(
+                    "scorer returned JudgeResult(score=None); see rationale "
+                    f"(classification={judge.rationale.classification!r})"
+                ),
             )
         # `judge.score` is float | None; the None branch raised, so
         # narrow.

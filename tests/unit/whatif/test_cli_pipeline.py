@@ -210,34 +210,28 @@ def test_stub_scorer_returns_constant_0_5() -> None:
     assert delta_fn(_raw("t-2", cohort="baseline")) == 0.5
 
 
-def test_structured_trail_distinguishes_replay_vs_scorer_failure() -> None:
-    """v0.1 collapses both `_ReplayStageError` and
-    `_ScorerStructuralError` into the pipeline's
-    `scorer_unavailable` `FailureRecord` code (documented scope —
-    Phase 11+ widens `run_pipeline` to consume `ReplayResult`
-    directly for per-stage codes). The structured DISTINCTION
-    must still be preserved via `details["exc_type"]` and
-    `details["reason"]` so consumers walking the report graph can
-    tell the two apart.
+def test_replay_stage_error_carries_structured_replay_code() -> None:
+    """The `_ReplayStageError.replay_code` attribute carries the
+    kernel's ReplayFailure.code as a typed field — not only baked
+    into the message. Cardinal #1: structured data over string-
+    parsed messages.
 
-    Pin this so the v0.1 scope boundary is regression-tested:
-    a future refactor that removes the `exc_type` capture in
-    `pipeline.py:165` (collapsing the structured trail) fails here.
-    """
-    from whatif.cli_pipeline import _ReplayStageError, _ScorerStructuralError
+    Pin this so a future refactor that drops the attribute (e.g.,
+    collapses back to single-arg Exception) fails first."""
+    from whatif.cli_pipeline import _ReplayStageError
 
-    replay_err = _ReplayStageError("replay failed [runner_timeout]: 60s budget")
-    scorer_err = _ScorerStructuralError("scorer returned JudgeResult(score=None); rationale=...")
+    err = _ReplayStageError(replay_code="runner_timeout", message="msg")
+    assert err.replay_code == "runner_timeout"
+    assert "msg" in str(err)
 
-    assert type(replay_err).__name__ == "_ReplayStageError"
-    assert type(scorer_err).__name__ == "_ScorerStructuralError"
-    # The pipeline's exception capture (pipeline.py:165) reads
-    # type(exc).__name__ into FailureRecord.details["exc_type"].
-    # That's the structured signal consumers use to distinguish
-    # replay vs scorer failure even though the top-level `code`
-    # collapses both to "scorer_unavailable" in v0.1.
-    assert "replay failed" in str(replay_err)
-    assert "JudgeResult(score=None)" in str(scorer_err)
+
+def test_scorer_structural_error_carries_rationale_classification() -> None:
+    """`_ScorerStructuralError.rationale_classification` carries
+    the Sensitive classification as a typed attribute."""
+    from whatif.cli_pipeline import _ScorerStructuralError
+
+    err = _ScorerStructuralError(rationale_classification="judge_rationale", message="msg")
+    assert err.rationale_classification == "judge_rationale"
 
 
 def test_closure_docstring_carries_runner_reference() -> None:
