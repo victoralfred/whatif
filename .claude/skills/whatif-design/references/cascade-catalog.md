@@ -1093,6 +1093,34 @@ The cycle is broken at import time because `TYPE_CHECKING` is False at runtime; 
 
 **Trigger for resolution:** v0.2 layering audit, or sooner if the TYPE_CHECKING + lazy-import pattern becomes a maintenance burden (multiple Phase 5 sub-phases needing the same workaround).
 
+### Adapter factory hardcodes Langfuse cohort_classifier (Phase 10.1)
+
+**Source decision:** `src/whatif/adapters/factory.py::_build_langfuse_source` constructs `LangfuseTraceSource(cohort_classifier=lambda t: "failure" if "failure" in (getattr(t, "tags", None) or []) else "baseline", ...)`. The classifier is hardcoded to a tags-based binary check. The `SourceConfig` Pydantic model has no field to override it.
+
+**Forward consequences:**
+- v0.2 adds config-driven classifier selection (e.g., `source.cohort_classifier: "tags" | "metadata.<key>" | "user_id_pattern:<regex>"`). The `SourceConfig` schema gains an optional field; the factory dispatches.
+- Operators on v0.1 whose Langfuse projects don't tag traces with `"failure"` / `"baseline"` MUST patch the factory or use the programmatic path until v0.2 lands.
+
+**Status:** open (acceptable for v0.1 — matches the documented Langfuse-readme convention).
+
+**Resolution:** v0.2 schema bump that adds `SourceConfig.cohort_classifier`. Until then, the factory's lambda is the single point of hardcoded policy; document-the-default discipline (the `_build_langfuse_source` docstring + this entry) is the bridge.
+
+**Trigger for resolution:** the first user request for non-tags-based classification, OR v0.2 release planning (whichever fires first).
+
+### Adapter factory has no Langfuse-host reachability check (Phase 10.1)
+
+**Source decision:** `_build_langfuse_source` constructs `Langfuse(host=..., public_key=..., secret_key=...)` without any timeout, retry, or pre-flight reachability probe. The Langfuse SDK has its own internal HTTP-level timeouts; if the configured host is unreachable, the first `api.trace.list(...)` call hangs (or errors) at fork-time, not at config-load time.
+
+**Forward consequences:**
+- A typo in `LANGFUSE_HOST` (or a stale `LANGFUSE_BASE_URL`) silently delays the failure to mid-fork instead of surfacing it at startup as `AdapterFactoryError`. The operator gets a less actionable error.
+- Phase 10.4 (`_run_fork_pipeline` body) inherits this — the fork pipeline's first contact with Langfuse is the trace-list call, not a connection probe.
+
+**Status:** open (acceptable for v0.1 — matches the Langfuse SDK's own behavior and avoids reaching outside the dispatch responsibility).
+
+**Resolution:** v0.2 may add a `--check-source` pre-flight subcommand (`whatif source check`) that does an `api.trace.list(page=1, limit=1)` and converts any error into a setup-failure exit. Less invasive than wrapping every adapter construction in a probe.
+
+**Trigger for resolution:** the first Langfuse-host misconfiguration bug report, OR v0.2 CLI scope review.
+
 ## Resolved cascades
 
 ### Banned-import lint scope: cache keying canonical JSON (resolved 2026-05-05)

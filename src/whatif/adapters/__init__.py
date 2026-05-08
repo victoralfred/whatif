@@ -27,6 +27,7 @@ test (`python -c "import whatif"` doesn't import any adapter)
 enforces the boundary.
 """
 
+from whatif.adapters.factory import AdapterFactoryError, build_scorer, build_trace_source
 from whatif.adapters.protocols import (
     AdapterMetadata,
     JudgeResult,
@@ -43,10 +44,13 @@ from whatif.types.statistical import ClusterKeySupport
 # `whatif.types.statistical` (cardinal #6 typed-boundary discipline);
 # this re-export is for ergonomics at the adapter boundary.
 __all__ = [
+    "AdapterFactoryError",
     "AdapterMetadata",
     "ClusterKeySupport",
     "JudgeResult",
     "RawTrace",
     "Scorer",
     "TraceSource",
+    "build_scorer",
+    "build_trace_source",
 ]
