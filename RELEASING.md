@@ -87,7 +87,16 @@ If `whatifd` publishes but one of the adapters fails, the resulting state is inc
 2. Update their `dependencies` to require `whatifd>=0.1.0`.
 3. Tag `v0.1.1` and re-run the workflow with only the adapter publish jobs (or accept that `whatifd 0.1.1` will be a no-op republish and let it run).
 
-The cleanest prevention is to test the workflow on a pre-release tag (e.g., `v0.1.0a1`) against PyPI Test Index first. Add `repository-url: https://test.pypi.org/legacy/` to each `pypa/gh-action-pypi-publish` step in a fork of the workflow if you want to dry-run.
+**Cleanest prevention: TestPyPI dry-run on a pre-release tag.** Before pushing the real `v0.1.0` tag, push `v0.1.0rc1` (or any PEP 440 pre-release suffix — `a1`, `b1`, `rc1` all work) against TestPyPI first. This proves the entire publish path end-to-end without committing to a permanent PyPI version.
+
+Steps:
+1. Configure a parallel set of TestPyPI Trusted Publishers at https://test.pypi.org/manage/account/publishing/ — same owner / repo / workflow / environment-name claims; `test.pypi.org` is a separate registry from `pypi.org` so the publishers don't collide.
+2. In a temporary workflow branch, point each `pypa/gh-action-pypi-publish` step at TestPyPI by adding `repository-url: https://test.pypi.org/legacy/`.
+3. Tag and push `v0.1.0rc1`. Verify all three packages appear at `https://test.pypi.org/project/whatifd/0.1.0rc1/` etc.
+4. `pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ whatifd==0.1.0rc1 whatifd-langfuse==0.1.0rc1 whatifd-inspect-ai==0.1.0rc1` in a clean venv.
+5. If everything resolves and `whatif --help` works, revert the workflow back to PyPI proper, push the real `v0.1.0` tag.
+
+The pre-release tag remains on TestPyPI and on a GitHub Release; you can delete the GitHub Release if you want to keep the public release notes focused on the real tag.
 
 ## Hot-fix releases
 

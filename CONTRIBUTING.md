@@ -21,7 +21,7 @@ If you've not yet read [DESIGN.md](./DESIGN.md), do that first - many *"why is i
 
 ```bash
 git clone https://github.com/victoralfred/whatifd
-cd whatif
+cd whatifd
 uv sync --all-extras --dev
 
 # verify the toolchain works
