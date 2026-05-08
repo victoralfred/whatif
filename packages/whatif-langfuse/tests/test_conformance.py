@@ -220,6 +220,23 @@ class TestLangfuseSpecificBehaviors:
         )
         assert len(list(src.iter_traces())) == 5
 
+    def test_fake_trace_client_records_requested_pages(self) -> None:
+        # Make `_FakeTraceClient.requested_pages` load-bearing —
+        # not just diagnostic state. With a fixture of 3 traces and
+        # `page_limit=10`, `iter_traces` should call list(page=1)
+        # exactly once and stop on the short-page exhaust signal
+        # (3 < 10). A future regression that re-fetches page 1, or
+        # eagerly probes page 2 even after a short response, fails
+        # this assertion immediately.
+        api = _FakeAPI([_trace(0), _trace(1), _trace(2)])
+        src = LangfuseTraceSource(
+            api=api,
+            cohort_classifier=lambda _t: "failure",
+            page_limit=10,
+        )
+        list(src.iter_traces())
+        assert api.trace.requested_pages == [1]
+
     def test_fake_trace_client_rejects_page_zero_and_negative(self) -> None:
         # Pin the page-validation branch on the test scaffold itself.
         # The fake mirrors the Langfuse 1-indexed contract; without

@@ -11,6 +11,7 @@ at `tests/adapters/conformance.py` is the gating test.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field
 from types import MappingProxyType
@@ -23,6 +24,8 @@ from whatif.adapters.protocols import (
 from whatif.serialization.canonical import canonical_json_bytes
 from whatif.types.sensitive import Sensitive
 from whatif.types.statistical import ClusterKeySupport
+
+_log = logging.getLogger(__name__)
 
 ADAPTER_ID = "langfuse"
 
@@ -208,6 +211,18 @@ def _resolve_sdk_version() -> str | None:
     try:
         import langfuse
 
-        return getattr(langfuse, "__version__", None)
+        version = getattr(langfuse, "__version__", None)
+        if version is None:
+            _log.debug(
+                "langfuse SDK imported but exposes no __version__ attribute; "
+                "AdapterMetadata.sdk_version will be None"
+            )
+        return version
     except ImportError:
+        _log.debug(
+            "langfuse SDK not installed; AdapterMetadata.sdk_version "
+            "will be None. Install via `pip install whatif-langfuse` "
+            "(which pulls langfuse as a hard dep) or directly with "
+            "`pip install langfuse`."
+        )
         return None

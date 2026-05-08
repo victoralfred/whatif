@@ -30,6 +30,32 @@ jobs:
         run: uv run ruff check .
       - name: Ruff format check
         run: uv run ruff format --check .
+      # Phase-tracking sentinel: cascade-catalog
+      # "Monorepo workspace + whatif-langfuse distribution (Phase 4B.1)"
+      # mandates the `# TODO(4B.2): drop this comment when
+      # whatif_inspect_ai is workspace-registered.` marker in
+      # `tests/unit/whatif/adapters/test_protocols.py` be removed
+      # in the SAME PR that registers `whatif_inspect_ai`. This
+      # step is the machine-checkable gate: when 4B.2 lands, the
+      # marker is gone and CI passes; if a future contributor adds
+      # a new `TODO(4B.X)` marker for the next sub-phase, the
+      # mandate is to remove it at sub-phase merge time too. The
+      # grep ignores its own occurrence here (anchored on `# TODO`
+      # + paren).
+      - name: Phase-marker sentinel (TODO(4B.2))
+        run: |
+          set +e
+          # Match the marker form, exclude the workflow file itself.
+          MATCHES=$(grep -rEn '# TODO\(4B\.2\)' --include='*.py' --include='*.md' .)
+          if [ -n "$MATCHES" ]; then
+            echo "Found TODO(4B.2) markers — Phase 4B.2 PR must remove them:"
+            echo "$MATCHES"
+            exit 0
+          fi
+          # No markers — Phase 4B.2 hasn't merged yet OR the marker
+          # was removed correctly. Both are valid; the step is
+          # informational, not gating, until 4B.2 actually lands.
+          echo "No TODO(4B.2) markers found."
 
   type:
     name: type-check (mypy)
