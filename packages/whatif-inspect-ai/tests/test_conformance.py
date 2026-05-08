@@ -259,7 +259,10 @@ class TestInspectAISpecificBehaviors:
         # and exception paths too.
         from whatif.types.sensitive import Sensitive
 
-        for fn in (_none_score_fn, lambda _c: (_ for _ in ()).throw(RuntimeError("x"))):
+        def _raise(_c: ScoreCase) -> _FakeScore:
+            raise RuntimeError("x")
+
+        for fn in (_none_score_fn, _raise):
             scorer = InspectAIScorer(
                 score_fn=fn,
                 judge_provider="anthropic",
