@@ -149,6 +149,17 @@ def build_delta_fn(
             # therefore can't be called from inside a running loop.
             # The CLI dispatcher is sync; this is fine for v0.1.
             #
+            # TODO(Phase 11): one event loop per async-runner trace
+            # defeats httpx.AsyncClient connection reuse for users
+            # whose runners construct a client per call. The fix is
+            # a shared loop optionally injected into `build_delta_fn`;
+            # cascade-catalog entry "Phase 11: shared asyncio loop
+            # for async-runner trace stream". v0.1 acceptable
+            # because (a) the workload is I/O-bound by judge latency
+            # not connection setup, and (b) sync runners get reuse
+            # via httpx.Client normally — async-runner users with
+            # connection-reuse needs can use the sync API.
+            #
             # The Phase 10.2 loader already validated this is an
             # AsyncRunner (via `inspect.iscoroutinefunction` +
             # `isinstance` belt-and-suspenders). The cast tells

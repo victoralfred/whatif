@@ -305,14 +305,30 @@ def _run_fork_pipeline(cfg: WhatifConfig, proof: TwoAffirmationProof) -> int:
             correction="none",
             reason="single primary metric per cohort; no correction applied",
         ),
+        # JudgeMethodDisclosure: v0.1 dispatcher fills what it can
+        # from the live scorer's `adapter_metadata()` (adapter_id,
+        # package_version, sdk_version). The prompt/rubric hashes
+        # need a representative ScoreCase to compute via
+        # `scorer.cache_key_components(case)`, which the dispatcher
+        # does NOT have at this point in the flow (scoring happens
+        # downstream inside `delta_fn`). Rather than emit zero-bytes
+        # that look like real hashes (a misleading methodology
+        # disclosure — cardinal #10), tag the placeholders with a
+        # human-readable sentinel so a reviewer reading the report
+        # immediately sees v0.1 hasn't yet projected the actual
+        # rubric/prompt provenance.
+        # TODO(Phase 11): widen `run_pipeline` to accept the scorer
+        # directly so the methodology disclosure can include the
+        # first-trace rubric+prompt hashes; cascade-catalog entry
+        # "Phase 11: scorer projection through run_pipeline".
         judge=JudgeMethodDisclosure(
-            scorer=cfg.scorer.adapter,
-            scorer_version="0.1.0",
+            scorer=scorer.adapter_metadata().adapter_id,
+            scorer_version=scorer.adapter_metadata().package_version,
             judge_provider=cfg.scorer.adapter,
             judge_model=cfg.scorer.adapter,
-            judge_model_version=None,
-            rendered_prompt_hash="0" * 16,
-            rubric_hash="0" * 16,
+            judge_model_version=scorer.adapter_metadata().sdk_version,
+            rendered_prompt_hash="v01-cli-placeholder-no-scorecase",
+            rubric_hash="v01-cli-placeholder-no-scorecase",
             scorer_cache_enabled=cfg.scorer.cache_mode != "off",
             scorer_cache_mode=cfg.scorer.cache_mode if cfg.scorer.cache_mode != "auto" else "off",
             scorer_cache_hits=0,
