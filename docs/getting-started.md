@@ -8,7 +8,7 @@ A worked, end-to-end example that runs the whatif pipeline and produces a `Ship`
 
 ```bash
 # Once published to PyPI:
-uv pip install whatif whatifd-langfuse whatifd-inspect-ai
+uv pip install whatifd whatifd-langfuse whatifd-inspect-ai
 
 # From source (uv workspace):
 git clone https://github.com/victoralfred/whatifd

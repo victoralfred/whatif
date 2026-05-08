@@ -35,7 +35,7 @@ When you change a prompt, model, or tool in an LLM system, you don't actually kn
 
 ```bash
 # Once published to PyPI:
-uv pip install whatif whatifd-langfuse whatifd-inspect-ai
+uv pip install whatifd whatifd-langfuse whatifd-inspect-ai
 
 # From source (uv workspace):
 git clone https://github.com/victoralfred/whatifd
