@@ -36,7 +36,7 @@ import whatifd
 for _dist in ("whatifd", "whatifd-langfuse", "whatifd-inspect-ai"):
     try:
         version(_dist)
-    except PackageNotFoundError:  # pragma: no cover - CI guard
+    except PackageNotFoundError:
         pytest.fail(
             f"{_dist!r} is not installed; the version-parity gate "
             f"requires all three packages to be installed (run "
