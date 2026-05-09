@@ -15,12 +15,34 @@ installed (which it is in any test run that uses `uv sync`),
 
 from __future__ import annotations
 
-from importlib.metadata import version
+from importlib.metadata import PackageNotFoundError, version
 
+import pytest
 import whatifd_inspect_ai
 import whatifd_langfuse
 
 import whatifd
+
+# Precondition: the parity gate is only meaningful when the three
+# distributions are actually installed. If any are missing,
+# `importlib.metadata.version(...)` raises `PackageNotFoundError` and
+# the body tests would fail with a confusing error — but a
+# misconfigured CI that ran the tests via PYTHONPATH (no install) would
+# fail at import-time, before this module loads, hiding the real cause.
+# We probe metadata up-front and fail loudly with an explicit message
+# so a broken install can't masquerade as a passing version-parity
+# gate (and `pytest.importorskip` is deliberately NOT used — skipping
+# would let CI go green on a broken install).
+for _dist in ("whatifd", "whatifd-langfuse", "whatifd-inspect-ai"):
+    try:
+        version(_dist)
+    except PackageNotFoundError:  # pragma: no cover - CI guard
+        pytest.fail(
+            f"{_dist!r} is not installed; the version-parity gate "
+            f"requires all three packages to be installed (run "
+            f"`uv sync --all-extras --dev --group workspace`).",
+            pytrace=False,
+        )
 
 
 def test_whatifd_version_matches_distribution_metadata() -> None:

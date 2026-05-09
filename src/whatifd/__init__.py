@@ -3,9 +3,10 @@
 `__version__` is read at import time from the installed
 distribution metadata (the `version` field in `pyproject.toml`),
 NOT hardcoded here. Single source of truth eliminates the
-hardcode-vs-pyproject drift that PR #75's TestPyPI dry-run
-caught (where the distribution shipped as `0.1.0rc1` but
-`whatifd.__version__` still reported `0.0.1`).
+hardcode-vs-pyproject drift that PR #76 fixed after the
+`v0.1.0rc1` TestPyPI dry-run caught it (the distribution
+shipped as `0.1.0rc1` but `whatifd.__version__` still
+reported `0.0.1`).
 
 The fallback is a sentinel string for editable / source-only
 contexts where `importlib.metadata.version("whatifd")` raises
