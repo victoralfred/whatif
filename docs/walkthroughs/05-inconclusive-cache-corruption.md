@@ -1,6 +1,6 @@
-# whatif verdict: Inconclusive
+# whatifd verdict: Inconclusive
 
-**Reason:** could not acquire scorer cache lock at `.whatif/cache/scorer/.lock`.
+**Reason:** could not acquire scorer cache lock at `.whatifd/cache/scorer/.lock`.
 A previous run may have terminated abnormally, leaving the lock file orphaned.
 
 [Suggested next steps ↓](#fix) · [Manifest →](manifest.json)
@@ -17,15 +17,15 @@ The cache lock file shows:
 To recover:
 
 1. **If you know the previous run is no longer running:**
-   `whatif cache rebuild --force`
+   `whatifd cache rebuild --force`
    This will rebuild the cache from scratch (slower next run, but safe).
 
 2. **If you want to clear just the lock without rebuilding:**
-   `whatif cache unlock`
-   Use only if you're certain no other whatif process is using this cache.
+   `whatifd cache unlock`
+   Use only if you're certain no other whatifd process is using this cache.
 
 3. **If you suspect file corruption:**
-   `whatif cache verify`
+   `whatifd cache verify`
    Reads all entries, reports any with checksum mismatches, optionally repairs.
 
 This run produced no verdict. Rerun after recovery.

@@ -63,10 +63,10 @@ htmlcov/
 *.pem
 *.key
 
-# whatif local artifacts
+# whatifd local artifacts
 reports/
-.whatif-cache/
-*.whatif.json
+.whatifd-cache/
+*.whatifd.json
 
 # Skill telemetry — raw transcripts and bulky benchmark outputs.
 # Cardinal rule #5 (sensitive data wrapped, never raw) — raw JSONL transcripts

@@ -1,8 +1,8 @@
 # Getting started
 
-A worked, end-to-end example that runs the whatif pipeline and produces a `Ship` / `Don't Ship` / `Inconclusive` verdict report. Read top-to-bottom.
+A worked, end-to-end example that runs the whatifd pipeline and produces a `Ship` / `Don't Ship` / `Inconclusive` verdict report. Read top-to-bottom.
 
-> **What works today (v0.1):** the programmatic API (`whatifd.pipeline.run_pipeline`) drives the full pipeline end-to-end with both real adapters (`whatifd-langfuse`, `whatifd-inspect-ai`) in the path. The `whatif fork` CLI command is wired through config + the cardinal-#7 two-affirmation gate but its dispatcher body is a documented stub for v0.1.0; see [`phases.md`](../.claude/skills/whatifd-design/references/phases.md) "Implementation gaps." The integration-test suite (`tests/integration/test_real_adapters.py`) is the load-bearing reference for the pattern below.
+> **What works today (v0.1):** the programmatic API (`whatifd.pipeline.run_pipeline`) drives the full pipeline end-to-end with both real adapters (`whatifd-langfuse`, `whatifd-inspect-ai`) in the path. The `whatifd fork` CLI command is wired through config + the cardinal-#7 two-affirmation gate but its dispatcher body is a documented stub for v0.1.0; see [`phases.md`](../.claude/skills/whatifd-design/references/phases.md) "Implementation gaps." The integration-test suite (`tests/integration/test_real_adapters.py`) is the load-bearing reference for the pattern below.
 
 ## Install
 
@@ -18,13 +18,13 @@ uv sync --all-extras --dev --group workspace
 
 ## The shape
 
-A whatif run has six inputs:
+A whatifd run has six inputs:
 
 1. **A `TraceSource`** — your tracer's adapter. v0.1 ships `whatifd-langfuse`. The synthetic `whatifd.adapters.stub.StubTraceSource` is in-tree for tests and out-of-tree adapter authors.
 2. **A `delta_fn(RawTrace) -> float`** — the per-trace effect size. In v0.1 you build this from a `Scorer` (see [Wiring a real scorer](#wiring-a-real-scorer) below).
 3. **A `TrustFloor`** — the cardinal-#2 floor. Defaults are reasonable for v0.1.
 4. **A `DecisionPolicy`** — the above-floor policy thresholds.
-5. **A `RunManifest`** — runtime metadata (timestamps, env fingerprint, whatif version).
+5. **A `RunManifest`** — runtime metadata (timestamps, env fingerprint, whatifd version).
 6. **A `MethodologyDisclosure` + `CacheSummary`** — required-presence fields per cardinal #10.
 
 You hand all six to `run_pipeline`; you get a `ReportV01` back with `verdict_state ∈ {"ship", "dont_ship", "inconclusive"}`.
@@ -154,7 +154,7 @@ cache_summary = CacheSummary(
     key_version="v1",
     mode="off",
     storage_profile="normalized_result_only",
-    storage_path=".whatif/cache",
+    storage_path=".whatifd/cache",
     hits=0, misses=0, writes=0, stale_hits=0, corrupted_entries=0,
     policy=CachePolicySnapshot(
         mode="off", warn_after_days=30, block_after_days=90,
@@ -248,16 +248,16 @@ The five-section structure (header → cohort table → findings → cache + met
 
 ## Stub adapters: what they do (and don't)
 
-Two CLI-friendly placeholders ship with whatif core for credentialless smokes:
+Two CLI-friendly placeholders ship with whatifd core for credentialless smokes:
 
-- **`source.adapter: "stub"`** — `whatifd.adapters.factory.build_trace_source` returns `StubTraceSource(specs=[])`. **Empty by design** — the factory's job is dispatch, not fixture provisioning. Tests/users that need traces construct `StubTraceSource(specs=[...])` directly. A `whatif fork` smoke run with the empty stub source produces a Floor-failure Inconclusive verdict (cardinal #2: no data → not Ship), not a crash.
+- **`source.adapter: "stub"`** — `whatifd.adapters.factory.build_trace_source` returns `StubTraceSource(specs=[])`. **Empty by design** — the factory's job is dispatch, not fixture provisioning. Tests/users that need traces construct `StubTraceSource(specs=[...])` directly. A `whatifd fork` smoke run with the empty stub source produces a Floor-failure Inconclusive verdict (cardinal #2: no data → not Ship), not a crash.
 - **`scorer.adapter: "stub"`** — `StubScorer()` with the default `score_fn` that returns the constant **`0.5` for every case**, not "no judgment" and not zero. Each trace gets a deterministic 0.5 delta. This is intentional: the stub is for wiring-validation, not behavioral evaluation. **A real run that accidentally uses `scorer.adapter: "stub"` will appear to improve uniformly across every trace** — a misleading Ship verdict pattern. If you see uniform 0.5 deltas in a real run, check your scorer config.
 
 The stub is the right default for an end-to-end CLI smoke that proves the wiring works. It is the wrong default for an experiment whose verdict you want to act on.
 
 ## Known limitations (v0.1.0)
 
-- The `whatif fork` CLI dispatcher is stubbed; use the programmatic API above. End-to-end CLI wiring is the next branch.
+- The `whatifd fork` CLI dispatcher is stubbed; use the programmatic API above. End-to-end CLI wiring is the next branch.
 - CI bounds are empirical 5th/95th percentiles, not stratified bootstrap. The methodology disclosure declares this with `bootstrap.method="unavailable"` so consumers see the truth.
 - Cache `verify` does structural checks but not cryptographic content-hash. Deferred to v0.2.
 

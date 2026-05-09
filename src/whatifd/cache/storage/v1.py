@@ -1,12 +1,12 @@
 """Cache storage — v1.
 
 On-disk file layout for the scorer cache. Phase 3.2 of the v0.1
-implementation plan; pairs with `whatif/cache/keying/v1.py` (Phase 3.1).
+implementation plan; pairs with `whatifd/cache/keying/v1.py` (Phase 3.1).
 
 ## Layout
 
 ```
-.whatif/cache/
+.whatifd/cache/
 ├── meta.json               (cache_schema_version, cache_key_version, created_at)
 ├── .lock                   (Phase 3.3 — not written here)
 └── entries/
@@ -60,9 +60,9 @@ ambiguity at the catch site.
 
 ## What this module does NOT do
 
-- **Locking** — Phase 3.3 (`whatif/cache/lock.py`).
-- **Mode resolution** — Phase 3.4 (`whatif/cache/policy.py`).
-- **CacheSummary aggregation** — Phase 3.5 (`whatif/cache/summary.py`).
+- **Locking** — Phase 3.3 (`whatifd/cache/lock.py`).
+- **Mode resolution** — Phase 3.4 (`whatifd/cache/policy.py`).
+- **CacheSummary aggregation** — Phase 3.5 (`whatifd/cache/summary.py`).
 - **Profile gating on `rationale`** — caller's responsibility.
 
 Tests run against `tmp_path`; no shared state.
@@ -218,7 +218,7 @@ def init_cache(root: Path) -> CacheMeta:
                 f"Cache at {root} was initialized with cache_schema_version="
                 f"{meta.cache_schema_version!r}; this module expects "
                 f"{CACHE_SCHEMA_VERSION!r}. Migration is not automatic in v0.1; "
-                "rebuild the cache via `whatif cache rebuild --force`."
+                "rebuild the cache via `whatifd cache rebuild --force`."
             )
         return meta
     meta = CacheMeta(
@@ -255,7 +255,7 @@ def read_meta(root: Path) -> CacheMeta:
             f"required top-level keys: {e}. The file is unreadable as a "
             "v1 CacheMeta. Likely cause: on-disk corruption or partial "
             "write from a crashed run. Recover via "
-            "`whatif cache rebuild --force`."
+            "`whatifd cache rebuild --force`."
         ) from e
 
 
@@ -267,7 +267,7 @@ def write_entry(root: Path, key: str, entry: CacheEntry) -> Path:
     responsible for coordinating concurrent writers via the Phase 3.3
     lock). Uses `canonical_json_bytes` for the on-disk encoding so
     entries written by different platforms compare byte-equal — useful
-    for cache integrity verification (`whatif cache verify`).
+    for cache integrity verification (`whatifd cache verify`).
 
     The entry's `cache_schema_version` MUST match this module's
     `CACHE_SCHEMA_VERSION`; mismatch is a programmer bug (the caller
@@ -310,7 +310,7 @@ def read_entry(root: Path, key: str) -> CacheEntry | None:
         raise CacheSchemaMismatchError(
             f"Cache entry at {entry_path} is corrupted (invalid JSON): {e}. "
             "Likely cause: on-disk corruption or partial write. Recover "
-            "via `whatif cache rebuild --force`."
+            "via `whatifd cache rebuild --force`."
         ) from e
     if not isinstance(raw, dict) or raw.get("cache_schema_version") != CACHE_SCHEMA_VERSION:
         raise CacheSchemaMismatchError(

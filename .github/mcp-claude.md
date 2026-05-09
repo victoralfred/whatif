@@ -1,6 +1,6 @@
 # MCP server: Claude PR checker
 
-Purpose: run an automated PR review against the whatif project's cardinal
+Purpose: run an automated PR review against the whatifd project's cardinal
 rules using the Anthropic SDK. The MCP server invokes
 `./.mcp/run_pr_check_claude.sh <pr-number>` and interprets its exit code.
 
@@ -17,7 +17,7 @@ Optional:
   deeper review on high-stakes PRs. (`CLAUDE_MODEL` honored as legacy fallback.)
 - `PR_REVIEW_OUTPUT` — path to write structured verdict JSON for downstream tooling.
 
-## Exit codes (matching whatif's verdict semantics)
+## Exit codes (matching whatifd's verdict semantics)
 
 - `0` — Ship: no blocking issues; PR aligns with cardinal rules.
 - `1` — Don't Ship: at least one cardinal-rule violation, missing tests for a
@@ -25,7 +25,7 @@ Optional:
 - `2` — Inconclusive: setup/credentials/network/parse failure, or genuinely
   ambiguous PR that needs human judgment.
 
-The exit-code semantics deliberately match `whatif fork`'s own exit codes —
+The exit-code semantics deliberately match `whatifd fork`'s own exit codes —
 the PR checker is a doctrine-aligned tool reviewing a doctrine-aligned project.
 
 ## Suggested MCP behavior

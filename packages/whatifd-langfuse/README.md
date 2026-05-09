@@ -1,6 +1,6 @@
 # whatifd-langfuse
 
-Langfuse `TraceSource` adapter for [whatif](https://github.com/victoralfred/whatifd). Phase 4B.1 of the v0.1 plan.
+Langfuse `TraceSource` adapter for [whatifd](https://github.com/victoralfred/whatifd). Phase 4B.1 of the v0.1 plan.
 
 ## Install
 
@@ -8,7 +8,7 @@ Langfuse `TraceSource` adapter for [whatif](https://github.com/victoralfred/what
 pip install whatifd-langfuse
 ```
 
-Pulls `whatif` and `langfuse>=4.5.1,<5.0` (industry-standard library pinning: lower bound + major-version cap).
+Pulls `whatifd` and `langfuse>=4.5.1,<5.0` (industry-standard library pinning: lower bound + major-version cap).
 
 ## Usage
 
@@ -61,7 +61,7 @@ The cassette is committed under `tests/cassettes/`. Sensitive headers (`Authoriz
 
 ## Contributor setup
 
-This package lives in the parent whatif monorepo as a uv workspace member. From the repo root:
+This package lives in the parent whatifd monorepo as a uv workspace member. From the repo root:
 
 ```bash
 uv sync --all-extras --dev --group workspace
@@ -73,4 +73,4 @@ The `--group workspace` flag pulls the in-tree `whatifd-langfuse` editable insta
 
 ## Stability
 
-Pre-1.0; the adapter follows whatif's v0.1 stability contract. The Langfuse SDK upper-cap (`<5.0`) reserves the next major for a coordinated migration if Langfuse changes the `LangfuseAPI.trace.list(...)` shape.
+Pre-1.0; the adapter follows whatifd's v0.1 stability contract. The Langfuse SDK upper-cap (`<5.0`) reserves the next major for a coordinated migration if Langfuse changes the `LangfuseAPI.trace.list(...)` shape.

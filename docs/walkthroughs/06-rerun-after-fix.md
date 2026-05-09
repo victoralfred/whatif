@@ -1,4 +1,4 @@
-# whatif diff: 2026-05-03-prompt-v3 → 2026-05-04-prompt-v4
+# whatifd diff: 2026-05-03-prompt-v3 → 2026-05-04-prompt-v4
 
 **Verdict change:** Don't Ship → Ship
 

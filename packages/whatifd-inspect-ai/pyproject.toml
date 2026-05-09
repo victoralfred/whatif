@@ -1,14 +1,14 @@
 [project]
 name = "whatifd-inspect-ai"
 version = "0.1.0"
-description = "Inspect AI `Scorer` adapter for whatif. Phase 4B.2 of the v0.1 plan."
+description = "Inspect AI `Scorer` adapter for whatifd. Phase 4B.2 of the v0.1 plan."
 readme = "README.md"
 license = { text = "Apache-2.0" }
 requires-python = ">=3.11"
 authors = [
   { name = "victoralfred" },
 ]
-keywords = ["whatif", "inspect-ai", "llm", "scoring", "evaluation"]
+keywords = ["whatifd", "inspect-ai", "llm", "scoring", "evaluation"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",

@@ -12,7 +12,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: whatif version
+      label: whatifd version
       description: Output of `pip show whatifd | grep Version` or the git SHA.
       placeholder: "0.0.1 (git: abc123)"
     validations:
@@ -39,7 +39,7 @@ body:
     attributes:
       label: Command run
       description: |
-        The full `whatif` command (or Python code) that triggered the bug.
+        The full `whatifd` command (or Python code) that triggered the bug.
         Redact secrets and project-specific identifiers.
       render: bash
     validations:

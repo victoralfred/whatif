@@ -6,8 +6,8 @@ Phase 3 per the v0.1 implementation plan.
 
 ## Why a lock at all
 
-The scorer cache lives under `.whatif/cache/`. A `whatif fork` run
-writes new entries as it scores traces. If two `whatif` processes
+The scorer cache lives under `.whatifd/cache/`. A `whatifd fork` run
+writes new entries as it scores traces. If two `whatifd` processes
 target the same cache concurrently, partial writes can interleave and
 produce corrupted entries — the cardinal #1 "failures-as-data"
 boundary requires us to fail loud rather than ship a Ship verdict
@@ -152,8 +152,8 @@ __all__ = (
 # `FailureRecord`. Pinning the constant here makes the exception ↔
 # registry link grep-discoverable; the registry already carries the
 # cardinal #8 fix-suggestion at fix_suggestions.py:120
-# (cache_lock_unavailable → "whatif cache rebuild --force",
-# "whatif cache unlock", "whatif cache verify").
+# (cache_lock_unavailable → "whatifd cache rebuild --force",
+# "whatifd cache unlock", "whatifd cache verify").
 LOCK_FAILURE_CODE = "cache_lock_unavailable"
 
 _LOCK_FILENAME = ".lock"
@@ -189,7 +189,7 @@ class CacheLockedError(Exception):
     DATA condition (a legitimate runtime state — another process holds
     the lock), not a programmer bug. The message includes the
     structured lock-file contents so operators can decide whether to
-    wait, run `whatif cache unlock`, or run `whatif cache rebuild`.
+    wait, run `whatifd cache unlock`, or run `whatifd cache rebuild`.
 
     ## Structured-failure mapping (cardinal #8)
 
@@ -203,7 +203,7 @@ class CacheLockedError(Exception):
       conclusion (`blocks_all` severity → Inconclusive).
     - `FIX_SUGGESTION_REGISTRY["cache_lock_unavailable"]` — the
       cardinal #8 actionability template, with the three
-      `whatif cache rebuild`/`unlock`/`verify` recovery paths.
+      `whatifd cache rebuild`/`unlock`/`verify` recovery paths.
 
     The free-text strings in this exception's message are
     *operator-facing diagnostics* (PID/hostname/started_at provenance
@@ -228,7 +228,7 @@ def acquire_cache_lock(
 
     Raises `CacheLockedError` when the lock is held by another live
     process and is not stale. Operators can resolve via
-    `whatif cache unlock` (Phase 8).
+    `whatifd cache unlock` (Phase 8).
 
     `allow_age_takeover=True` enables time-based takeover (lock older
     than `stale_after_seconds`) — opt-in only because age alone is a
@@ -309,7 +309,7 @@ def acquire_cache_lock(
         # `ResourceWarning` — visible to operators by default in CPython
         # (`-W default::ResourceWarning`) and routable through
         # `warnings.filterwarnings(...)` for CI/test discipline.
-        # Matches the precedent in `whatif/serialization/decimal.py`.
+        # Matches the precedent in `whatifd/serialization/decimal.py`.
         if acquired:
             try:
                 fcntl.flock(fp.fileno(), fcntl.LOCK_UN)
@@ -469,8 +469,8 @@ def _build_locked_error(lock_path: Path) -> CacheLockedError:
         err = CacheLockedError(
             f"Cache lock at {lock_path} is held but its content is "
             f"unreadable ({type(diag_err).__name__}: {diag_err}). Run "
-            "`whatif cache unlock` if the holding process is no longer "
-            "active, or `whatif cache rebuild --force` to reset."
+            "`whatifd cache unlock` if the holding process is no longer "
+            "active, or `whatifd cache rebuild --force` to reset."
         )
         # `raise ... from diag_err` isn't usable here because this
         # function RETURNS the exception (the caller raises). Setting
@@ -485,12 +485,12 @@ def _build_locked_error(lock_path: Path) -> CacheLockedError:
             f"Cache lock at {lock_path} is held by another live process. "
             f"PID={content.pid}, hostname={content.hostname!r}, "
             f"started_at={content.started_at!r}. If you know the "
-            "holding process is no longer running, run `whatif cache unlock`. "
-            "If the cache may be corrupted, run `whatif cache rebuild --force`."
+            "holding process is no longer running, run `whatifd cache unlock`. "
+            "If the cache may be corrupted, run `whatifd cache rebuild --force`."
         )
     # File read but unparseable — degraded diagnostic, still typed.
     return CacheLockedError(
         f"Cache lock at {lock_path} is held but its content is unparseable. "
-        "Run `whatif cache unlock` if the holding process is no longer active, "
-        "or `whatif cache rebuild --force` to reset."
+        "Run `whatifd cache unlock` if the holding process is no longer active, "
+        "or `whatifd cache rebuild --force` to reset."
     )

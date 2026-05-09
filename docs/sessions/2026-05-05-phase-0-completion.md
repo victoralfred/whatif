@@ -40,7 +40,7 @@ started_at: 2026-05-05T07:00:00Z
 - `project/src/whatifd/types/sensitive.py`: `Sensitive[T]` wrapper + `SensitiveUnwrap` audit record + `_AuditLog` thread-safe collector + `_infer_caller` helper + `SensitiveSerializationError` and `UnredactedSensitiveError` (Phase 1.2; cardinal #5)
 - `project/tests/unit/whatifd/types/test_primitives.py`: 5 smoke tests including import-budget (Phase 1.1)
 - `project/tests/unit/whatifd/types/test_sensitive.py`: 17 tests covering redacted-repr/str/format, pickle-blocked, slots discipline, unwrap audit, concurrent audit-log writes, infer-caller, exception type distinction (Phase 1.2)
-- `project/tests/unit/{,whatif/{,types/}}__init__.py`: nested-test-package init files
+- `project/tests/unit/{,whatifd/{,types/}}__init__.py`: nested-test-package init files
 
 **Cascade catalog items:**
 - Updated: none — Phase 1.1 + 1.2 implement existing cascades; they don't open or close cascade entries (cascades close when their CI tests are in place AND green; we're at the implementation-only stage, not the schema-freeze gate)

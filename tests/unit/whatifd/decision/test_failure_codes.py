@@ -361,7 +361,7 @@ class TestFactoryEnforcesScopeIdentifierConsistency:
                 id="failure_001",
                 message="x",
                 trace_id="t_001",
-                details={"lock_path": ".whatif/cache/scorer/.lock"},
+                details={"lock_path": ".whatifd/cache/scorer/.lock"},
             )
         with pytest.raises(ValueError, match="scope='run' forbids cohort"):
             make_failure_record(
@@ -369,7 +369,7 @@ class TestFactoryEnforcesScopeIdentifierConsistency:
                 id="failure_001",
                 message="x",
                 cohort="failure",
-                details={"lock_path": ".whatif/cache/scorer/.lock"},
+                details={"lock_path": ".whatifd/cache/scorer/.lock"},
             )
 
 

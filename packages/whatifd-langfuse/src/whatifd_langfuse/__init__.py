@@ -1,4 +1,4 @@
-"""`whatifd-langfuse` — Langfuse `TraceSource` adapter for whatif.
+"""`whatifd-langfuse` — Langfuse `TraceSource` adapter for whatifd.
 
 Phase 4B.1 of the v0.1 plan. Implements `whatifd.adapters.TraceSource`
 against the Langfuse v4 SDK (`langfuse.api.LangfuseAPI`), wraps user

@@ -1,6 +1,6 @@
 """Lock-file deserialization helpers.
 
-Phase 3.3 (cache lock) reads `.whatif/cache/.lock` JSON content to
+Phase 3.3 (cache lock) reads `.whatifd/cache/.lock` JSON content to
 inspect the recorded holder for stale-detection AND for diagnostic
 message enrichment when the lock is held by another process. Both
 paths use the same typed helper:
@@ -14,7 +14,7 @@ detection treats `None` as "stale by definition; no provenance to
 respect"; diagnostic-message construction treats `None` as "lock
 content is unparseable, fall back to a degraded message."
 
-Centralizing here (rather than inline in `whatif/cache/lock.py`) keeps
+Centralizing here (rather than inline in `whatifd/cache/lock.py`) keeps
 the symmetry with `canonical_json_bytes`: writing canonical bytes
 lives in this package; reading them back lives next to it. A future
 broadening of the banned-import lint to cover all `json` usage outside

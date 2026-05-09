@@ -123,7 +123,7 @@ def _default_cache_summary() -> CacheSummary:
         key_version="v1",
         mode="off",
         storage_profile="normalized_result_only",
-        storage_path=".whatif/cache",
+        storage_path=".whatifd/cache",
         hits=0,
         misses=0,
         writes=0,

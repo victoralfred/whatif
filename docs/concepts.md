@@ -1,12 +1,12 @@
 # Concepts
 
-This page is the conceptual model behind whatif. Two pages plus glossary. If you read nothing else about the project, read this.
+This page is the conceptual model behind whatifd. Two pages plus glossary. If you read nothing else about the project, read this.
 
 ## 1. Product: defensible verdicts
 
-> **whatif's product is the verdict's defensibility.**
+> **whatifd's product is the verdict's defensibility.**
 
-The verdict is one of `Ship`, `Don't Ship`, or `Inconclusive`. The product is not the verdict itself — it's the property that the verdict is defensible: a reviewer can read the report, follow the reasoning, see the evidence, identify the assumptions, and either trust the verdict or know exactly which assumption to challenge. Every design decision in whatif is judged against whether it makes the verdict more defensible. Features that increase defensibility belong early. Features that don't belong nowhere.
+The verdict is one of `Ship`, `Don't Ship`, or `Inconclusive`. The product is not the verdict itself — it's the property that the verdict is defensible: a reviewer can read the report, follow the reasoning, see the evidence, identify the assumptions, and either trust the verdict or know exactly which assumption to challenge. Every design decision in whatifd is judged against whether it makes the verdict more defensible. Features that increase defensibility belong early. Features that don't belong nowhere.
 
 A corollary that resolves day-to-day disputes:
 
@@ -14,12 +14,12 @@ A corollary that resolves day-to-day disputes:
 
 ## 2. Non-claims
 
-Stating non-claims protects the doctrine. whatif is:
+Stating non-claims protects the doctrine. whatifd is:
 
 - **Not a substitute for production monitoring.** Production drift is a different problem.
 - **Not a benchmark suite.** It evaluates *your* change against *your* traces; it does not produce comparable scores across projects.
 - **Not a load test.** Replay is for behavior comparison, not for performance evaluation.
-- **Not a causal estimator beyond replay association.** Cached-tool replay is a known biased estimator of true production effect. whatif claims "associated regression under cached-tool replay," not "caused production regression."
+- **Not a causal estimator beyond replay association.** Cached-tool replay is a known biased estimator of true production effect. whatifd claims "associated regression under cached-tool replay," not "caused production regression."
 - **Not a judge-quality validator.** Scorer caching addresses reproducibility, not validity. Whether the judge measures the right thing is the user's calibration concern, disclosed via `MethodologyDisclosure.judge_state`.
 
 ## 3. The three verdicts
@@ -34,16 +34,16 @@ The order of precedence is fixed: `blocks_all` > `blocks_ship` > `info`. Floor f
 
 ## 4. Trust floor vs decision policy
 
-whatif separates two concerns that are conflated in most CI tools.
+whatifd separates two concerns that are conflated in most CI tools.
 
-- **Trust floor** — about *evidence existence*. Below the floor, there is insufficient evidence to evaluate any verdict. Floor failures produce `Inconclusive`. The floor cannot be overridden by configuration. Encoded structurally via the `FloorPassedProof` witness token: `Ship` requires a proof that only `evaluate_floor()` produces. Floor rules: minimum selected/replayed/scored traces per required cohort, minimum replay-validity ratio, structural CI computability (`ci_computable`). The floor is *versioned* and sticky in the manifest — existing runs validate against the floor version they were built against; v0.2 may bump to floor v2. Sticky-manifest scope: at write time, `evaluate_floor()` records the active floor version into the manifest; at report-read time (the serialization layer that loads `ReportV01`, plus the `whatif report-migrate` command), the reader validates that the recorded version is recognized and refuses to render verdicts from manifests with unknown floor versions. The guarantee is end-to-end, not just write-side.
+- **Trust floor** — about *evidence existence*. Below the floor, there is insufficient evidence to evaluate any verdict. Floor failures produce `Inconclusive`. The floor cannot be overridden by configuration. Encoded structurally via the `FloorPassedProof` witness token: `Ship` requires a proof that only `evaluate_floor()` produces. Floor rules: minimum selected/replayed/scored traces per required cohort, minimum replay-validity ratio, structural CI computability (`ci_computable`). The floor is *versioned* and sticky in the manifest — existing runs validate against the floor version they were built against; v0.2 may bump to floor v2. Sticky-manifest scope: at write time, `evaluate_floor()` records the active floor version into the manifest; at report-read time (the serialization layer that loads `ReportV01`, plus the `whatifd report-migrate` command), the reader validates that the recorded version is recognized and refuses to render verdicts from manifests with unknown floor versions. The guarantee is end-to-end, not just write-side.
 - **Decision policy** — about *evidence quality*. Configurable thresholds that gate `Ship`/`Don't Ship` decisions ABOVE the floor. Policy can be stricter than floor, never weaker. Stricter is enforced by the guard chain at evaluation time; weaker is prevented because the floor is structural and policy never gets asked about below-floor cases. Examples: `max_baseline_regression_ratio`, `min_failure_improvement_ratio`, `practical_delta_epsilon`, `max_ci_width` (the lever for accepting wider but computable CIs).
 
 Why the split matters: a user who configures `min_replay_validity: 0.1` cannot produce a junk-evidence Ship verdict because the floor structurally refuses below 0.50. Per the closing decision (`V0_1_DECISION_RECORD.md` §6), there is no `--accept-no-ci` flag — CI unavailability stays `blocks_all` and forces Inconclusive; `policy.max_ci_width` is the only lever for accepting wider CIs, and it operates on the policy side of the boundary.
 
 ## 5. Failure-as-data
 
-> **whatif does not fail silently. If a trace cannot be replayed, scored, or trusted, the report says so. If enough traces cannot be trusted, the verdict must downgrade to Inconclusive.**
+> **whatifd does not fail silently. If a trace cannot be replayed, scored, or trusted, the report says so. If enough traces cannot be trusted, the verdict must downgrade to Inconclusive.**
 
 Two layered types:
 
@@ -79,7 +79,7 @@ User content from adapters is wrapped in `Sensitive[T]` at the boundary. Three l
 
 Audit becomes grep-able: instead of "audit every serialization path," audit becomes "grep for `.unwrap(`." Every unwrap is a reviewable call site with a logged reason that lands in `manifest.runtime.sensitive_unwraps`.
 
-## 8. Examples of misleading outputs whatif must never produce
+## 8. Examples of misleading outputs whatifd must never produce
 
 These are the failure modes the architecture exists to prevent. Each is a correctness bug, not a UX issue:
 

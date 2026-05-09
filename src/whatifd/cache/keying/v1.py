@@ -10,8 +10,8 @@ footgun.
 Per `references/contracts.md` ("The `cache_key_components()` method is
 critical for determinism"), the key MUST include:
 
-- whatif report schema version
-- whatif scorer adapter version
+- whatifd report schema version
+- whatifd scorer adapter version
 - scorer type and package version
 - judge provider
 - judge model identifier
@@ -35,7 +35,7 @@ critical for determinism"), the key MUST include:
 ## Why a hash, not a structured tuple
 
 The key is used as a filename component (storage layout puts entries at
-`.whatif/cache/entries/<hash[0:2]>/<hash>.json`). A hash gives
+`.whatifd/cache/entries/<hash[0:2]>/<hash>.json`). A hash gives
 fixed-length, filesystem-safe, low-collision keys regardless of how
 long the underlying components grow. SHA-256 is overkill for collision
 resistance at v0.1 scale; the property we actually need is determinism
@@ -47,22 +47,22 @@ deps.
 `CACHE_KEY_VERSION = "v1"`. PRs that change the component set, the
 canonical-JSON shape, or the hashing algorithm MUST introduce a `v2`
 module — never mutate `v1`. The version-bump test asserts that any
-diff under `whatif/cache/keying/v1.py` triggers a constant change OR
+diff under `whatifd/cache/keying/v1.py` triggers a constant change OR
 the diff is rejected (cascade-tracked).
 
 A `v1` key and a `v2` key MUST NOT collide; the version prefix
 guarantees this even if the hashes happened to match.
 
-## Canonical encoding lives in `whatif/serialization/`
+## Canonical encoding lives in `whatifd/serialization/`
 
 The canonical-JSON helper this module uses (`canonical_json_bytes`)
-lives in `whatif/serialization/canonical.py`. Centralizing canonical
+lives in `whatifd/serialization/canonical.py`. Centralizing canonical
 encoding there gives:
 
 - A single source of truth for the hash-input canonical form.
 - Future-proof scope for the Phase 5 banned-import lint
   (`references/enforcement.md` row 2): all `json.dumps` calls inside
-  `whatif/` already live inside `whatif/serialization/`, so the lint
+  `whatifd/` already live inside `whatifd/serialization/`, so the lint
   is satisfied without an allowlist.
 - A clear semantic boundary: `canonical_json_bytes` is for hash
   inputs (no Sensitive[T] redaction needed); the artifact-path

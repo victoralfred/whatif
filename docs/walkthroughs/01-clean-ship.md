@@ -1,4 +1,4 @@
-# whatif verdict: Ship
+# whatifd verdict: Ship
 
 **Failures (20):**   improved 14   unchanged 4   regressed 2   median Δ +0.31  CI [+0.18, +0.44]
 **Baseline (20):**   improved 3    unchanged 16  regressed 1   median Δ +0.02  CI [-0.01, +0.05]

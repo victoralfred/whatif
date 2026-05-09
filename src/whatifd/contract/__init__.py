@@ -1,9 +1,9 @@
-"""whatif runner contract - the user-facing API for - target`.
+"""whatifd runner contract - the user-facing API for - target`.
 
 A trace alone is not executable. To replay an agent with a modified config,
-`whatif` calls a user-supplied runner that knows how to reconstitute the agent.
+`whatifd` calls a user-supplied runner that knows how to reconstitute the agent.
 
-The user runner produces *only* the replayed output. `whatif` owns everything
+The user runner produces *only* the replayed output. `whatifd` owns everything
 else - the original trace artifact, the cohort label, the metadata, the
 comparison, the scoring, the verdict.
 
@@ -25,7 +25,7 @@ Example:
 
 Then on the command line:
 
-    whatif fork --target "python:my_agent.replay:run" ...
+    whatifd fork --target "python:my_agent.replay:run" ...
 """
 
 from __future__ import annotations
@@ -108,7 +108,7 @@ class ToolCache(BaseModel):
     )
     policy: Literal["use-original", "live"] = Field(
         default="use-original",
-        description="Cache policy enforced by whatif.",
+        description="Cache policy enforced by whatifd.",
     )
 
     def lookup(self, tool_name: str, args: dict[str, Any]) -> Any | None:
@@ -118,8 +118,8 @@ class ToolCache(BaseModel):
     @staticmethod
     def _key(tool_name: str, args: dict[str, Any]) -> str:
         # Hash-input canonical encoding via the centralized helper.
-        # Same pattern as `whatif/cache/keying/v1.py`: hash inputs go
-        # through `whatif/serialization/canonical.py::canonical_json_bytes`
+        # Same pattern as `whatifd/cache/keying/v1.py`: hash inputs go
+        # through `whatifd/serialization/canonical.py::canonical_json_bytes`
         # so the Phase 5 banned-import lint sees zero `json.dumps`
         # outside the serialization package.
         #
@@ -154,7 +154,7 @@ class ReplayOutput(BaseModel):
     """The output your runner produces for a single replay.
 
     Keep this minimal: the final response text, plus any per-tool span
-    information your agent collected. `whatif` owns everything else
+    information your agent collected. `whatifd` owns everything else
     (originals, cohort labels, comparison, scoring).
     """
 
@@ -179,7 +179,7 @@ class ReplayOutput(BaseModel):
 class TraceOutput(BaseModel):
     """The original output as recorded in the production trace.
 
-    Constructed by `whatif` from the ingested trace. Users never construct
+    Constructed by `whatifd` from the ingested trace. Users never construct
     this themselves; it's exposed here for type clarity in scoring code.
     """
 
@@ -190,9 +190,9 @@ class TraceOutput(BaseModel):
 
 
 class ScoreCase(BaseModel):
-    """The unit handed to scorers - internal to `whatif`.
+    """The unit handed to scorers - internal to `whatifd`.
 
-    Constructed by `whatif` from (a) the original trace artifact and
+    Constructed by `whatifd` from (a) the original trace artifact and
     (b) the user runner's `ReplayOutput`. The scorer compares
     `original_output` vs `replayed_output` and emits a delta.
 
@@ -211,18 +211,18 @@ class ScoreCase(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# The protocol whatif expects when invoking --target
+# The protocol whatifd expects when invoking --target
 # ---------------------------------------------------------------------------
 
 
 @runtime_checkable
 class Runner(Protocol):
-    """The shape `whatif` expects when invoking your - target` (sync).
+    """The shape `whatifd` expects when invoking your - target` (sync).
 
     Implement a function (or callable) matching this signature, then point
      - target` at it via the `python:module.path:attr` syntax:
 
-        whatif fork --target "python:my_agent.replay:run" ...
+        whatifd fork --target "python:my_agent.replay:run" ...
     """
 
     def __call__(
@@ -239,7 +239,7 @@ class AsyncRunner(Protocol):
     on `httpx.AsyncClient`, `asyncio` primitives, or otherwise wants
     to express I/O-bound replay as native coroutines.
 
-    The whatif async kernel (`whatifd.replay.kernel_async.
+    The whatifd async kernel (`whatifd.replay.kernel_async.
     replay_one_trace_async`) consumes this protocol with portable
     cancellation: `asyncio.wait_for(timeout=...)` cancels the Task
     on expiry — no leaked-thread workaround needed (unlike the sync

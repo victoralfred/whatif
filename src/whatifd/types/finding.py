@@ -1,6 +1,6 @@
 """`DecisionFinding` — policy conclusion, one per conclusion.
 
-The two-type rule's other half (see `whatif/types/failure.py`):
+The two-type rule's other half (see `whatifd/types/failure.py`):
 - `FailureRecord` is what happened (operational fact, layer-pure).
 - `DecisionFinding` is what it means (policy conclusion, may reference
   failures).

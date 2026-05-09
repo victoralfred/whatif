@@ -1,6 +1,6 @@
 # whatifd-inspect-ai
 
-Inspect AI `Scorer` adapter for [whatif](https://github.com/victoralfred/whatifd). Phase 4B.2 of the v0.1 plan.
+Inspect AI `Scorer` adapter for [whatifd](https://github.com/victoralfred/whatifd). Phase 4B.2 of the v0.1 plan.
 
 ## Install
 
@@ -8,7 +8,7 @@ Inspect AI `Scorer` adapter for [whatif](https://github.com/victoralfred/whatifd
 pip install whatifd-inspect-ai
 ```
 
-Pulls `whatif` and `inspect-ai>=0.3.216,<0.4` (industry-standard library pinning: lower bound + minor-version cap, since Inspect AI is pre-1.0 and ships breaking changes within minor bumps).
+Pulls `whatifd` and `inspect-ai>=0.3.216,<0.4` (industry-standard library pinning: lower bound + minor-version cap, since Inspect AI is pre-1.0 and ships breaking changes within minor bumps).
 
 ## Usage
 
@@ -44,12 +44,12 @@ scorer = InspectAIScorer(
     scoring_parameters={"temperature": 0.0, "max_tokens": 256},
 )
 
-# Plug into the whatif pipeline alongside a TraceSource.
+# Plug into the whatifd pipeline alongside a TraceSource.
 ```
 
 ## Cardinal alignment
 
-- **#5 Sensitive at the boundary:** `JudgeResult.rationale` is wrapped at `_project_score`. Inspect AI's `Score.explanation` carries free text from the judge model; it MUST be wrapped before any whatif-core code sees it.
+- **#5 Sensitive at the boundary:** `JudgeResult.rationale` is wrapped at `_project_score`. Inspect AI's `Score.explanation` carries free text from the judge model; it MUST be wrapped before any whatifd-core code sees it.
 - **#1 failures-as-data:** when the wrapped `score_fn` returns `None` or raises, the adapter surfaces a `JudgeResult(score=None)` with structured rationale. The pipeline converts that into a `FailureRecord`. A non-numeric `Score.value` (e.g., a categorical label) projects to `score=None` instead of crashing on `float()`.
 - **#10 statistical claims:** the adapter is metric-agnostic — that's the user's responsibility when defining the Inspect AI scorer. Methodology (judge model, rubric hash, scoring parameters) flows through `cache_key_components`.
 
@@ -59,7 +59,7 @@ Unlike Langfuse (which has a hosted ingestion API replayed via `pytest-recording
 
 ## Contributor setup
 
-This package lives in the parent whatif monorepo as a uv workspace member. From the repo root:
+This package lives in the parent whatifd monorepo as a uv workspace member. From the repo root:
 
 ```bash
 uv sync --all-extras --dev --group workspace
@@ -71,4 +71,4 @@ The `--group workspace` flag pulls the in-tree `whatifd-inspect-ai` editable ins
 
 ## Stability
 
-Pre-1.0; the adapter follows whatif's v0.1 stability contract. The Inspect AI minor-version cap (`<0.4`) reserves the next minor for a coordinated migration if Inspect AI changes the `Scorer` / `Score` shape.
+Pre-1.0; the adapter follows whatifd's v0.1 stability contract. The Inspect AI minor-version cap (`<0.4`) reserves the next minor for a coordinated migration if Inspect AI changes the `Scorer` / `Score` shape.

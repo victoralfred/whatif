@@ -2,19 +2,19 @@
 
 Hand-written per cardinal #6: public schema is hand-written; internal
 types refactor freely. This module is the wire-format contract for
-the `whatif fork` output. The shape committed here is what
+the `whatifd fork` output. The shape committed here is what
 `schemas/report/v0.1.schema.json` will derive from in a later sub-
 phase, and what consumer tooling (dashboards, alerting, schema-
 validation in third-party tools) will read.
 
-## What lives here vs. `whatif/types/`
+## What lives here vs. `whatifd/types/`
 
-`whatif/types/` carries INTERNAL types — the concrete dataclasses the
+`whatifd/types/` carries INTERNAL types — the concrete dataclasses the
 decision pipeline operates on (Verdict sealed union, FloorPassedProof
 witness token, internal Sensitive[T] wrappers, etc.). These can change
 between minor versions; the only consumers are in-tree.
 
-`whatif/report/models_v01.py` (this module) carries PUBLIC types —
+`whatifd/report/models_v01.py` (this module) carries PUBLIC types —
 the wire shape consumed by external tooling. These cannot change
 without a schema-version bump (`v0.1` → `v0.2`). Per
 `references/contracts.md` §"Schema versioning":
@@ -22,7 +22,7 @@ without a schema-version bump (`v0.1` → `v0.2`). Per
 - Adding a NEW field with a default → patch (`0.1.0` → `0.1.1`).
 - Renaming/removing a field, tightening a type, changing semantics
   of an existing field → minor (`0.1` → `0.2`) with a
-  `whatif report-migrate` migration stub.
+  `whatifd report-migrate` migration stub.
 - Removing a verdict state, breaking the schema-validation contract
   → major (`v0.1` → `v1.0`).
 
@@ -65,7 +65,7 @@ favors flat schema-friendly shapes over algebraic types.
 every `ReportV01` instance. Bumping these requires:
 
 1. Migrating in-tree consumer code (renderer, projection).
-2. Authoring a `whatif report-migrate` stub for v0.1 → v0.2.
+2. Authoring a `whatifd report-migrate` stub for v0.1 → v0.2.
 3. Republishing the schema URI.
 4. Updating `references/contracts.md` § "Schema versioning" with the
    change record.
@@ -95,7 +95,7 @@ _SchemaUri = Literal["https://whatif.codes/schema/report/v0.1.json"]
 # catches assignments of any other string literal at type-check time;
 # the schema-validation pass at read time catches the rare runtime
 # `cast(...)` bypass. v0.2 will introduce a `ReportV02` module with
-# its own constants; a future `whatif report-migrate` consumes the
+# its own constants; a future `whatifd report-migrate` consumes the
 # wire JSON without instantiating the typed dataclass, so this pin
 # does not block migration paths.
 REPORT_SCHEMA_VERSION: _SchemaVersion = "0.1"
@@ -111,7 +111,7 @@ flattens.
 
 ## Cardinal #2 contract for projection.py implementers
 
-When `whatif/report/projection.py` lands (Phase 5.2), the
+When `whatifd/report/projection.py` lands (Phase 5.2), the
 `project_to_report_v01(...)` function MUST take an internal `Verdict`
 (union of `Ship | DontShip | Inconclusive`) as input — not a bare
 `VerdictState` string and not the components of a Ship. The reason is

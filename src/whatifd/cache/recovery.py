@@ -17,7 +17,7 @@ in particular):
     only; cryptographic content-hash verification is deferred to
     v0.2 when entries carry a stored hash field.
 
-## Why a separate module from `whatif/cache/storage/v1.py`
+## Why a separate module from `whatifd/cache/storage/v1.py`
 
 Storage owns the read/write contract that the runtime consumes.
 Recovery owns the destructive operator-facing repairs that should
@@ -202,7 +202,7 @@ def rebuild(cache_root: Path, *, force: bool) -> RebuildResult:
             # `non_bucket_skipped > 0` would surface anomalies
             # more loudly. Deferred from v0.1 because the count
             # in `RebuildResult` is sufficient feedback for the
-            # current operator surface (`whatif cache rebuild`
+            # current operator surface (`whatifd cache rebuild`
             # prints it). If a real user encounters stray files
             # often enough to want the hard error, that's the
             # trigger.

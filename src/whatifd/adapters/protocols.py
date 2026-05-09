@@ -183,7 +183,7 @@ class TraceSource(Protocol):
     """Protocol for trace-source adapters.
 
     Concrete implementations live in separate packages
-    (`whatifd-langfuse`, `whatif/adapters/stub.py`). The conformance
+    (`whatifd-langfuse`, `whatifd/adapters/stub.py`). The conformance
     harness (Phase 4A.2) parameterizes over the protocol and is the
     single source of truth for "what makes a trace source valid".
 
@@ -220,7 +220,7 @@ class TraceSource(Protocol):
 class Scorer(Protocol):
     """Protocol for scorer adapters.
 
-    Implementations consume `ScoreCase` (constructed by `whatif`
+    Implementations consume `ScoreCase` (constructed by `whatifd`
     core from a `RawTrace` projection plus the user runner's
     `ReplayOutput`) and produce `JudgeResult`. Cache-key components
     flow through `cache_key_components()` so the cache subsystem

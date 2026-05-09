@@ -81,8 +81,8 @@ _DETAILS_FOR_CODE: Mapping[str, Mapping[str, JsonPrimitive]] = {
         "cohort": "baseline",
         "reason": "sample_too_small",
     },
-    "cache_lock_unavailable": {"lock_path": ".whatif/cache/.lock"},
-    "cache_corruption_detected": {"cache_path": ".whatif/cache/entries"},
+    "cache_lock_unavailable": {"lock_path": ".whatifd/cache/.lock"},
+    "cache_corruption_detected": {"cache_path": ".whatifd/cache/entries"},
 }
 
 

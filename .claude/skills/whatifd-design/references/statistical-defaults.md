@@ -1,6 +1,6 @@
 # Statistical Defaults for v0.1
 
-These defaults operationalize cardinal rule #10. They are intentionally modest. Each can be overridden by `whatif.config.yaml`, but the defaults are what ships when the user doesn't configure.
+These defaults operationalize cardinal rule #10. They are intentionally modest. Each can be overridden by `whatifd.config.yaml`, but the defaults are what ships when the user doesn't configure.
 
 The frame is fixed: **endpoint discipline first, statistical machinery second.**
 
@@ -19,7 +19,7 @@ If a scorer adapter produces a non-continuous score, the adapter must convert to
 
 ## Judge mode
 
-Default v0.1 judge mode is **independent scoring per output** — the judge scores the original output and the replayed output separately, on the same rubric. The delta is computed by whatif core, not by the judge.
+Default v0.1 judge mode is **independent scoring per output** — the judge scores the original output and the replayed output separately, on the same rubric. The delta is computed by whatifd core, not by the judge.
 
 Pairwise judging (the judge directly compares two outputs) is deferred. It is more sensitive but introduces position bias, which requires order randomization or dual-order judging — both of which double scoring cost. v0.2 may add it as opt-in.
 
@@ -27,7 +27,7 @@ Pairwise judging (the judge directly compares two outputs) is deferred. It is mo
 
 v0.1 supports **one primary quality metric per run**.
 
-The primary metric is configured via `scorer.rubric` in `whatif.config.yaml`. v0.1 default: `faithfulness` (per Inspect AI's standard rubric). Other primary metrics (e.g., helpfulness, accuracy) are valid choices but only one can be primary in v0.1.
+The primary metric is configured via `scorer.rubric` in `whatifd.config.yaml`. v0.1 default: `faithfulness` (per Inspect AI's standard rubric). Other primary metrics (e.g., helpfulness, accuracy) are valid choices but only one can be primary in v0.1.
 
 Multiple primary metrics with Holm correction is deferred to v0.2. Until then, secondary metrics may be reported descriptively but cannot drive verdicts.
 
@@ -142,7 +142,7 @@ Concretely:
 
 If cost becomes a barrier to adoption, sequential testing (v0.3) and active selection with confirmatory holdout (v0.3) are the planned interventions. Both require careful design to avoid biasing verdicts.
 
-## What this implies for `whatif.config.yaml`
+## What this implies for `whatifd.config.yaml`
 
 The minimal v0.1 config that takes all defaults:
 

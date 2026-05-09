@@ -1,14 +1,14 @@
 [project]
 name = "whatifd-langfuse"
 version = "0.1.0"
-description = "Langfuse `TraceSource` adapter for whatif. Phase 4B.1 of the v0.1 plan."
+description = "Langfuse `TraceSource` adapter for whatifd. Phase 4B.1 of the v0.1 plan."
 readme = "README.md"
 license = { text = "Apache-2.0" }
 requires-python = ">=3.11"
 authors = [
   { name = "victoralfred" },
 ]
-keywords = ["whatif", "langfuse", "llm", "tracing", "evaluation"]
+keywords = ["whatifd", "langfuse", "llm", "tracing", "evaluation"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",
@@ -64,10 +64,10 @@ build-backend = "hatchling.build"
 packages = ["src/whatifd_langfuse"]
 
 [tool.uv.sources]
-# Inside this monorepo, depend on the in-tree `whatif` editable
+# Inside this monorepo, depend on the in-tree `whatifd` editable
 # install rather than the published PyPI version. Strips the
-# `whatif` constraint to a workspace-local path so day-to-day
-# development against an unreleased `whatif` works cleanly. PyPI
+# `whatifd` constraint to a workspace-local path so day-to-day
+# development against an unreleased `whatifd` works cleanly. PyPI
 # consumers see only the public `dependencies` block above.
 whatifd = { workspace = true }
 

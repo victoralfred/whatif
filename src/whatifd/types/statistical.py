@@ -1,7 +1,7 @@
 """Statistical types — Phase 1.7, cardinal rule #10.
 
 The statistical-claims layer of the type model. Cardinal #10 doctrine:
-"whatif uses paired trace deltas as the unit of analysis, predeclared
+"whatifd uses paired trace deltas as the unit of analysis, predeclared
 cohort-level endpoints as the basis for verdict, and descriptive (not
 inferential) framing for per-trace evidence. Methodology is disclosed
 in every report. Scorer caching addresses reproducibility — NOT
@@ -53,7 +53,7 @@ class TraceDelta:
 
     Pairing is structural — `original_score` and `replayed_score` are
     stored together, never as separate Sequence[float] arrays. Analysis
-    functions in `whatif/internal/stats.py` (Phase 6) accept
+    functions in `whatifd/internal/stats.py` (Phase 6) accept
     `Sequence[TraceDelta]` only; mypy strict catches signature misuse.
 
     `cluster_id` is the resolved cluster key (e.g., conversation_id) for
@@ -84,7 +84,7 @@ class TraceDeltaReportV01:
     `format(value, '.3f')` produces platform-stable `DecimalString`
     values for cross-platform determinism per cardinal rule #4.
 
-    The projection layer in `whatif/report/projection.py` (Phase 5)
+    The projection layer in `whatifd/report/projection.py` (Phase 5)
     converts internal `TraceDelta` to public `TraceDeltaReportV01`.
     """
 

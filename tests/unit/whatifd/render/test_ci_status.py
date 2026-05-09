@@ -60,15 +60,15 @@ def _report_for(verdict, *, failures=None, decision_findings=None):
 class TestVerdictPrefix:
     def test_ship_glyph_and_label(self) -> None:
         line = render_ci_status(_report_for(ship()))
-        assert line.startswith("✓ whatif: Ship —")
+        assert line.startswith("✓ whatifd: Ship —")
 
     def test_dont_ship_glyph_and_label(self) -> None:
         line = render_ci_status(_report_for(dont_ship()))
-        assert line.startswith("✗ whatif: Don't Ship —")
+        assert line.startswith("✗ whatifd: Don't Ship —")
 
     def test_inconclusive_glyph_and_label(self) -> None:
         line = render_ci_status(_report_for(inconclusive()))
-        assert line.startswith("⚠ whatif: Inconclusive —")
+        assert line.startswith("⚠ whatifd: Inconclusive —")
 
 
 # ---------------------------------------------------------------------------
@@ -105,7 +105,7 @@ class TestLengthBudget:
         line = render_ci_status(_report_for(verdict))
 
         assert len(line) <= 80
-        assert line.startswith("✗ whatif: Don't Ship — ")
+        assert line.startswith("✗ whatifd: Don't Ship — ")
         assert line.endswith("…")
 
 
@@ -198,7 +198,7 @@ class TestShipFallback:
         verdict = dataclasses.replace(ship(), cohort_results=(c_a, c_b))
         line = render_ci_status(_report_for(verdict))
 
-        assert line.startswith("✓ whatif: Ship — ")
+        assert line.startswith("✓ whatifd: Ship — ")
         # Each cohort named, with improved/scored summary.
         assert "control 7/10 ↑" in line
         assert "treatment 8/10 ↑" in line
@@ -216,7 +216,7 @@ class TestShipFallback:
         report = _report_for(ship())
         report = dataclasses.replace(report, cohort_results=[])
         line = render_ci_status(report)
-        assert line == "✓ whatif: Ship — no cohorts"
+        assert line == "✓ whatifd: Ship — no cohorts"
 
 
 class TestGlyphCodePointStability:
@@ -271,7 +271,7 @@ class TestDefensiveFallback:
         )
         line = render_ci_status(_report_for(verdict))
         assert line == (
-            "⚠ whatif: Inconclusive — (no finding available — contract violation upstream)"
+            "⚠ whatifd: Inconclusive — (no finding available — contract violation upstream)"
         )
 
 
@@ -291,7 +291,7 @@ class TestSeverityRankCoverage:
         assert literal_arms == set(SEVERITY_RANK.keys()), (
             f"SEVERITY_RANK keys {set(SEVERITY_RANK.keys())} do not match "
             f"Severity Literal arms {literal_arms}. A new severity was "
-            "added without updating whatif/render/_constants.py."
+            "added without updating whatifd/render/_constants.py."
         )
 
 

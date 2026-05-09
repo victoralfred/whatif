@@ -29,13 +29,13 @@ When a walkthrough surfaces a gap (missing CLI command, missing fix template, mi
 
 **CI status line:**
 ```
-✓ whatif: Ship — failures 14/20 ↑, baseline 17/20 stable
+✓ whatifd: Ship — failures 14/20 ↑, baseline 17/20 stable
 ```
 
 **Markdown report (compact form — degenerate case where summary IS the entire report):**
 
 ```markdown
-# whatif verdict: Ship
+# whatifd verdict: Ship
 
 **Failures (20):**   improved 14   unchanged 4   regressed 2   median Δ +0.31  CI [+0.18, +0.44]
 **Baseline (20):**   improved 3    unchanged 16  regressed 1   median Δ +0.02  CI [-0.01, +0.05]
@@ -55,7 +55,7 @@ Replay validity: 40/40 traces. Cache: 38 hits, 2 misses.
 
 ## Scenario 2: Don't Ship (regression)
 
-**Setup:** A prompt update fixes 14/20 failures but causes a 30% regression on baseline traces. Classic silent-regression case whatif exists to catch.
+**Setup:** A prompt update fixes 14/20 failures but causes a 30% regression on baseline traces. Classic silent-regression case whatifd exists to catch.
 
 **Underlying state:**
 - Failure cohort: 20 selected, 20 replayed, 20 scored, 14 improved, 3 unchanged, 3 regressed
@@ -66,13 +66,13 @@ Replay validity: 40/40 traces. Cache: 38 hits, 2 misses.
 
 **CI status line:**
 ```
-✗ whatif: Don't Ship — baseline regressed 6/20 (median Δ -0.18)
+✗ whatifd: Don't Ship — baseline regressed 6/20 (median Δ -0.18)
 ```
 
 **Markdown report (full form):**
 
 ```markdown
-# whatif verdict: Don't Ship
+# whatifd verdict: Don't Ship
 
 **Reason:** baseline cohort regressed 6/20 traces (30%), exceeding the 10% threshold.
 Median baseline Δ: **-0.18** (CI: [-0.24, -0.12]).
@@ -145,13 +145,13 @@ Baseline cohort regression rate: 30% (threshold: 10%) — **POLICY VIOLATION**
 
 **CI status line:**
 ```
-✗ whatif: Don't Ship — failures only 2/20 improved (need 50%)
+✗ whatifd: Don't Ship — failures only 2/20 improved (need 50%)
 ```
 
 **Markdown report (excerpt of the differing parts):**
 
 ```markdown
-# whatif verdict: Don't Ship
+# whatifd verdict: Don't Ship
 
 **Reason:** the failure cohort improved on only 2/20 traces (10%), below the 50% threshold.
 The proposed change does not appear to fix the targeted failures.
@@ -195,13 +195,13 @@ The change does not improve the failure cohort enough to ship. Common causes:
 
 **CI status line:**
 ```
-⚠ whatif: Inconclusive — baseline cohort below floor (3 < 5 scored)
+⚠ whatifd: Inconclusive — baseline cohort below floor (3 < 5 scored)
 ```
 
 **Markdown report (full form):**
 
 ```markdown
-# whatif verdict: Inconclusive
+# whatifd verdict: Inconclusive
 
 **Reason:** the baseline cohort has only 3 successfully-scored traces (floor requires 5).
 There is insufficient evidence to evaluate this change against silent regression.
@@ -226,7 +226,7 @@ The baseline cohort had 8 selected traces but only 3 reached scoring. Causes:
    to handle the older schema.
 
 3. **Selection limit may be too low.** Try increasing `selection.baseline_cohort.limit`
-   to 20+ in `whatif.config.yaml` to give more headroom.
+   to 20+ in `whatifd.config.yaml` to give more headroom.
 
 After addressing these, rerun the experiment.
 
@@ -275,15 +275,15 @@ Skipped traces:
 
 **CI status line:**
 ```
-⚠ whatif: Inconclusive — scorer cache locked by stale process
+⚠ whatifd: Inconclusive — scorer cache locked by stale process
 ```
 
 **Markdown report (focused excerpt):**
 
 ```markdown
-# whatif verdict: Inconclusive
+# whatifd verdict: Inconclusive
 
-**Reason:** could not acquire scorer cache lock at `.whatif/cache/scorer/.lock`.
+**Reason:** could not acquire scorer cache lock at `.whatifd/cache/scorer/.lock`.
 A previous run may have terminated abnormally, leaving the lock file orphaned.
 
 [Suggested next steps ↓](#fix) · [Manifest →](manifest.json)
@@ -300,21 +300,21 @@ The cache lock file shows:
 To recover:
 
 1. **If you know the previous run is no longer running:**
-   `whatif cache rebuild --force`
+   `whatifd cache rebuild --force`
    This will rebuild the cache from scratch (slower next run, but safe).
 
 2. **If you want to clear just the lock without rebuilding:**
-   `whatif cache unlock`
-   Use only if you're certain no other whatif process is using this cache.
+   `whatifd cache unlock`
+   Use only if you're certain no other whatifd process is using this cache.
 
 3. **If you suspect file corruption:**
-   `whatif cache verify`
+   `whatifd cache verify`
    Reads all entries, reports any with checksum mismatches, optionally repairs.
 
 This run produced no verdict. Rerun after recovery.
 ```
 
-**Design pressure surfaced:** Three CLI commands are referenced (`cache rebuild --force`, `cache unlock`, `cache verify`). If these aren't in v0.1 scope, scenario 5 fails. **Cascade catalog item:** add `whatif cache <subcommand>` family to v0.1 CLI surface, with at least the three subcommands above.
+**Design pressure surfaced:** Three CLI commands are referenced (`cache rebuild --force`, `cache unlock`, `cache verify`). If these aren't in v0.1 scope, scenario 5 fails. **Cascade catalog item:** add `whatifd cache <subcommand>` family to v0.1 CLI surface, with at least the three subcommands above.
 
 ---
 
@@ -329,13 +329,13 @@ This run produced no verdict. Rerun after recovery.
 
 **CLI invocation (proposed):**
 ```
-whatif diff reports/2026-05-03-prompt-v3/report.json reports/2026-05-04-prompt-v4/report.json
+whatifd diff reports/2026-05-03-prompt-v3/report.json reports/2026-05-04-prompt-v4/report.json
 ```
 
 **Output (proposed):**
 
 ```markdown
-# whatif diff: 2026-05-03-prompt-v3 → 2026-05-04-prompt-v4
+# whatifd diff: 2026-05-03-prompt-v3 → 2026-05-04-prompt-v4
 
 **Verdict change:** Don't Ship → Ship
 
@@ -370,9 +370,9 @@ The fix appears to have specifically addressed the over-refusal pattern identifi
 in v3's evidence section.
 ```
 
-**Design pressure surfaced:** Whether `whatif diff` is in v0.1 scope is a real question. Arguments for: it's the most natural engineer workflow after iterating on a fix. Arguments against: it's a separate feature surface that doubles the CLI complexity and requires its own renderer.
+**Design pressure surfaced:** Whether `whatifd diff` is in v0.1 scope is a real question. Arguments for: it's the most natural engineer workflow after iterating on a fix. Arguments against: it's a separate feature surface that doubles the CLI complexity and requires its own renderer.
 
-**Cascade catalog item:** Decision on `whatif diff` for v0.1. Recommend: include it in v0.1 because the rerun-after-fix workflow is core to the failure-rescue use case. Without it, engineers iterate by reading two reports side-by-side, which is the kind of friction that drives them to skim.
+**Cascade catalog item:** Decision on `whatifd diff` for v0.1. Recommend: include it in v0.1 because the rerun-after-fix workflow is core to the failure-rescue use case. Without it, engineers iterate by reading two reports side-by-side, which is the kind of friction that drives them to skim.
 
 ---
 

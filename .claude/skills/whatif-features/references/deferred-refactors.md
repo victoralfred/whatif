@@ -14,7 +14,7 @@ When a trigger fires, move the entry to `whatifd-design/references/cascade-catal
 
 **Trigger to promote:** When writing `packages/whatifd-langfuse/tests/test_conformance.py` (Phase 4B.1) OR `packages/whatifd-inspect-ai/tests/` (Phase 4B.2), if the harness import demonstrably blocks the work — i.e., conftest tweaks fail under uv workspace install OR the test layout requires an external import path that pytest can't resolve. Then this refactor lands as a small precursor PR with the rationale grounded in real friction. Until that demonstrably appears, don't touch it.
 
-**Status update (Phase 4B.1 — PR #65 landed 2026-05-08):** the conftest `sys.path.insert` workaround in `packages/whatifd-langfuse/tests/conftest.py` is in production. It works for an in-repo workspace member but is fragile for **out-of-tree** consumers (a third-party adapter package that lives in its own git repo and depends on `whatif` from PyPI). The conftest tweak relies on `Path(__file__).resolve().parents[3]` resolving to the whatif repo root — that path doesn't exist for an out-of-tree consumer.
+**Status update (Phase 4B.1 — PR #65 landed 2026-05-08):** the conftest `sys.path.insert` workaround in `packages/whatifd-langfuse/tests/conftest.py` is in production. It works for an in-repo workspace member but is fragile for **out-of-tree** consumers (a third-party adapter package that lives in its own git repo and depends on `whatifd` from PyPI). The conftest tweak relies on `Path(__file__).resolve().parents[3]` resolving to the whatifd repo root — that path doesn't exist for an out-of-tree consumer.
 
 **Concrete backlog item — promote at Phase 4B.2 if the seam needs a second consumer:**
 1. Move `tests/adapters/conformance.py` to `src/whatifd/testing/adapter_conformance.py`.
@@ -36,7 +36,7 @@ When a trigger fires, move the entry to `whatifd-design/references/cascade-catal
 
 **Why deferred:** Suggested in PR #57 review (Phase 4A.1) and declined. The value is set once at adapter init and isn't read by any logic that depends on its shape — it's just metadata stamped into `RunManifest`. A misconfigured adapter would emit a slightly weird version string in the report; not a correctness bug.
 
-**Trigger to promote:** First real adapter (Phase 4B.1 or 4B.2) where the version string IS read by a comparison (e.g., a future `whatif report-migrate` that gates on adapter version semver). Until a real consumer needs structured comparison, the str field is enough.
+**Trigger to promote:** First real adapter (Phase 4B.1 or 4B.2) where the version string IS read by a comparison (e.g., a future `whatifd report-migrate` that gates on adapter version semver). Until a real consumer needs structured comparison, the str field is enough.
 
 ---
 
@@ -52,7 +52,7 @@ When a trigger fires, move the entry to `whatifd-design/references/cascade-catal
 
 ## 4. Real stratified bootstrap CI replacing 9A.1's empirical-percentile shortcut
 
-**What:** Replace `statistics.quantiles(deltas, n=20)` in `whatif/pipeline.py::_cohort_result_from_bucket` with a proper paired-bootstrap implementation respecting `BootstrapMethodDisclosure.method="paired_percentile_bootstrap"` or `"cluster_paired_percentile_bootstrap"` per `policy.bootstrap_*` settings.
+**What:** Replace `statistics.quantiles(deltas, n=20)` in `whatifd/pipeline.py::_cohort_result_from_bucket` with a proper paired-bootstrap implementation respecting `BootstrapMethodDisclosure.method="paired_percentile_bootstrap"` or `"cluster_paired_percentile_bootstrap"` per `policy.bootstrap_*` settings.
 
 **Why deferred:** Phase 9A.1 explicitly documented this as a shortcut; the function signature is the stable contract. Real bootstrap is broader stats-layer work, not a pipeline-glue change.
 
@@ -102,11 +102,11 @@ When a trigger fires, move the entry to `whatifd-design/references/cascade-catal
 
 ---
 
-## 9. Verdict-change matrix tests for `whatif diff`
+## 9. Verdict-change matrix tests for `whatifd diff`
 
-**What:** Verify `whatif diff` correctly renders all 9 verdict transitions: Ship→Ship, Ship→DontShip, Ship→Inconclusive, DontShip→Ship, DontShip→DontShip, DontShip→Inconclusive, Inconclusive→Ship, Inconclusive→DontShip, Inconclusive→Inconclusive.
+**What:** Verify `whatifd diff` correctly renders all 9 verdict transitions: Ship→Ship, Ship→DontShip, Ship→Inconclusive, DontShip→Ship, DontShip→DontShip, DontShip→Inconclusive, Inconclusive→Ship, Inconclusive→DontShip, Inconclusive→Inconclusive.
 
-**Why deferred:** Cascade-tracked under "CLI whatif diff for v0.1" → "Deferred to v0.2." Current `tests/unit/whatifd/test_diff.py` pins the load-bearing transitions; the full matrix becomes useful when the renderer grows verdict-specific guidance.
+**Why deferred:** Cascade-tracked under "CLI whatifd diff for v0.1" → "Deferred to v0.2." Current `tests/unit/whatifd/test_diff.py` pins the load-bearing transitions; the full matrix becomes useful when the renderer grows verdict-specific guidance.
 
 **Auditable cross-reference** (verified at PR #64 author time; re-verify when promoting):
 
@@ -121,15 +121,15 @@ These together cover ~3 of the 9 matrix cells with regression-grade pins. The re
 
 ---
 
-## 10. Machine-checkable `whatif-json-dumps` allowlist
+## 10. Machine-checkable `whatifd-json-dumps` allowlist
 
-**What:** Extend the AST-walking banned-import lint at `tests/unit/whatifd/serialization/test_banned_imports.py` to ALSO walk `packages/*/tests/` and `tests/integration/` with an explicit allowlist of call sites carrying the `# whatif-json-dumps: test-scaffold-allowed` marker comment. The lint then enforces the test-scaffold carve-out machine-checkably instead of relying on the comment-as-convention.
+**What:** Extend the AST-walking banned-import lint at `tests/unit/whatifd/serialization/test_banned_imports.py` to ALSO walk `packages/*/tests/` and `tests/integration/` with an explicit allowlist of call sites carrying the `# whatifd-json-dumps: test-scaffold-allowed` marker comment. The lint then enforces the test-scaffold carve-out machine-checkably instead of relying on the comment-as-convention.
 
 **Why deferred:** The current lint targets `src/whatifd/` only, which IS the cardinal-#5 enforcement boundary. Test-scaffold `json.dumps` calls (notably `_scrub_response_body` in `packages/whatifd-langfuse/tests/test_recorded_smoke.py`) live in `packages/*/tests/` and `tests/`, which are out of scope by design. Building a marker-comment-respecting allowlist now is forward-looking machinery for a lint scope expansion that hasn't happened yet.
 
-**Trigger to promote:** Whenever someone proposes broadening the banned-import lint to cover `packages/`, `tests/`, or both. At that point this entry's marker convention (`# whatif-json-dumps: test-scaffold-allowed`) becomes load-bearing and needs the AST recognition. Land the lint extension and the allowlist parser in the same PR. Until that proposal lands, the marker comment is a search anchor, not enforcement.
+**Trigger to promote:** Whenever someone proposes broadening the banned-import lint to cover `packages/`, `tests/`, or both. At that point this entry's marker convention (`# whatifd-json-dumps: test-scaffold-allowed`) becomes load-bearing and needs the AST recognition. Land the lint extension and the allowlist parser in the same PR. Until that proposal lands, the marker comment is a search anchor, not enforcement.
 
-**Existing markers to preserve:** at least one `# whatif-json-dumps: test-scaffold-allowed` in `packages/whatifd-langfuse/tests/test_recorded_smoke.py::_scrub_response_body`. Future test-scaffold usage of `json.dumps` should add the same marker.
+**Existing markers to preserve:** at least one `# whatifd-json-dumps: test-scaffold-allowed` in `packages/whatifd-langfuse/tests/test_recorded_smoke.py::_scrub_response_body`. Future test-scaffold usage of `json.dumps` should add the same marker.
 
 ## How to add a new entry
 

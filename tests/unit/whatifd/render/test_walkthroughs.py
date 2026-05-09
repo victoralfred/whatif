@@ -105,12 +105,12 @@ class TestAllFormatsRender:
     def test_summary_renders(self, scenario) -> None:
         out = render_summary(scenario["report"])
         assert isinstance(out, str)
-        assert out.startswith("# whatif verdict:")
+        assert out.startswith("# whatifd verdict:")
 
     def test_full_report_renders(self, scenario) -> None:
         out = render_full_report(scenario["report"])
         assert isinstance(out, str)
-        assert out.startswith("# whatif verdict:")
+        assert out.startswith("# whatifd verdict:")
 
 
 # ---------------------------------------------------------------------------

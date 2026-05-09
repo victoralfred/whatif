@@ -12,7 +12,7 @@ opt-in per field), the schema explicitly tags deterministic sub-fields
 to `x-deterministic: false`. The CI determinism test diffs only the
 tagged subset.
 
-`SensitiveUnwrap` lives in `whatif/types/sensitive.py` (Phase 1.2)
+`SensitiveUnwrap` lives in `whatifd/types/sensitive.py` (Phase 1.2)
 because it's intimately tied to the `Sensitive[T]` wrapper. Manifest
 imports it from there.
 """
@@ -50,7 +50,7 @@ class EnvironmentFingerprint:
 
 @dataclass(frozen=True, slots=True)
 class RunManifest:
-    """The audit anchor for a single whatif run.
+    """The audit anchor for a single whatifd run.
 
     The whole manifest is non-deterministic by default; the schema
     explicitly tags deterministic sub-fields (`trust_floor`,
@@ -62,7 +62,7 @@ class RunManifest:
     - `experiment_id` — caller-supplied identifier; used in artifact paths.
     - `started_at`, `finished_at` — ISO 8601 timestamps; NON-DETERMINISTIC.
     - `duration_ms` — derived; NON-DETERMINISTIC.
-    - `whatif_version` — the version of the whatif package that ran;
+    - `whatif_version` — the version of the whatifd package that ran;
       DETERMINISTIC for byte-equality diffs across runs.
     - `config_hash` — sha256 of the resolved config; DETERMINISTIC.
     - `selection_seed` — seeded RNG for trace selection; DETERMINISTIC.
@@ -78,7 +78,7 @@ class RunManifest:
       Schema includes `profile`, `enabled`, and adapter-specific rule-
       version markers.
     - `sensitive_unwraps` — list of `SensitiveUnwrap` audit records
-      drained from `whatif/types/sensitive.py:_audit_log` at end of run.
+      drained from `whatifd/types/sensitive.py:_audit_log` at end of run.
       NON-DETERMINISTIC ordering (depends on call order across threads).
     """
 

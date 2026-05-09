@@ -12,7 +12,7 @@ Cardinal #1 (failures-as-data): expected replay failures are NOT
 exceptions. The pipeline catches them at well-defined boundaries
 and converts them into `ReplayFailure` instances that flow through
 the same generator chain as successes. The only thing that escapes
-as an exception is an unhandled bug in whatif itself.
+as an exception is an unhandled bug in whatifd itself.
 
 Cardinal #6 (typed boundaries): `ReplayResult = ReplaySuccess |
 ReplayFailure` is a closed Python sealed-union (frozen dataclasses,
@@ -51,7 +51,7 @@ The validation we DO enforce at construction:
 
 - **#1 failures-as-data:** `ReplayFailure` is the structured
   representation; nothing in the replay pipeline raises a
-  whatif-internal exception for an expected condition.
+  whatifd-internal exception for an expected condition.
 - **#6 typed boundaries:** the union is a closed Python type;
   callers `match` on it. No `dict[str, Any]` carries replay state.
 - **#9 orchestration not compute:** these are tiny dataclasses, not
@@ -128,7 +128,7 @@ class ReplayFailure:
             raise ValueError(
                 f"ReplayFailure code {self.code!r} is not in "
                 "FAILURE_CODE_REGISTRY. Cardinal #1: failure codes are "
-                "registered in `whatif/decision/failure_codes.py` so the "
+                "registered in `whatifd/decision/failure_codes.py` so the "
                 "report's failure list is closed-set, not free-form. Add "
                 "the code to the registry or use an existing one."
             )

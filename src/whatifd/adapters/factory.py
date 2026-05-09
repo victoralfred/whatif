@@ -154,7 +154,7 @@ def _build_langfuse_source() -> TraceSource:
         raise AdapterFactoryError(
             "langfuse adapter requires environment credentials; missing: "
             + ", ".join(missing)
-            + ". Set these env vars before running `whatif fork`, or "
+            + ". Set these env vars before running `whatifd fork`, or "
             "switch source.adapter to 'stub' for a credentialless smoke."
         )
 

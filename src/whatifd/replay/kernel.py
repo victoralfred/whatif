@@ -56,7 +56,7 @@ sync runners). The thread-pool approach is the least-bad default.
   convert to typed `ReplayFailure`. Nothing escapes the kernel as
   an exception (a programmer bug — e.g., a `ReplayFailure`
   construction error from an unregistered code — does propagate;
-  cardinal #1 covers EXPECTED failures, not whatif bugs).
+  cardinal #1 covers EXPECTED failures, not whatifd bugs).
 - **#5 sensitive data wrapped:** the kernel never inspects the
   runner's `ReplayOutput` for sensitive content. Adapter-side
   wrapping (Phase 4) is the responsibility for that.
@@ -136,7 +136,7 @@ def replay_one_trace(
     # call `shutdown(wait=False)` on the timeout path so the kernel
     # returns immediately while the runner thread leaks. The clean-
     # path shutdown waits as normal (the runner has already returned).
-    ex = ThreadPoolExecutor(max_workers=1, thread_name_prefix="whatif-replay")
+    ex = ThreadPoolExecutor(max_workers=1, thread_name_prefix="whatifd-replay")
     future = ex.submit(runner, trace_input, config, tool_cache)
 
     try:

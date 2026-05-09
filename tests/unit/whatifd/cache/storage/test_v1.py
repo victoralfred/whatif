@@ -370,7 +370,7 @@ class TestExtraOverlapRejected:
 class TestCanonicalOnDisk:
     def test_byte_identical_for_same_input(self, tmp_path: Path, monkeypatch) -> None:
         # Two writes of the same entry to two separate caches must
-        # produce byte-identical files (`whatif cache verify` will
+        # produce byte-identical files (`whatifd cache verify` will
         # diff bytes for integrity).
         monkeypatch.setattr(
             "whatifd.cache.storage.v1._utc_now_iso",
@@ -411,7 +411,7 @@ class TestMeta:
     ) -> None:
         # Companion to test_byte_identical_for_same_input: verifies
         # meta.json itself is byte-stable when the timestamp is fixed.
-        # Foundation for `whatif cache verify` byte-diffing meta as a
+        # Foundation for `whatifd cache verify` byte-diffing meta as a
         # cross-cache integrity check.
         monkeypatch.setattr(
             "whatifd.cache.storage.v1._utc_now_iso",

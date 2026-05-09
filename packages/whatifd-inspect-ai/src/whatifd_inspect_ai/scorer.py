@@ -1,7 +1,7 @@
 """`InspectAIScorer` — implementation of `whatifd.adapters.Scorer`.
 
 Wraps an Inspect AI scorer callable and produces `JudgeResult` +
-`CacheKeyComponents` per the whatif `Scorer` protocol. The
+`CacheKeyComponents` per the whatifd `Scorer` protocol. The
 runtime contract follows `whatifd.adapters.protocols.Scorer`; the
 conformance harness at `tests/adapters/conformance.py` is the
 gating test.

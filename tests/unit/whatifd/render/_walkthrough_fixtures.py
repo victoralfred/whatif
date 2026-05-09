@@ -102,7 +102,7 @@ def _cache_summary(hits: int = 38, misses: int = 2) -> CacheSummary:
         key_version="v1",
         mode="on",
         storage_profile="normalized_result_only",
-        storage_path=".whatif/cache",
+        storage_path=".whatifd/cache",
         hits=hits,
         misses=misses,
         writes=misses,
@@ -390,7 +390,7 @@ def scenario_5_inconclusive_cache_corruption():
     finding = make_decision_finding(
         code="cache_lock_unavailable",
         message="scorer cache locked by stale process",
-        details={"lock_path": ".whatif/cache/.lock"},
+        details={"lock_path": ".whatifd/cache/.lock"},
         derived_from_failures=["failure_001"],
     )
     failure_record = FailureRecord(
@@ -402,7 +402,7 @@ def scenario_5_inconclusive_cache_corruption():
         trace_id=None,
         cohort=None,
         retryable=False,
-        details={"lock_path": ".whatif/cache/.lock"},
+        details={"lock_path": ".whatifd/cache/.lock"},
     )
     verdict = Inconclusive(
         cohort_results=[],

@@ -1,4 +1,4 @@
-# whatif
+# whatifd
 
 [![CI](https://github.com/victoralfred/whatifd/actions/workflows/ci.yml/badge.svg)](https://github.com/victoralfred/whatifd/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
@@ -6,23 +6,23 @@
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Status](https://img.shields.io/badge/status-pre--alpha-orange.svg)](#status)
 
-> **whatif's product is the verdict's defensibility.** Fork production traces, replay with a proposed change, score the diff — and ship a Ship / Don't Ship / Inconclusive verdict a reviewer can read, follow the reasoning, and either trust or know exactly which assumption to challenge.
+> **whatifd's product is the verdict's defensibility.** Fork production traces, replay with a proposed change, score the diff — and ship a Ship / Don't Ship / Inconclusive verdict a reviewer can read, follow the reasoning, and either trust or know exactly which assumption to challenge.
 
-![whatif workflow](./what_if_archi.png)
+![whatifd workflow](./what_if_archi.png)
 
 When you change a prompt, model, or tool in an LLM system, you don't actually know whether it improves behavior — you guess, with a handful of cherry-picked traces and inconsistent evaluation. Every step in the workflow has a tool: Langfuse for traces, Inspect AI for scoring, GitHub for PRs. **The experiment doesn't.**
 
-**whatif** is the experiment runner. Fork production traces (failed cases plus a representative baseline), replay them with your proposed change (original tool outputs cached so side effects don't re-fire), score with the judge of your choice, and produce a Markdown + JSON verdict report you can attach to the PR. You stop shipping changes that fix one failure while silently regressing ten others. You go from *"this feels better"* to *"this improved 14/20, regressed 3 — here's exactly where, and here's the evidence I'd defend in review."*
+**whatifd** is the experiment runner. Fork production traces (failed cases plus a representative baseline), replay them with your proposed change (original tool outputs cached so side effects don't re-fire), score with the judge of your choice, and produce a Markdown + JSON verdict report you can attach to the PR. You stop shipping changes that fix one failure while silently regressing ten others. You go from *"this feels better"* to *"this improved 14/20, regressed 3 — here's exactly where, and here's the evidence I'd defend in review."*
 
 **Stop shipping LLM changes on gut feel.**
 
 ---
 
-![whatif on one page](./experiment_runner_overview.png)
+![whatifd on one page](./experiment_runner_overview.png)
 
 ## Status
 
-**Pre-alpha; v0.1 release candidate.** The library API runs end-to-end against the synthetic stub adapter and against the real `whatifd-langfuse` + `whatifd-inspect-ai` adapters; the `whatif fork` CLI dispatcher is wired through the full factory → runner-loader → delta_fn → run_pipeline → render path. PyPI publication is pending.
+**Pre-alpha; v0.1 release candidate.** The library API runs end-to-end against the synthetic stub adapter and against the real `whatifd-langfuse` + `whatifd-inspect-ai` adapters; the `whatifd fork` CLI dispatcher is wired through the full factory → runner-loader → delta_fn → run_pipeline → render path. PyPI publication is pending.
 
 | Version | Target | What it does |
 |---|---|---|
@@ -81,7 +81,7 @@ delta_fn = build_delta_fn(
 
 ```bash
 # Write a config:
-cat > whatif.config.yaml <<EOF
+cat > whatifd.config.yaml <<EOF
 source:
   adapter: stub
 target:
@@ -99,7 +99,7 @@ timeouts: {}
 EOF
 
 # Run the fork:
-uv run whatif fork --config whatif.config.yaml
+uv run whatifd fork --config whatifd.config.yaml
 
 # Exit codes:
 #   0 = Ship verdict
@@ -111,18 +111,18 @@ Real Langfuse traces require `LANGFUSE_HOST` (or `LANGFUSE_BASE_URL`) + `LANGFUS
 
 ## How it composes
 
-`whatif` doesn't replace your tracer or your eval framework — it composes them into an experiment.
+`whatifd` doesn't replace your tracer or your eval framework — it composes them into an experiment.
 
 - **Tracers (reads from)**: Langfuse (v0.1, real adapter shipped); Phoenix / LangSmith / OpenTelemetry GenAI (v0.2+).
 - **Scorers (wraps)**: Inspect AI (v0.1, real adapter shipped); pluggable via the scorer registry.
 - **Your agent (calls back into)**: any Python callable matching the [runner contract](./docs/runner-contract.md).
-- **Downstream of `whatif`'s decisions**: your existing CI (GitHub Actions, GitLab CI), SLO platforms (Nobl9, Sloth, Honeycomb), incident tooling.
+- **Downstream of `whatifd`'s decisions**: your existing CI (GitHub Actions, GitLab CI), SLO platforms (Nobl9, Sloth, Honeycomb), incident tooling.
 
-## What `whatif` is not
+## What `whatifd` is not
 
 - Not a tracer (use Langfuse / Phoenix / LangSmith / OpenTelemetry GenAI).
-- Not an offline eval harness (use Inspect AI / Promptfoo; whatif wraps them).
-- Not an SLO platform (use Nobl9 / Sloth / Honeycomb downstream of whatif's decisions).
+- Not an offline eval harness (use Inspect AI / Promptfoo; whatifd wraps them).
+- Not an SLO platform (use Nobl9 / Sloth / Honeycomb downstream of whatifd's decisions).
 - Not an agent runtime — the runner contract is the boundary.
 - Not a UI or dashboard.
 - Not a substitute for production monitoring; not a benchmark suite; not a load test; not a causal estimator beyond replay association; not a judge-quality validator (see [docs/concepts.md](./docs/concepts.md)).

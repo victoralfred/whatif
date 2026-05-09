@@ -52,7 +52,7 @@ the leak).
   boundary. The streaming layer just transports kernel results;
   it never raises for runner-related conditions. A bug in the
   kernel itself would propagate, which is correct (cardinal #1
-  covers expected failures, not whatif-internal bugs).
+  covers expected failures, not whatifd-internal bugs).
 - **#9 orchestration not compute:** bounded thread pool, no CPU
   optimization, no shared-memory tricks. The pool exists to
   parallelize I/O-bound runner calls (LLM API requests).
@@ -140,7 +140,7 @@ def replay_stream(
 
     with ThreadPoolExecutor(
         max_workers=max_workers,
-        thread_name_prefix="whatif-stream",
+        thread_name_prefix="whatifd-stream",
     ) as ex:
         # Prime: submit up to max_workers initial bundles. The
         # sliding-window invariant "at most N in flight" starts here.

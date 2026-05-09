@@ -76,7 +76,7 @@ def cache_summary() -> CacheSummary:
         key_version="v1",
         mode="on",
         storage_profile="normalized_result_only",
-        storage_path=".whatif/cache",
+        storage_path=".whatifd/cache",
         hits=8,
         misses=2,
         writes=2,

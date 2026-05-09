@@ -44,14 +44,14 @@ Write each as the actual `.md` file the engineer would see, plus an outline of t
 2. **Don't Ship (regression)** — baseline regressed 6/20 with median Δ -0.18.
 3. **Don't Ship (failure rescue gap)** — failure cohort showed no improvement; baseline stable.
 4. **Inconclusive (insufficient sample)** — baseline cohort had 3 scored traces, floor requires 5.
-5. **Inconclusive (cache corruption)** — `.whatif/cache/scorer/.lock` corrupted; recovery path tested.
+5. **Inconclusive (cache corruption)** — `.whatifd/cache/scorer/.lock` corrupted; recovery path tested.
 6. **Rerun-after-fix (diff mode)** — comparing report A (before fix) to report B (after fix). Surfaces whether diff mode is in v0.1 scope.
 
 **Expected gaps surfaced:**
 - Compact-Ship form: does 30 lines including manifest reference still feel like skimming bait?
 - Scenario 4 fix suggestion: does the registered template give an engineer something they can act on in 5 minutes?
-- Scenario 5: does `whatif cache rebuild` exist? If not, that's a v0.1 scope addition.
-- Scenario 6: does whatif have a diff mode? If not, that's a legitimate finding for the cascade catalog.
+- Scenario 5: does `whatifd cache rebuild` exist? If not, that's a v0.1 scope addition.
+- Scenario 6: does whatifd have a diff mode? If not, that's a legitimate finding for the cascade catalog.
 
 ### 0.2 — Conceptual model document
 
@@ -59,14 +59,14 @@ Two pages plus glossary appendix. Located at `docs/concepts.md`. Distilled from 
 
 Structure:
 
-1. **Product: defensible verdicts.** One paragraph anchored on "whatif's product is the verdict's defensibility."
+1. **Product: defensible verdicts.** One paragraph anchored on "whatifd's product is the verdict's defensibility."
 2. **Non-claims.** Not safety certification, not proof of no regression, not benchmark, not load test.
 3. **Verdict states.** Ship, Don't Ship, Inconclusive. The structural floor and what produces each.
 4. **Trust floor and decision policy.** Evidence existence (floor) vs evidence quality (policy).
 5. **Failure-as-data.** Operational facts (FailureRecord) vs policy conclusions (DecisionFinding).
 6. **Evidence and audit bundle.** What the report contains; what the artifact bundle contains.
 7. **Privacy and redaction.** Sensitive[T] discipline; profile levels.
-8. **Examples of misleading outputs whatif must never produce.** Verdict Ship with 20% replay validity. Missing baseline hidden in footnote. Scorer cache disabled in CI without disclosure. Raw production traces included by default.
+8. **Examples of misleading outputs whatifd must never produce.** Verdict Ship with 20% replay validity. Missing baseline hidden in footnote. Scorer cache disabled in CI without disclosure. Raw production traces included by default.
 
 Glossary appendix: verdict, trust, baseline, cohort, condition, failure, finding, floor, policy, manifest, audit, defensible, actionable.
 
@@ -74,7 +74,7 @@ Glossary appendix: verdict, trust, baseline, cohort, condition, failure, finding
 
 A clarifying question for the project owner before scope is locked:
 
-> Of the engineers you've spoken to who are interested in whatif, what fraction have a clear "failed traces I want to rescue without regressing baseline" workflow versus other shapes (A/B prompt comparison, latency optimization, evaluation-suite bootstrapping, model swap evaluation)?
+> Of the engineers you've spoken to who are interested in whatifd, what fraction have a clear "failed traces I want to rescue without regressing baseline" workflow versus other shapes (A/B prompt comparison, latency optimization, evaluation-suite bootstrapping, model swap evaluation)?
 
 Answer drives v0.1 scope:
 - "Mostly failure-rescue" → ship as scoped.
@@ -106,13 +106,13 @@ Gaps from the audit feed the cascade catalog.
 
 ### 1.1 — Primitive types
 
-`whatif/types/primitives.py`:
-- `DecimalString` (NewType over str; format/parse helpers in `whatif/serialization/decimal.py`)
+`whatifd/types/primitives.py`:
+- `DecimalString` (NewType over str; format/parse helpers in `whatifd/serialization/decimal.py`)
 - `JsonPrimitive = str | int | float | bool | None`
 
 ### 1.2 — Sensitive[T] wrapper
 
-`whatif/types/sensitive.py`:
+`whatifd/types/sensitive.py`:
 - `Sensitive` generic wrapper with `__repr__`, `__str__`, `__format__`, `__reduce__` overrides
 - `unwrap(reason: str)` method with audit log
 - `_audit_log` module-private structlog logger
@@ -120,40 +120,40 @@ Gaps from the audit feed the cascade catalog.
 
 ### 1.3 — Operational types
 
-`whatif/types/failure.py`:
+`whatifd/types/failure.py`:
 - `FailureRecord` (frozen, slots, no `verdict_impact`)
 
-`whatif/types/finding.py`:
+`whatifd/types/finding.py`:
 - `DecisionFinding` (frozen, slots, severity enum)
 - Severity vocabulary: `info | degrades_trust | blocks_ship | blocks_all`
 
-`whatif/types/cohort.py`:
+`whatifd/types/cohort.py`:
 - `FloorFailure` (frozen, slots)
 - `CohortResult` (frozen, slots)
 
 ### 1.4 — Verdict types and witness token
 
-`whatif/types/verdict.py`:
+`whatifd/types/verdict.py`:
 - `FloorPassedProof` with `_FLOOR_INTERNAL_TOKEN` (module-private object)
 - `Ship`, `DontShip`, `Inconclusive` dataclasses
 - `Verdict` union type alias
 
 ### 1.5 — Policy types
 
-`whatif/types/policy.py`:
+`whatifd/types/policy.py`:
 - `TrustFloor` (frozen, slots, versioned)
 - `DecisionPolicy` (frozen, slots)
 
 ### 1.6 — Manifest types
 
-`whatif/types/manifest.py`:
+`whatifd/types/manifest.py`:
 - `EnvironmentFingerprint`
 - `SensitiveUnwrap`
 - `RunManifest`
 
 ### 1.7 — Statistical types (cardinal #10)
 
-`whatif/types/statistical.py`:
+`whatifd/types/statistical.py`:
 - `TraceDelta` (internal; float arithmetic, paired)
 - `TraceDeltaReportV01` (public; DecimalString numeric fields)
 - `BootstrapMethodDisclosure`, `MultiplicityDisclosure`, `JudgeMethodDisclosure`, `EffectSizeDisclosure`
@@ -172,8 +172,8 @@ Gaps from the audit feed the cascade catalog.
 ✅ All unit tests green.
 ✅ Property test passes 1000 iterations.
 ✅ `python -c "import whatifd.types"` under 50ms.
-✅ mypy strict passes on `whatif/types/`.
-✅ Banned-import lint: nothing in `whatif/types/` imports from `whatif/internal/`, `whatif/adapters/`, or external SDKs.
+✅ mypy strict passes on `whatifd/types/`.
+✅ Banned-import lint: nothing in `whatifd/types/` imports from `whatifd/internal/`, `whatifd/adapters/`, or external SDKs.
 
 ## Phase 2: Decision pipeline
 
@@ -181,7 +181,7 @@ Gaps from the audit feed the cascade catalog.
 
 ### 2.1 — Floor evaluator
 
-`whatif/decision/floor.py`:
+`whatifd/decision/floor.py`:
 - `evaluate_floor(result, floor) -> FloorPassedProof | FloorFailureSet`
 - `FloorFailureSet(failures: list[FloorFailure])` for the failure case
 - The `_FLOOR_INTERNAL_TOKEN` is constructed here as the only place that can produce proofs
@@ -194,7 +194,7 @@ Per-cohort evaluation. Each required cohort is checked against:
 
 ### 2.2 — Failure code registry
 
-`whatif/decision/failure_codes.py`:
+`whatifd/decision/failure_codes.py`:
 - `FAILURE_CODE_REGISTRY: dict[str, FailureCodeSpec]`
 - Each entry: stage, default scope, required details keys
 
@@ -214,13 +214,13 @@ FAILURE_CODE_REGISTRY = {
 
 ### 2.3 — Finding code registry
 
-`whatif/decision/finding_codes.py`:
+`whatifd/decision/finding_codes.py`:
 - `FINDING_CODE_REGISTRY: dict[str, FindingCodeSpec]`
 - Each entry: severity, message template, required details keys, derived_from_failures expectation
 
 ### 2.4 — Fix suggestion registry
 
-`whatif/decision/fix_suggestions.py`:
+`whatifd/decision/fix_suggestions.py`:
 - `FIX_SUGGESTION_REGISTRY: dict[str, FixSuggestion]`
 - Each entry: template string, list of suggestions
 
@@ -229,7 +229,7 @@ FIX_SUGGESTION_REGISTRY = {
     "min_replayed_per_required_cohort": FixSuggestion(
         template="The {cohort} cohort had {observed} replayed traces (floor requires {threshold}).",
         suggestions=[
-            "Increase the cohort selection limit in whatif.config.yaml.",
+            "Increase the cohort selection limit in whatifd.config.yaml.",
             "Check tracer logs for ingestion failures.",
             "Run with --debug to see why traces were skipped.",
         ],
@@ -240,7 +240,7 @@ FIX_SUGGESTION_REGISTRY = {
 
 ### 2.5 — Guards
 
-`whatif/decision/guards/`:
+`whatifd/decision/guards/`:
 - `replay_validity_guard.py`
 - `baseline_coverage_guard.py`
 - `regression_threshold_guard.py`
@@ -251,7 +251,7 @@ FIX_SUGGESTION_REGISTRY = {
 
 Each guard is a pure function `(ExperimentResult, DecisionPolicy) -> list[DecisionFinding]`.
 
-`whatif/decision/clustering.py`:
+`whatifd/decision/clustering.py`:
 - `resolve_cluster_key(source: TraceSource, policy: ClusteringPolicy) -> ClusterSelection` (cardinal #10)
 - Records resolved choice in `RunManifest` and `MethodologyDisclosure.bootstrap.cluster_key`
 - v0.1 declares structure; cluster-bootstrap math deferred to v0.2 (uses i.i.d. bootstrap under the hood for now, with explicit disclosure)
@@ -260,7 +260,7 @@ Each guard is a pure function `(ExperimentResult, DecisionPolicy) -> list[Decisi
 
 Implementation lands as three sub-phases (one PR each):
 
-- **2.6a** — `whatif/decision/verdict.py::compute_verdict(cohort_results, floor, policy, *, guards=None) -> Verdict`. Single Ship-construction site; closure-captured `FloorPassedProof`; default guard chain composes the registered guards. (Resolved by PR #26.)
+- **2.6a** — `whatifd/decision/verdict.py::compute_verdict(cohort_results, floor, policy, *, guards=None) -> Verdict`. Single Ship-construction site; closure-captured `FloorPassedProof`; default guard chain composes the registered guards. (Resolved by PR #26.)
 - **2.6b** — `primary_endpoint_guard` consolidation. Replaces the Phase 2.5b `failure_improvement_guard` + `baseline_regression_guard` pair with a configurable dispatcher reading `policy.primary_endpoints`; emits the existing finding codes by direction. The default guard chain shrinks from 5 to 4 guards; behavior on default policy is identical. (Resolved by PR #27.)
 - **2.6c** — Real `derived_from_failures` wiring on `ci_availability_guard` (replace `_PHASE_2_6_PLACEHOLDER` with failure-record IDs threaded through projection). Per V0_1_DECISION_RECORD §6 there is no `accept_no_ci` work in 2.6c; the flag was removed in the 2026-05-05 skill-alignment pass.
 
@@ -271,7 +271,7 @@ Common to all three:
 
 ### 2.7 — Aggregation logic
 
-`whatif/decision/aggregation.py`:
+`whatifd/decision/aggregation.py`:
 - `aggregate_cohort_systemic(failures: list[FailureRecord]) -> list[FailureRecord]`
 - Implements the ≥50% rule: if same code affects ≥50% of cohort traces, emit cohort-scope record
 - Trace records marked `aggregated_into: <cohort_record_id>` when folded
@@ -291,7 +291,7 @@ Common to all three:
 ✅ All property tests pass 1000 iterations.
 ✅ Coverage test green: every floor rule and blocking code has a fix suggestion.
 ✅ Aggregation rule tested against scenarios from walkthroughs.
-✅ mypy strict passes on `whatif/decision/`.
+✅ mypy strict passes on `whatifd/decision/`.
 
 ## Phase 3: Cache subsystem
 
@@ -299,7 +299,7 @@ Common to all three:
 
 ### 3.1 — Cache key construction
 
-`whatif/cache/keying/v1.py`:
+`whatifd/cache/keying/v1.py`:
 - `build_cache_key(components: CacheKeyComponents) -> str`
 - Includes all required components (see `references/contracts.md`)
 - `CACHE_KEY_VERSION = "v1"`
@@ -307,15 +307,15 @@ Common to all three:
 
 ### 3.2 — Cache storage
 
-`whatif/cache/storage/v1.py`:
-- File layout: `.whatif/cache/entries/<hash[0:2]>/<hash>.json`
+`whatifd/cache/storage/v1.py`:
+- File layout: `.whatifd/cache/entries/<hash[0:2]>/<hash>.json`
 - `meta.json` at cache root tracking schema version
 - `CACHE_SCHEMA_VERSION = "v1"`
 - PRs touching this directory bump version
 
 ### 3.3 — Cache lock
 
-`whatif/cache/lock.py`:
+`whatifd/cache/lock.py`:
 - `acquire_cache_lock(path) -> CacheLock` context manager
 - `fcntl.flock(LOCK_EX | LOCK_NB)` primary
 - Stale detection via lock file with PID + process_start_time + hostname
@@ -324,14 +324,14 @@ Common to all three:
 
 ### 3.4 — Cache policy
 
-`whatif/cache/policy.py`:
+`whatifd/cache/policy.py`:
 - `CachePolicy` resolves mode from config + environment
 - `CI=true` defaults to `read_write`; interactive defaults to `auto`
 - Mode resolution emits a `DecisionFinding` if mode was inferred (so CI runs disclose what was used)
 
 ### 3.5 — Cache summary
 
-`whatif/cache/summary.py`:
+`whatifd/cache/summary.py`:
 - `CacheSummary` typed object with all required fields
 - Construction at end of run; included in `ReportV01` (required field; schema validation enforces presence)
 
@@ -342,7 +342,7 @@ Common to all three:
 - **Stale lock test:** Write a lock file with a dead PID; new process can take over after stale window.
 - **Stale lock false-positive test:** Write a lock file with a live PID but mismatched create_time; takeover succeeds (PID was reused).
 - **Lock NFS test:** Documented as unsupported; test asserts the error message names NFS as the likely cause if `EAGAIN` returned without `EWOULDBLOCK`.
-- **Cache key version test:** PR touching `whatif/cache/keying/` without bumping `CACHE_KEY_VERSION` fails CI.
+- **Cache key version test:** PR touching `whatifd/cache/keying/` without bumping `CACHE_KEY_VERSION` fails CI.
 - **Cache schema version test:** Same for storage.
 - **Disclosure test:** Constructing a `ReportV01` without a `cache_summary` field raises validation error.
 
@@ -364,9 +364,9 @@ Phase 4 splits into two gates: **4A** is the protocol + conformance suite + synt
 
 #### 4A.1 — Adapter protocols and loader
 
-`whatif/adapters/loader.py`:
+`whatifd/adapters/loader.py`:
 - Lazy import based on adapter ID string (`langfuse` → import `whatifd_langfuse`)
-- Importing whatif core does NOT import any adapter
+- Importing whatifd core does NOT import any adapter
 - Test: `python -c "import whatifd"` does not import `whatifd_langfuse` or `whatifd_inspect_ai`
 
 #### 4A.2 — Conformance test suite
@@ -375,7 +375,7 @@ A shared conformance harness in `tests/adapters/test_conformance.py` that any co
 
 #### 4A.3 — Synthetic stub adapter
 
-`whatif/adapters/stub.py` (or equivalent in-repo location, NOT a separate package — the stub is internal scaffolding, not a shipped product):
+`whatifd/adapters/stub.py` (or equivalent in-repo location, NOT a separate package — the stub is internal scaffolding, not a shipped product):
 - Implements `TraceSource` and `Scorer` protocols
 - Produces realistic-shaped data driven by fixture inputs
 - Used by Phases 5–8 unit tests and by Phase 9A integration
@@ -436,7 +436,7 @@ A shared conformance harness in `tests/adapters/test_conformance.py` that any co
 
 ### 5.1 — Public report model
 
-`whatif/report/models_v01.py`:
+`whatifd/report/models_v01.py`:
 - `ReportV01` hand-written; includes `methodology: MethodologyDisclosure` required field per cardinal #10
 - `CacheSummary` typed object
 - All public types
@@ -445,7 +445,7 @@ A shared conformance harness in `tests/adapters/test_conformance.py` that any co
 
 ### 5.2 — Projection functions
 
-`whatif/report/projection.py`:
+`whatifd/report/projection.py`:
 - `project_to_report_v01(experiment_result: ExperimentResult) -> ReportV01`
 - One projection per top-level field
 - Internal types refactor; projection layer absorbs the change
@@ -454,13 +454,13 @@ A shared conformance harness in `tests/adapters/test_conformance.py` that any co
 
 `scripts/generate_schema.py`:
 - Generates JSON Schema from `ReportV01` Pydantic model
-- Output: `whatif/report/schema/v0.1.schema.json`
+- Output: `whatifd/report/schema/v0.1.schema.json`
 - Includes `x-deterministic` annotations on each property
 - Committed to repo; CI test asserts no drift
 
 ### 5.4 — Custom JSON encoder
 
-`whatif/serialization/encoder.py`:
+`whatifd/serialization/encoder.py`:
 - `WhatifJSONEncoder(json.JSONEncoder)`
 - Sorted keys
 - `default()` raises `UnredactedSensitiveError` on `Sensitive` instances
@@ -468,21 +468,21 @@ A shared conformance harness in `tests/adapters/test_conformance.py` that any co
 
 ### 5.5 — Pre-serialization graph walk
 
-`whatif/serialization/graph_walk.py`:
+`whatifd/serialization/graph_walk.py`:
 - `assert_no_unredacted_sensitive(obj, path="")` walks dataclasses, dicts, lists, tuples
 - Raises with full path to offending field
 - Called before any artifact write
 
 ### 5.6 — Decimal string handling
 
-`whatif/serialization/decimal.py`:
+`whatifd/serialization/decimal.py`:
 - `to_decimal_string(value: float, precision: int = 3) -> DecimalString`
 - `from_decimal_string(s: DecimalString) -> Decimal`
 - Stable across platforms (uses `format(value, '.3f')`)
 
 ### 5.7 — Determinism infrastructure
 
-`whatif/serialization/determinism.py`:
+`whatifd/serialization/determinism.py`:
 - `extract_deterministic_subset(report: ReportV01, schema: dict) -> dict`
 - Reads `x-deterministic: true` annotations from schema
 - Extracts only those fields for byte-equality testing
@@ -490,7 +490,7 @@ A shared conformance harness in `tests/adapters/test_conformance.py` that any co
 ### Phase 5 tests
 
 - **Schema match test:** Generated schema from `ReportV01` byte-equals committed `v0.1.schema.json`.
-- **Public-internal isolation test:** No imports from `whatif/internal/` in `whatif/report/models_v01.py`.
+- **Public-internal isolation test:** No imports from `whatifd/internal/` in `whatifd/report/models_v01.py`.
 - **Golden report test:** Six committed golden reports validate against schema.
 - **Encoder rejection test:** Attempting to encode an unwrapped `Sensitive` raises typed error.
 - **Graph walk test:** Object graphs containing nested `Sensitive` (in dicts, in lists, in dataclass fields) all detected.
@@ -503,7 +503,7 @@ A shared conformance harness in `tests/adapters/test_conformance.py` that any co
 ✅ Schema match test green (zero drift).
 ✅ Six golden reports committed and validating.
 ✅ Determinism test green (same input, twice, byte-identical).
-✅ Banned-import lint enforced (`json.dumps` only in `whatif/serialization/`).
+✅ Banned-import lint enforced (`json.dumps` only in `whatifd/serialization/`).
 
 ## Phase 6: Replay pipeline
 
@@ -511,21 +511,21 @@ A shared conformance harness in `tests/adapters/test_conformance.py` that any co
 
 ### 6.1 — Tool cache (trace-scoped)
 
-`whatif/replay/tool_cache.py`:
+`whatifd/replay/tool_cache.py`:
 - `ToolCache.from_trace(raw: RawTrace) -> ToolCache`
 - Strict: cache miss raises typed `CacheMissError` which the pipeline converts to `ReplayFailure`
 - Per-trace, not global
 
 ### 6.2 — Replay result types
 
-`whatif/replay/result.py`:
+`whatifd/replay/result.py`:
 - `ReplaySuccess(output: ReplayOutput)`
 - `ReplayFailure(trace_id, code, message, details)`
 - `ReplayResult = ReplaySuccess | ReplayFailure`
 
 ### 6.3 — Pipeline
 
-`whatif/replay/pipeline.py`:
+`whatifd/replay/pipeline.py`:
 - Generator chain consuming `Iterator[RawTrace]`, producing `Iterator[ScoreCase | ReplayFailure]`
 - Bounded concurrency via `ThreadPoolExecutor` for sync runners
 - Async runners via `asyncio.gather` with semaphore
@@ -533,7 +533,7 @@ A shared conformance harness in `tests/adapters/test_conformance.py` that any co
 
 ### 6.4 — Runner contract surface
 
-`whatif/contract/runner.py`:
+`whatifd/contract/runner.py`:
 - `TraceInput`, `ReplayConfig`, `ToolCache`, `ReplayOutput` (frozen dataclasses)
 - Imported from user code via `from whatifd.contract import ...`
 - No internal types leak through this module
@@ -560,7 +560,7 @@ A shared conformance harness in `tests/adapters/test_conformance.py` that any co
 
 ### 7.1 — Markdown renderer (full report)
 
-`whatif/render/markdown.py`:
+`whatifd/render/markdown.py`:
 - `render_full_report(report: ReportV01) -> str`
 - Five-section structure: Verdict, Stats, Replay validity, Baseline integrity, Evidence
 - Plus a Methodology block (cardinal #10) rendered from `report.methodology` — bootstrap method, multiplicity stance, judge state with reliability/validity/calibration/bias booleans, effect-size policy, per-trace-inference scope, causal-claim scope
@@ -569,7 +569,7 @@ A shared conformance harness in `tests/adapters/test_conformance.py` that any co
 
 ### 7.2 — Summary section
 
-`whatif/render/summary.py`:
+`whatifd/render/summary.py`:
 - `render_summary_section(report: ReportV01) -> str`
 - Lines budget: ≤ 30 lines
 - Compact-Ship case: just the summary, no detail section
@@ -577,7 +577,7 @@ A shared conformance harness in `tests/adapters/test_conformance.py` that any co
 
 ### 7.3 — CI status line
 
-`whatif/render/ci_status.py`:
+`whatifd/render/ci_status.py`:
 - `render_ci_status(report: ReportV01) -> str`
 - ~80 character limit
 - Verdict + headline finding
@@ -585,7 +585,7 @@ A shared conformance harness in `tests/adapters/test_conformance.py` that any co
 
 ### 7.4 — Fix suggestion templating
 
-`whatif/render/templates/`:
+`whatifd/render/templates/`:
 - One file per fix suggestion code
 - Markdown templates with placeholder substitution
 - Linted for placeholder consistency
@@ -611,7 +611,7 @@ A shared conformance harness in `tests/adapters/test_conformance.py` that any co
 
 ### 8.1 — Config schema
 
-`whatif/config.py`:
+`whatifd/config.py`:
 - Pydantic v2 strict mode
 - All sections: source, target, selection, change, scorer, decision, reporting, timeouts
 - Hint generation on validation errors
@@ -619,23 +619,23 @@ A shared conformance harness in `tests/adapters/test_conformance.py` that any co
 
 ### 8.2 — CLI
 
-`whatif/cli.py`:
-- `whatif fork ...` command
-- `whatif report-migrate ...` (v0.1 stub; real logic v0.2+)
-- `whatif cache rebuild ...` (if surfaced by Phase 0 walkthroughs as needed)
+`whatifd/cli.py`:
+- `whatifd fork ...` command
+- `whatifd report-migrate ...` (v0.1 stub; real logic v0.2+)
+- `whatifd cache rebuild ...` (if surfaced by Phase 0 walkthroughs as needed)
 - Exit codes: 0 (Ship), 1 (Don't Ship), 2 (Inconclusive / setup failure)
 - Floor violation always produces exit 2
 
 ### 8.3 — Environment detection
 
-`whatif/cli/environment.py`:
+`whatifd/cli/environment.py`:
 - Detect `CI=true`, `GITHUB_ACTIONS=true`
 - Adjust defaults: cache mode, profile, determinism strictness
 - Captured in manifest
 
 ### 8.4 — Exit code precedence
 
-Resolved in `whatif/cli.py`:
+Resolved in `whatifd/cli.py`:
 - Floor violation → exit 2 (highest priority; never overridden)
 - Setup/replay/scoring failure preventing verdict → exit 2
 - `DontShip` verdict → exit 1
@@ -675,7 +675,7 @@ Resolved in `whatif/cli.py`:
 
 `tests/integration/`:
 - One test per walkthrough scenario
-- Run `whatif fork` against the stub adapter + fixtures
+- Run `whatifd fork` against the stub adapter + fixtures
 - Assert exit code, JSON output, Markdown output match expectations
 
 #### 9A.3 — Determinism property test
@@ -765,7 +765,7 @@ Resolved in `whatif/cli.py`:
 
 ### 10.4 — PyPI publication
 
-- `whatif` package
+- `whatifd` package
 - `whatifd-langfuse` package
 - `whatifd-inspect-ai` package
 - All with stable v0.1.0 version
@@ -797,8 +797,8 @@ These are not phases — they are the trajectory toward v1.0. Each becomes its o
 
 These tests run on every PR, not just at phase gates:
 
-- `mypy --strict whatif/`
-- `ruff check whatif/`
+- `mypy --strict whatifd/`
+- `ruff check whatifd/`
 - `pytest tests/unit/ tests/property/ tests/integration/`
 - `python -c "import whatifd"` time budget
 - Generated schema vs committed schema diff
@@ -823,7 +823,7 @@ These are intentional shortcuts taken during phase landings. Each is structurall
 - **README final pass.** Current Quickstart shows aspirational flags; rewrite to accurately describe what ships (CLI now works against stub adapters; real adapters wireable via env credentials + programmatic `score_fn`).
 - **`docs/schema/v0.1.md` consumer compatibility guide.** Walk the `ReportV01` JSON schema's stability contract, deterministic-subset, methodology-disclosure surface.
 - **Schema URL hosted at `https://whatif.codes/schema/report/v0.1.json`.** User-driven (DNS / hosting).
-- **PyPI publish.** User-driven (account / credentials). Three packages: `whatif`, `whatifd-langfuse`, `whatifd-inspect-ai`.
+- **PyPI publish.** User-driven (account / credentials). Three packages: `whatifd`, `whatifd-langfuse`, `whatifd-inspect-ai`.
 
 ### Disclosed shortcuts (NOT release blockers; truthfully declared in the report)
 

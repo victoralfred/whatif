@@ -3,7 +3,7 @@
 Cardinal rule #1: failure-as-data. Every expected failure (cache miss,
 runner timeout, scorer error, schema mismatch) appears as a structured
 `FailureRecord` in the JSON report. No silent crashes; no generic
-"failed" buckets; unhandled exceptions are bugs in whatif itself.
+"failed" buckets; unhandled exceptions are bugs in whatifd itself.
 
 The two-type scope rule (the bright line):
 - `scope="trace"` — adapter emits one per affected trace event.
@@ -55,7 +55,7 @@ class FailureRecord:
     - `cohort` is required when `scope == "cohort"`, None otherwise.
     - `aggregated_into` is set when this trace-scope record was folded
       into a cohort-scope record by core's aggregation logic
-      (`whatif/decision/aggregation.py`, Phase 2).
+      (`whatifd/decision/aggregation.py`, Phase 2).
 
     The `details` map is one of v0.1's three named extension points
     (per cardinal rule #6); keys may be added without a schema bump,

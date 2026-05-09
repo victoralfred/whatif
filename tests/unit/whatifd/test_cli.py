@@ -2,16 +2,16 @@
 
 Pin properties:
 
-1. `whatif --help` succeeds (typer app loads).
-2. `whatif fork` with valid config exits 2 (Phase 4 adapter
+1. `whatifd --help` succeeds (typer app loads).
+2. `whatifd fork` with valid config exits 2 (Phase 4 adapter
    integration not yet wired); the message names the gap.
-3. `whatif fork` with missing config file exits 2 with
+3. `whatifd fork` with missing config file exits 2 with
    ConfigFileError.
-4. `whatif fork` with invalid config exits 2 with
+4. `whatifd fork` with invalid config exits 2 with
    `format_validation_errors` output (Hint: lines visible).
-5. `whatif fork --profile forensic` against non-forensic config
+5. `whatifd fork --profile forensic` against non-forensic config
    exits 2 with ForensicAffirmationError.
-6. `whatif fork --profile forensic` against forensic config (with
+6. `whatifd fork --profile forensic` against forensic config (with
    acknowledgment block) reaches the Phase 4 stub (exit 2 setup-
    failure with that specific message).
 7. Subcommand stubs (`cache rebuild|unlock|verify`, `diff`,
@@ -94,10 +94,10 @@ def _forensic_config_dict() -> dict[str, object]:
 
 class TestHelp:
     def test_help_succeeds(self, runner: CliRunner) -> None:
-        # `whatif --help` exits 0 — typer convention for help.
+        # `whatifd --help` exits 0 — typer convention for help.
         result = runner.invoke(app, ["--help"])
         assert result.exit_code == 0
-        assert "whatif: trust-first" in _all_output(result)
+        assert "whatifd: trust-first" in _all_output(result)
 
     def test_no_args_prints_help(self, runner: CliRunner) -> None:
         # no_args_is_help=True on the root app.
@@ -109,7 +109,7 @@ class TestHelp:
 
 
 # ---------------------------------------------------------------------------
-# `whatif fork` config-load / setup failures
+# `whatifd fork` config-load / setup failures
 # ---------------------------------------------------------------------------
 
 
@@ -313,7 +313,7 @@ class TestSubcommands:
         result = runner.invoke(app, ["diff", str(prev), str(new)])
         assert result.exit_code == EXIT_SUCCESS
         out = _all_output(result)
-        assert "# whatif diff" in out
+        assert "# whatifd diff" in out
         assert "Don't Ship" in out and "Ship" in out
 
     def test_report_migrate_no_op_exits_zero(self, runner: CliRunner, tmp_path) -> None:

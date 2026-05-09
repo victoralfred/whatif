@@ -79,7 +79,7 @@ workspace = [
 ]
 
 [project.scripts]
-whatif = "whatifd.cli:app"
+whatifd = "whatifd.cli:app"
 
 [project.urls]
 Homepage      = "https://github.com/victoralfred/whatifd"
@@ -128,7 +128,7 @@ members = ["packages/whatifd-langfuse", "packages/whatifd-inspect-ai"]
 
 # Resolve the workspace adapter packages from the in-tree path
 # instead of PyPI. With this binding, `uv sync` installs them
-# editably alongside `whatif`; the CI test job picks up
+# editably alongside `whatifd`; the CI test job picks up
 # `packages/whatifd-*/tests/` cleanly.
 [tool.uv.sources]
 whatifd-langfuse = { workspace = true }

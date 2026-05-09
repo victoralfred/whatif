@@ -225,7 +225,7 @@ def _scrub_response_body(response: dict[str, object]) -> dict[str, object]:
     # cover `packages/`, this call needs an explicit allowlist
     # entry; the marker-comment below is the search anchor for
     # that future audit.
-    cleaned_text = _json.dumps(parsed, sort_keys=True)  # whatif-json-dumps: test-scaffold-allowed
+    cleaned_text = _json.dumps(parsed, sort_keys=True)  # whatifd-json-dumps: test-scaffold-allowed
     # Belt-and-suspenders: regex-scrub credential patterns from the
     # serialized JSON in case a future Langfuse field grows a new
     # echo path.

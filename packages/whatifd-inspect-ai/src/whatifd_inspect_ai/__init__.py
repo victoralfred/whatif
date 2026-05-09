@@ -1,4 +1,4 @@
-"""`whatifd-inspect-ai` — Inspect AI `Scorer` adapter for whatif.
+"""`whatifd-inspect-ai` — Inspect AI `Scorer` adapter for whatifd.
 
 Phase 4B.2 of the v0.1 plan. Implements `whatifd.adapters.Scorer`
 against the Inspect AI scorer abstraction (`inspect_ai.scorer`),
@@ -19,7 +19,7 @@ scorer = InspectAIScorer(
     rubric_text="Score 0-1 by faithfulness to the original output...",
 )
 
-# Plug into the whatif pipeline alongside a TraceSource.
+# Plug into the whatifd pipeline alongside a TraceSource.
 ```
 
 ## Why no recorded-smoke test in this package
@@ -39,7 +39,7 @@ at the boundary), and the conformance harness pins it.
 - **#5 Sensitive[T] at the boundary:** `JudgeResult.rationale` is
   wrapped at `_project_score`. The Inspect AI `Score.explanation`
   field carries free text from the judge model; it MUST be wrapped
-  before any whatif-core code sees it.
+  before any whatifd-core code sees it.
 - **#1 failures-as-data:** when the wrapped Inspect scorer returns
   `None` or raises, the adapter surfaces a `JudgeResult(score=None)`
   with a structured rationale. The pipeline converts that into a

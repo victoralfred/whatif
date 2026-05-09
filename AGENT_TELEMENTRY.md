@@ -37,8 +37,8 @@ your `CLAUDE.md`.
 ## Quick deploy (week 1)
 
 ```bash
-# 1. From your whatif project root:
-cd /path/to/your/whatif-project
+# 1. From your whatifd project root:
+cd /path/to/your/whatifd-project
 
 # 2. Drop the bundle contents into the project root:
 cp -r path/to/this/bundle/* .

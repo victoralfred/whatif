@@ -297,7 +297,7 @@ class TestFailuresAsData:
             details={
                 "hostname": "ci-runner-7",
                 "lock_pid": 12345,
-                "lock_path": ".whatif/cache/.lock",
+                "lock_path": ".whatifd/cache/.lock",
             },
         )
 

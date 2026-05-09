@@ -56,7 +56,7 @@ class TestTrustFloor:
     def test_construction_with_defaults(self) -> None:
         f = TrustFloor()
         assert f.version == "v1"
-        assert f.source == "whatif-0.1.0"
+        assert f.source == "whatifd-0.1.0"
         assert f.min_selected_per_required_cohort == 5
         assert f.min_replayed_per_required_cohort == 5
         assert f.min_scored_per_required_cohort == 5
@@ -69,7 +69,7 @@ class TestTrustFloor:
         # evaluate_floor() time, not at TrustFloor construction).
         f = TrustFloor(
             version="v2",
-            source="whatif-0.2.0",
+            source="whatifd-0.2.0",
             min_scored_per_required_cohort=10,
             min_replay_validity_ratio_per_required_cohort=0.60,
         )

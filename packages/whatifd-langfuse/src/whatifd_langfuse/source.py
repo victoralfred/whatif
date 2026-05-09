@@ -84,7 +84,7 @@ def _stringify(value: Any) -> str:
 
     Routes through `whatifd.serialization.canonical.canonical_json_bytes`
     rather than calling `json.dumps` directly. The project's banned-
-    import discipline keeps `json.dumps` inside `whatif/serialization/`
+    import discipline keeps `json.dumps` inside `whatifd/serialization/`
     so all canonical encoding goes through a single review surface
     (one layer of cardinal #5's three-layer defense — the encoder
     rejects unwrapped `Sensitive[T]` values).

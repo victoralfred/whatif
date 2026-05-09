@@ -21,7 +21,7 @@ just with deterministic inputs.
 The stub is consumed by tests that live OUTSIDE this repo's test
 tree (skill-benchmarks, future contributor reproductions). Putting
 it under `whatifd.adapters` makes it importable from anywhere
-`whatif` is installed, while the lazy-load contract guarantees
+`whatifd` is installed, while the lazy-load contract guarantees
 that core never accidentally pulls it (`tests/unit/whatifd/adapters/
 test_protocols.py::TestLazyLoad::test_core_modules_do_not_load_adapters`
 includes the stub module in its scan).

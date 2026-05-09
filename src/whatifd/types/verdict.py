@@ -1,12 +1,12 @@
 """Verdict types: `Ship`, `DontShip`, `Inconclusive`, `Verdict` union.
 
 The terminal output of the decision pipeline. One of these three is
-constructed per run; the projection layer in `whatif/report/projection.py`
+constructed per run; the projection layer in `whatifd/report/projection.py`
 (Phase 5) flattens them into the public `ReportV01.verdict_state`.
 
 Cardinal rule #2 (trust floor cannot be bypassed) is enforced at the
 type level by the `proof: FloorPassedProof` field on `Ship`. The
-`FloorPassedProof` class lives in `whatif/decision/floor.py` because
+`FloorPassedProof` class lives in `whatifd/decision/floor.py` because
 the closure-capture pattern that prevents external construction
 requires the class and its producer to be in the same module. This
 module imports `FloorPassedProof` under `TYPE_CHECKING` only — runtime
@@ -47,7 +47,7 @@ class Ship:
 
     The `proof` field is the witness — its presence guarantees the trust
     floor passed for the cohorts this verdict represents. The closure-
-    capture in `whatif/decision/floor.py` prevents anyone from
+    capture in `whatifd/decision/floor.py` prevents anyone from
     fabricating a proof.
 
     Internal type. The public report shape (`ReportV01.verdict_state`)

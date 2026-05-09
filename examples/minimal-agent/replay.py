@@ -1,6 +1,6 @@
-"""Minimal reference `Runner` for the whatif v0.1 contract.
+"""Minimal reference `Runner` for the whatifd v0.1 contract.
 
-A `Runner` is the user-supplied callable that whatif invokes to
+A `Runner` is the user-supplied callable that whatifd invokes to
 replay one trace under a proposed change. It receives the original
 input, the modified `ReplayConfig`, and the `ToolCache` (cached
 outputs from the original trace, so tools don't re-fire side
@@ -22,7 +22,7 @@ Usage (programmatic, via `whatifd.pipeline.run_pipeline`):
 
 Usage (CLI, when Phase 10 wires the runner-target loader):
 
-    whatif fork --target "python:examples.minimal_agent.replay:run" ...
+    whatifd fork --target "python:examples.minimal_agent.replay:run" ...
 """
 
 from __future__ import annotations

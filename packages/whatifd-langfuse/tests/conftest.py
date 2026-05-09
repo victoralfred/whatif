@@ -1,9 +1,9 @@
 """Make the parent repo's adapter conformance harness importable.
 
 Phase 4B.1: the conformance harness lives at
-`<repo>/tests/adapters/conformance.py` (under the parent `whatif`
+`<repo>/tests/adapters/conformance.py` (under the parent `whatifd`
 project's test tree, not yet promoted to a public module — see
-`whatif-features/references/deferred-refactors.md` entry #1).
+`whatifd-features/references/deferred-refactors.md` entry #1).
 This conftest adds that directory to `sys.path` so any package
 test can `from conformance import TraceSourceConformance`.
 
@@ -21,10 +21,10 @@ _HARNESS_DIR = _REPO_ROOT / "tests" / "adapters"
 
 _HARNESS_MISSING_MESSAGE = (
     "whatifd-langfuse conftest cannot locate the conformance harness at "
-    f"{_HARNESS_DIR / 'conformance.py'}. Either the parent whatif repo "
+    f"{_HARNESS_DIR / 'conformance.py'}. Either the parent whatifd repo "
     "is missing (out-of-tree consumer?) or the path-resolution depth "
     "(parents[3]) doesn't match this layout. See "
-    "`.claude/skills/whatif-features/references/deferred-refactors.md` "
+    "`.claude/skills/whatifd-features/references/deferred-refactors.md` "
     "entry #1 for the public-promotion path that removes this seam."
 )
 

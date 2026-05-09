@@ -15,7 +15,7 @@ The walkthroughs are also the empirical reviewer for the design. Each scenario s
 | 3 | [03-dont-ship-failure-rescue-gap.md](03-dont-ship-failure-rescue-gap.md) | Don't Ship | Multi-cause fix-suggestion templating |
 | 4 | [04-inconclusive-insufficient-sample.md](04-inconclusive-insufficient-sample.md) | Inconclusive | Per-cohort floor table; failure-driven fix text |
 | 5 | [05-inconclusive-cache-corruption.md](05-inconclusive-cache-corruption.md) | Inconclusive | Run-scope failure → CLI recovery commands |
-| 6 | [06-rerun-after-fix.md](06-rerun-after-fix.md) | Diff | `whatif diff` CLI surface; diff JSON schema |
+| 6 | [06-rerun-after-fix.md](06-rerun-after-fix.md) | Diff | `whatifd diff` CLI surface; diff JSON schema |
 
 ## Scenario 1: Clean Ship
 
@@ -27,13 +27,13 @@ The walkthroughs are also the empirical reviewer for the design. Each scenario s
 - Cache: 38 hits, 2 misses, 0 stale
 - All floor rules pass; all policy rules pass
 
-**CI status line:** `✓ whatif: Ship — failures 14/20 ↑, baseline 17/20 stable`
+**CI status line:** `✓ whatifd: Ship — failures 14/20 ↑, baseline 17/20 stable`
 
 **Design pressure:** ~12 lines of report total. Below 30-line budget. The two trace mentions ("top improvement" / "top regression") at the bottom prevent the clean-Ship template from being a rubber stamp — reviewers see at least one improvement and one regression even when nothing is wrong. **Open question:** the `[Full evidence ↓](#evidence)` link points at a section that doesn't exist in the compact form. See cascade catalog: "Compact-form anchor semantics."
 
 ## Scenario 2: Don't Ship (regression)
 
-**Setup:** A prompt update fixes 14/20 failures but causes a 30% regression on baseline traces. The classic silent-regression case whatif exists to catch.
+**Setup:** A prompt update fixes 14/20 failures but causes a 30% regression on baseline traces. The classic silent-regression case whatifd exists to catch.
 
 **Underlying state:**
 - Failure cohort: 20 selected, 20 replayed, 20 scored, 14 improved, 3 unchanged, 3 regressed
@@ -42,7 +42,7 @@ The walkthroughs are also the empirical reviewer for the design. Each scenario s
 - Floor: all pass
 - Policy: `max_baseline_regression_ratio: 0.10` violated (6/20 = 30%)
 
-**CI status line:** `✗ whatif: Don't Ship — baseline regressed 6/20 (median Δ -0.18)`
+**CI status line:** `✗ whatifd: Don't Ship — baseline regressed 6/20 (median Δ -0.18)`
 
 **Design pressure:** The judge rationale is what makes the report defensible. Without "agent now refuses requests it previously handled correctly," the reviewer just sees a number and must take it on faith. The Sensitive[T] redaction profile choice matters here — `review` profile shows snippets; `minimal` profile would show only deltas without text. **Schema gap:** the per-trace evidence shape (Original / Replayed / Judge) is not in `CohortResult`, `FailureRecord`, or `DecisionFinding`. See cascade catalog: "Per-trace evidence schema."
 
@@ -56,7 +56,7 @@ The walkthroughs are also the empirical reviewer for the design. Each scenario s
 - Floor: all pass
 - Policy: `min_failure_improvement_ratio: 0.50` violated (2/20 = 10%)
 
-**CI status line:** `✗ whatif: Don't Ship — failures only 2/20 improved (need 50%)`
+**CI status line:** `✗ whatifd: Don't Ship — failures only 2/20 improved (need 50%)`
 
 **Design pressure:** Fix suggestions for "failure cohort didn't improve" need to span multiple causes. The current `FixSuggestion` shape (one template + list of generic suggestions) is right for floor rules but doesn't capture the *enumerated multiple-causes* pattern this scenario uses. See cascade catalog: "Multi-cause fix-suggestion templating."
 
@@ -69,7 +69,7 @@ The walkthroughs are also the empirical reviewer for the design. Each scenario s
 - Baseline cohort: 8 selected, 5 replayed, 3 scored (5 had cache misses; 2 of remaining had schema mismatches)
 - Floor: `min_scored_per_required_cohort: 5` violated for baseline (3 < 5)
 
-**CI status line:** `⚠ whatif: Inconclusive — baseline cohort below floor (3 < 5 scored)`
+**CI status line:** `⚠ whatifd: Inconclusive — baseline cohort below floor (3 < 5 scored)`
 
 **Design pressure:** Two things land here.
 1. The fix text is not generic — it enumerates the specific causes from failure records ("5 traces had cache misses for tool `search`"). The renderer queries failure records, groups by code, and produces per-code text. Confirms the `FIX_SUGGESTION_REGISTRY` design but adds a new requirement: templates must be able to reference aggregated failure data, not just the threshold values.
@@ -84,9 +84,9 @@ The walkthroughs are also the empirical reviewer for the design. Each scenario s
 - `CacheLockedError` raised; converted to run-scope `FailureRecord(code="cache_lock_unavailable", scope="run")`
 - Verdict: Inconclusive (run-scope failure)
 
-**CI status line:** `⚠ whatif: Inconclusive — scorer cache locked by stale process`
+**CI status line:** `⚠ whatifd: Inconclusive — scorer cache locked by stale process`
 
-**Design pressure:** Three CLI commands are referenced (`whatif cache rebuild --force`, `whatif cache unlock`, `whatif cache verify`). None are in the v0.1 CLI surface yet. If they aren't in v0.1 scope, scenario 5's recovery message is a lie. See cascade catalog: "CLI cache subcommands for v0.1."
+**Design pressure:** Three CLI commands are referenced (`whatifd cache rebuild --force`, `whatifd cache unlock`, `whatifd cache verify`). None are in the v0.1 CLI surface yet. If they aren't in v0.1 scope, scenario 5's recovery message is a lie. See cascade catalog: "CLI cache subcommands for v0.1."
 
 ## Scenario 6: Rerun-after-fix (diff mode)
 
@@ -97,9 +97,9 @@ The walkthroughs are also the empirical reviewer for the design. Each scenario s
 - Run A produced Don't Ship; Run B produced Ship
 - User wants to see what changed
 
-**CLI invocation (proposed):** `whatif diff reports/2026-05-03-prompt-v3/report.json reports/2026-05-04-prompt-v4/report.json`
+**CLI invocation (proposed):** `whatifd diff reports/2026-05-03-prompt-v3/report.json reports/2026-05-04-prompt-v4/report.json`
 
-**Design pressure:** Whether `whatif diff` is in v0.1 scope is a real question. Arguments for: it's the most natural engineer workflow after iterating on a fix. Arguments against: it's a separate CLI surface that doubles renderer complexity and requires its own JSON output schema. See cascade catalog: "CLI `whatif diff` for v0.1."
+**Design pressure:** Whether `whatifd diff` is in v0.1 scope is a real question. Arguments for: it's the most natural engineer workflow after iterating on a fix. Arguments against: it's a separate CLI surface that doubles renderer complexity and requires its own JSON output schema. See cascade catalog: "CLI `whatifd diff` for v0.1."
 
 ## What the walkthroughs prove together
 

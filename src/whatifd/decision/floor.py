@@ -46,7 +46,7 @@ property test against policy-coverage gaps.
 
 ## Layering and mypy reconciliation
 
-`FloorPassedProof` lives here, not in `whatif/types/verdict.py`,
+`FloorPassedProof` lives here, not in `whatifd/types/verdict.py`,
 because closure-capture requires the class and its producer to be in
 the same module. `Ship` (in `types/verdict.py`) imports `FloorPassedProof`
 under `TYPE_CHECKING` so the runtime types/ layer carries no

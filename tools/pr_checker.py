@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Claude-based PR reviewer for the whatif project.
+"""Claude-based PR reviewer for the whatifd project.
 
 Reads a GitHub PR's JSON metadata and diff, sends them to Claude for review
 against the project's cardinal rules and quality criteria, and emits a
 structured verdict.
 
-Exit codes match whatif's verdict semantics:
+Exit codes match whatifd's verdict semantics:
 - 0 = Ship (PR passes all checks)
 - 1 = Don't Ship (PR has blocking issues)
 - 2 = Inconclusive (setup/network/credentials/parsing failure, or genuinely
@@ -45,7 +45,7 @@ try:
 except ImportError:
     print(
         "ERROR: anthropic package not installed. Install with:\n"
-        "  pip install 'whatif[anthropic]'\n"
+        "  pip install 'whatifd[anthropic]'\n"
         "or directly: pip install 'anthropic>=0.40'",
         file=sys.stderr,
     )
@@ -77,7 +77,7 @@ MAX_OUTPUT_TOKENS = 4_000
 class ReviewVerdict:
     """Structured verdict from a PR review pass.
 
-    Mirrors whatif's three-state verdict semantics deliberately so the
+    Mirrors whatifd's three-state verdict semantics deliberately so the
     PR-checker output composes with downstream tooling that already knows
     these states.
     """
@@ -102,7 +102,7 @@ class ReviewVerdict:
         }
 
 
-SYSTEM_PROMPT = """Ultrathink You are reviewing a pull request for the `whatif` project — an open-source CLI experiment runner for LLM behavior changes that emits PR-ready verdict reports.
+SYSTEM_PROMPT = """Ultrathink You are reviewing a pull request for the `whatifd` project — an open-source CLI experiment runner for LLM behavior changes that emits PR-ready verdict reports.
 
 The project follows a TRUST-FIRST doctrine. Your review must check the PR against these CARDINAL RULES (any violation makes the verdict Don't Ship):
 
@@ -250,7 +250,7 @@ def render_summary(verdict: ReviewVerdict) -> str:
     }[verdict.state]
 
     lines = [
-        f"{glyph} whatif PR review: {label}",
+        f"{glyph} whatifd PR review: {label}",
         f"Method: {verdict.review_method} · Model: {verdict.model}",
         "",
         f"Summary: {verdict.summary}",
@@ -276,7 +276,7 @@ def render_summary(verdict: ReviewVerdict) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Claude-based PR reviewer for whatif",
+        description="Claude-based PR reviewer for whatifd",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(

@@ -222,7 +222,7 @@ class TestFactoryEnforcesDerivationExpectation:
             make_decision_finding(
                 "cache_corruption_detected",
                 message="x",
-                details={"cache_path": ".whatif/cache"},
+                details={"cache_path": ".whatifd/cache"},
                 derived_from_failures=[],
             )
 
@@ -231,7 +231,7 @@ class TestFactoryEnforcesDerivationExpectation:
             make_decision_finding(
                 "cache_corruption_detected",
                 message="x",
-                details={"cache_path": ".whatif/cache"},
+                details={"cache_path": ".whatifd/cache"},
                 # derived_from_failures omitted entirely
             )
 
@@ -255,7 +255,7 @@ class TestSeverityNonOverrideable:
         finding = make_decision_finding(
             "cache_corruption_detected",
             message="x",
-            details={"cache_path": ".whatif/cache"},
+            details={"cache_path": ".whatifd/cache"},
             derived_from_failures=["failure_001"],
         )
         assert finding.severity == "blocks_all"

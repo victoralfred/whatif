@@ -97,7 +97,7 @@ class TwoAffirmationProof:
 
     Constructing a `TwoAffirmationProof` outside this module is
     blocked by a closure-captured token (same pattern as
-    `_FLOOR_INTERNAL_TOKEN` in `whatif/decision/floor.py`):
+    `_FLOOR_INTERNAL_TOKEN` in `whatifd/decision/floor.py`):
     `__init__` requires a sentinel that only this module holds.
     A fabricated proof raises at construction.
 
@@ -289,9 +289,9 @@ class TimeoutsConfig(BaseModel):
 
 
 class WhatifConfig(BaseModel):
-    """Top-level whatif configuration.
+    """Top-level whatifd configuration.
 
-    Loaded from `whatif.config.yaml` (or alternative path) at CLI
+    Loaded from `whatifd.config.yaml` (or alternative path) at CLI
     startup. Pydantic v2 strict mode rejects unknown fields at any
     nesting level — typos fail loud rather than silently absorb.
     """
@@ -469,7 +469,7 @@ def format_validation_errors(exc: ValidationError) -> str:
     them depth-first by location, which produces a readable
     walkthrough of the misconfiguration without sorting.
     """
-    lines: list[str] = ["whatif config validation failed:", ""]
+    lines: list[str] = ["whatifd config validation failed:", ""]
     for err in exc.errors():
         path = ".".join(str(part) for part in err["loc"]) or "(root)"
         msg = err["msg"]
@@ -497,7 +497,7 @@ class ConfigFileError(Exception):
 
 
 def load_config(path: Path) -> WhatifConfig:
-    """Load and validate a `whatif` config file.
+    """Load and validate a `whatifd` config file.
 
     Returns the validated `WhatifConfig`. Failure modes:
 

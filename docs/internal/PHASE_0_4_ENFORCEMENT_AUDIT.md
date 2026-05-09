@@ -93,13 +93,13 @@ Open cascades that touch enforcement-table rows (will resolve as those test gate
 | Reliability/validity/calibration/bias disclosed-as-unmeasured | Phase 1 (types) + Phase 7 (renderer) |
 | Cluster bootstrap conditional on real cluster keys | Phase 1 (types) + Phase 4 (adapters) |
 | Causal-claim scope enforced | Phase 1 (types) + Phase 7 (renderer) |
-| Paired-delta as atomic unit | Phase 1 (types — `whatif/types/statistical.py`) + Phase 2 (decision pipeline — bootstrap on deltas) |
+| Paired-delta as atomic unit | Phase 1 (types — `whatifd/types/statistical.py`) + Phase 2 (decision pipeline — bootstrap on deltas) |
 | Predeclared cohort-level primary endpoints | Phase 2 (decision pipeline — `primary_endpoint_guard`) |
 | Finding code registry | Phase 2 (decision pipeline) |
 | CI availability moved from floor to policy | Phase 2 (decision pipeline) |
 | Cohort propagation throughout | Phase 1 (types) + Phase 2 (decision pipeline) |
 | CLI cache subcommands for v0.1 (rebuild, unlock, verify) | Phase 8 (CLI) |
-| CLI `whatif diff` for v0.1 | Phase 8 (CLI) + Phase 7 (renderer) |
+| CLI `whatifd diff` for v0.1 | Phase 8 (CLI) + Phase 7 (renderer) |
 | Per-trace evidence schema | Phase 1 (types) + Phase 5 (serialization) + Phase 7 (renderer) |
 | CI unavailability reason on CohortResult | Phase 1 (types) + Phase 2 (decision pipeline) + Phase 7 (renderer) |
 | Floor table rendering — passing rules need to be enumerable | Phase 1 (types — `TrustFloor.rule_names()`) + Phase 7 (renderer) |

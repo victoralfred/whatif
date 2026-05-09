@@ -1,9 +1,9 @@
-"""`whatif` CLI entry point.
+"""`whatifd` CLI entry point.
 
 Phase 8.2 of the v0.1 implementation plan. Typer-based command
 surface:
 
-  - `whatif fork [--config PATH] [--profile {default|review|minimal|forensic}]`
+  - `whatifd fork [--config PATH] [--profile {default|review|minimal|forensic}]`
     — main entrypoint. Loads config, runs two-affirmation,
     threads `TwoAffirmationProof` to the (Phase 4 / Phase 9)
     adapter pipeline. v0.1 8.2 ships the CLI SHELL — argument
@@ -11,11 +11,11 @@ surface:
     The actual fork execution is gated on Phase 4 adapter
     integration; missing adapter → exit 2 with a clear setup
     message, NOT a silent fallback.
-  - `whatif report-migrate <report.json>` — v0.1.x no-op (no
+  - `whatifd report-migrate <report.json>` — v0.1.x no-op (no
     schema breaks within v0.1.x); real migration logic when v0.2
     ships
-  - `whatif cache rebuild|unlock|verify` — full Phase 8.3 implementations
-  - `whatif diff <prev.json> <new.json>` — full Phase 8.4 diff renderer
+  - `whatifd cache rebuild|unlock|verify` — full Phase 8.3 implementations
+  - `whatifd diff <prev.json> <new.json>` — full Phase 8.4 diff renderer
 
 ## Exit codes
 
@@ -76,7 +76,7 @@ from whatifd.diff import (
 )
 
 # Default config-file path. Operators override via `--config`.
-_DEFAULT_CONFIG_PATH = Path("whatif.config.yaml")
+_DEFAULT_CONFIG_PATH = Path("whatifd.config.yaml")
 
 # Default cache root is imported from the package's single source
 # of truth (`whatifd.cache.DEFAULT_CACHE_ROOT`) so a future change
@@ -85,7 +85,7 @@ _DEFAULT_CONFIG_PATH = Path("whatif.config.yaml")
 # Exit codes per the cardinal-#2 / phase-8 contract.
 #
 # Semantics:
-#   0 - command succeeded. For `whatif fork` specifically, 0
+#   0 - command succeeded. For `whatifd fork` specifically, 0
 #       means a Ship verdict (the alias `EXIT_SHIP` documents
 #       that meaning at the call site). For commands that do not
 #       produce a verdict (`report-migrate` no-op, future
@@ -100,9 +100,9 @@ EXIT_DONT_SHIP = 1
 EXIT_INCONCLUSIVE_OR_SETUP_FAILURE = 2
 
 app = typer.Typer(
-    name="whatif",
+    name="whatifd",
     help=(
-        "whatif: trust-first experiment runner for LLM behavior changes. "
+        "whatifd: trust-first experiment runner for LLM behavior changes. "
         "Fork production traces, replay with a proposed change, score the "
         "diff, emit a defensible Ship / Don't Ship / Inconclusive verdict."
     ),
@@ -112,7 +112,7 @@ app = typer.Typer(
 
 
 # ---------------------------------------------------------------------------
-# `whatif fork` — main entry
+# `whatifd fork` — main entry
 # ---------------------------------------------------------------------------
 
 
@@ -123,7 +123,7 @@ def fork(
         typer.Option(
             "--config",
             "-c",
-            help="Path to the whatif config file (.yaml/.yml/.json).",
+            help="Path to the whatifd config file (.yaml/.yml/.json).",
         ),
     ] = _DEFAULT_CONFIG_PATH,
     profile: Annotated[
@@ -146,7 +146,7 @@ def fork(
     try:
         cfg = load_config(config)
     except ConfigFileError as exc:
-        typer.echo(f"whatif: config error: {exc}", err=True)
+        typer.echo(f"whatifd: config error: {exc}", err=True)
         raise typer.Exit(code=EXIT_INCONCLUSIVE_OR_SETUP_FAILURE) from exc
     except ValidationError as exc:
         typer.echo(format_validation_errors(exc), err=True)
@@ -159,7 +159,7 @@ def fork(
     try:
         proof = assert_two_affirmation(cfg, cli_profile=profile)
     except ForensicAffirmationError as exc:
-        typer.echo(f"whatif: {exc}", err=True)
+        typer.echo(f"whatifd: {exc}", err=True)
         raise typer.Exit(code=EXIT_INCONCLUSIVE_OR_SETUP_FAILURE) from exc
 
     # Phase 8.2 dispatches into _run_fork_pipeline, which holds
@@ -284,7 +284,7 @@ def _run_fork_pipeline(cfg: WhatifConfig, proof: TwoAffirmationProof) -> int:
         scorer = build_scorer(cfg.scorer)
         loaded_runner = load_runner(cfg.target.runner)
     except (AdapterFactoryError, RunnerLoadError) as exc:
-        typer.echo(f"whatif: setup failure: {exc}", err=True)
+        typer.echo(f"whatifd: setup failure: {exc}", err=True)
         return EXIT_INCONCLUSIVE_OR_SETUP_FAILURE
 
     delta_fn = build_delta_fn(
@@ -414,7 +414,7 @@ def _run_fork_pipeline(cfg: WhatifConfig, proof: TwoAffirmationProof) -> int:
     )
 
     runtime = RunManifest(
-        experiment_id="whatif-fork",
+        experiment_id="whatifd-fork",
         started_at=started_at.isoformat(),
         finished_at=datetime.datetime.now(datetime.UTC).isoformat(),
         duration_ms=int((datetime.datetime.now(datetime.UTC) - started_at).total_seconds() * 1000),
@@ -451,7 +451,7 @@ def _run_fork_pipeline(cfg: WhatifConfig, proof: TwoAffirmationProof) -> int:
             cache_summary=cache_summary,
         )
     except Exception as exc:  # boundary catch; cardinal #1
-        typer.echo(f"whatif: pipeline error: {type(exc).__name__}: {exc}", err=True)
+        typer.echo(f"whatifd: pipeline error: {type(exc).__name__}: {exc}", err=True)
         return EXIT_INCONCLUSIVE_OR_SETUP_FAILURE
 
     # Cardinal #5 structural defense: walk the report tree before
@@ -463,7 +463,7 @@ def _run_fork_pipeline(cfg: WhatifConfig, proof: TwoAffirmationProof) -> int:
         assert_no_unredacted_sensitive(report)
     except Exception as exc:
         typer.echo(
-            f"whatif: cardinal-#5 graph-walk failed: {exc}. This is a "
+            f"whatifd: cardinal-#5 graph-walk failed: {exc}. This is a "
             "structural defect — the report contains unwrapped "
             "Sensitive[T] values. Refusing to serialize.",
             err=True,
@@ -471,12 +471,12 @@ def _run_fork_pipeline(cfg: WhatifConfig, proof: TwoAffirmationProof) -> int:
         return EXIT_INCONCLUSIVE_OR_SETUP_FAILURE
 
     # JSON + Markdown artifacts.
-    report_md_path = Path(f"./reports/whatif-fork-{started_at.strftime('%Y-%m-%d')}.md")
+    report_md_path = Path(f"./reports/whatifd-fork-{started_at.strftime('%Y-%m-%d')}.md")
     report_json_path = report_md_path.with_suffix(".json")
     report_md_path.parent.mkdir(parents=True, exist_ok=True)
     report_json_path.write_bytes(encode_report_v01(report))
     report_md_path.write_text(render_full_report(report), encoding="utf-8")
-    typer.echo(f"whatif: report written to {report_md_path} (+ .json)")
+    typer.echo(f"whatifd: report written to {report_md_path} (+ .json)")
 
     # Exit code from verdict_state.
     if report.verdict_state == "ship":
@@ -509,7 +509,7 @@ def cache_rebuild(
     ] = False,
     cache_root: Annotated[
         Path,
-        typer.Option("--cache-root", help="Cache root (default `.whatif/cache`)."),
+        typer.Option("--cache-root", help="Cache root (default `.whatifd/cache`)."),
     ] = DEFAULT_CACHE_ROOT,
 ) -> None:
     """Wipe `<cache-root>/entries/`. Preserves `meta.json` and the
@@ -523,17 +523,17 @@ def cache_rebuild(
     result = rebuild(cache_root, force=force)
     if result.error == "force_required":
         typer.echo(
-            "whatif cache rebuild: refusing to delete without --force.",
+            "whatifd cache rebuild: refusing to delete without --force.",
             err=True,
         )
         raise typer.Exit(code=EXIT_INCONCLUSIVE_OR_SETUP_FAILURE)
     if result.error == "entries_dir_missing":
         typer.echo(
-            f"whatif cache rebuild: no entries directory at {cache_root}/entries (already clean).",
+            f"whatifd cache rebuild: no entries directory at {cache_root}/entries (already clean).",
         )
         raise typer.Exit(code=EXIT_SUCCESS)
     summary = (
-        f"whatif cache rebuild: removed {result.entries_removed} entries "
+        f"whatifd cache rebuild: removed {result.entries_removed} entries "
         f"across {result.bucket_dirs_removed} bucket directories under "
         f"{cache_root}/entries."
     )
@@ -573,7 +573,7 @@ def cache_unlock(
     ] = False,
     cache_root: Annotated[
         Path,
-        typer.Option("--cache-root", help="Cache root (default `.whatif/cache`)."),
+        typer.Option("--cache-root", help="Cache root (default `.whatifd/cache`)."),
     ] = DEFAULT_CACHE_ROOT,
 ) -> None:
     """Remove `<cache-root>/.lock` after a PID-alive safety check.
@@ -587,12 +587,12 @@ def cache_unlock(
     result = unlock(cache_root, allow_alive=allow_alive)
     if result.error == "no_lock_file":
         typer.echo(
-            f"whatif cache unlock: no lock file at {cache_root}/.lock (already unlocked).",
+            f"whatifd cache unlock: no lock file at {cache_root}/.lock (already unlocked).",
         )
         raise typer.Exit(code=EXIT_SUCCESS)
     if result.error == "lock_holder_alive":
         typer.echo(
-            "whatif cache unlock: lock holder is still alive. Pass --allow-alive to override.",
+            "whatifd cache unlock: lock holder is still alive. Pass --allow-alive to override.",
             err=True,
         )
         raise typer.Exit(code=EXIT_INCONCLUSIVE_OR_SETUP_FAILURE)
@@ -601,17 +601,17 @@ def cache_unlock(
         # exhaustively on the sentinel; `unlink_error` carries
         # the OS-level diagnostic separately.
         typer.echo(
-            f"whatif cache unlock: unlink failed: {result.unlink_error}",
+            f"whatifd cache unlock: unlink failed: {result.unlink_error}",
             err=True,
         )
         raise typer.Exit(code=EXIT_INCONCLUSIVE_OR_SETUP_FAILURE)
 
     if result.pid_was_alive:
         typer.echo(
-            "whatif cache unlock: removed lock file (live-PID override via --allow-alive).",
+            "whatifd cache unlock: removed lock file (live-PID override via --allow-alive).",
         )
     else:
-        typer.echo("whatif cache unlock: removed stale lock file.")
+        typer.echo("whatifd cache unlock: removed stale lock file.")
     raise typer.Exit(code=EXIT_SUCCESS)
 
 
@@ -619,7 +619,7 @@ def cache_unlock(
 def cache_verify(
     cache_root: Annotated[
         Path,
-        typer.Option("--cache-root", help="Cache root (default `.whatif/cache`)."),
+        typer.Option("--cache-root", help="Cache root (default `.whatifd/cache`)."),
     ] = DEFAULT_CACHE_ROOT,
 ) -> None:
     """Verify cache-entry structural integrity.
@@ -627,7 +627,7 @@ def cache_verify(
     Walks `<cache-root>/entries/` and confirms each JSON file
     parses as a valid CacheEntry. Exits 0 if all entries valid OR
     no entries directory exists. Exits 2 if any entry is corrupted
-    (operator should run `whatif cache rebuild --force`).
+    (operator should run `whatifd cache rebuild --force`).
 
     v0.1 checks structural integrity only; cryptographic
     content-hash verification is deferred to v0.2.
@@ -635,7 +635,7 @@ def cache_verify(
     result = verify(cache_root)
     if result.vacuous:
         typer.echo(
-            f"whatif cache verify: no entries directory at {cache_root}/entries (vacuously clean).",
+            f"whatifd cache verify: no entries directory at {cache_root}/entries (vacuously clean).",
         )
         raise typer.Exit(code=EXIT_SUCCESS)
     # Print the headline (clean OR corrupted) first, then the
@@ -644,18 +644,18 @@ def cache_verify(
     # success path.
     if result.corrupted:
         typer.echo(
-            f"whatif cache verify: {len(result.corrupted)}/{result.total} "
+            f"whatifd cache verify: {len(result.corrupted)}/{result.total} "
             "entries are corrupted. Files:",
             err=True,
         )
         for p in result.corrupted:
             typer.echo(f"  {p}", err=True)
         typer.echo(
-            "Run `whatif cache rebuild --force` to wipe and start clean.",
+            "Run `whatifd cache rebuild --force` to wipe and start clean.",
             err=True,
         )
     else:
-        typer.echo(f"whatif cache verify: {result.valid}/{result.total} entries OK.")
+        typer.echo(f"whatifd cache verify: {result.valid}/{result.total} entries OK.")
     # Anomaly counts surface on both paths so an operator sees
     # everything in one invocation. The entries that DO parse
     # pass the structural check; these counters describe layout
@@ -681,7 +681,7 @@ def diff(
     prev: Annotated[Path, typer.Argument(help="Previous report.json")],
     new: Annotated[Path, typer.Argument(help="New report.json")],
 ) -> None:
-    """Compare two whatif reports and emit a Markdown diff to stdout.
+    """Compare two whatifd reports and emit a Markdown diff to stdout.
 
     Exits 0 on a successful render (whether or not anything changed —
     the diff is descriptive, not a verdict). Exits 2 on file-level
@@ -692,7 +692,7 @@ def diff(
         prev_data = load_report(prev)
         new_data = load_report(new)
     except DiffError as exc:
-        typer.echo(f"whatif diff: {exc}", err=True)
+        typer.echo(f"whatifd diff: {exc}", err=True)
         raise typer.Exit(code=EXIT_INCONCLUSIVE_OR_SETUP_FAILURE) from exc
     report = compute_diff(prev_data, new_data)
     typer.echo(render_diff_markdown(report), nl=False)
@@ -715,14 +715,14 @@ def report_migrate(
     from v0.1.
     """
     typer.echo(
-        f"whatif report-migrate: v0.1 has no migrations to apply ({report}). No-op success.",
+        f"whatifd report-migrate: v0.1 has no migrations to apply ({report}). No-op success.",
     )
     raise typer.Exit(code=EXIT_SUCCESS)  # exit 0: intentional no-op
 
 
 def main() -> None:
     """Console-script entry point (`pyproject.toml` declares
-    `whatif = whatifd.cli:main`)."""
+    `whatifd = whatifd.cli:main`)."""
     app()
 
 

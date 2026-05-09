@@ -107,7 +107,7 @@ def _evaluate_endpoint(
     Uses a `match` statement with an explicit case per Literal value
     so mypy strict catches missing dispatch branches when v0.2+ adds
     new directions to `EndpointDirection`. The Literal exhaustiveness
-    pattern is the project standard (see `whatif/types/verdict.py`'s
+    pattern is the project standard (see `whatifd/types/verdict.py`'s
     `Verdict` sealed union).
     """
     total_scored = cohort.improved_count + cohort.unchanged_count + cohort.regressed_count

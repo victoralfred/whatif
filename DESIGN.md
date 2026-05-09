@@ -1,6 +1,6 @@
-# `whatif - DESIGN
+# `whatifd - DESIGN
 
-> **whatif is the open experiment runner for LLM behavior changes.** It pulls real production traces from your observability stack, replays them through your app with a proposed change, uses cached tool results to avoid side effects, scores before/after behavior, and emits a PR-ready verdict report with coverage, replay validity, and concrete evidence.
+> **whatifd is the open experiment runner for LLM behavior changes.** It pulls real production traces from your observability stack, replays them through your app with a proposed change, uses cached tool results to avoid side effects, scores before/after behavior, and emits a PR-ready verdict report with coverage, replay validity, and concrete evidence.
 >
 > v0.1 ships as a CLI. v1.0 destination is the **pre-merge regression gate for LLM behavior**-the `pytest` of agent prompt changes. Apache 2.0.
 
@@ -35,7 +35,7 @@ The earlier drafts of this doc claimed nobody tests proposed fixes against produ
 | **AgentOps** | ✓ | ✗ (time-travel replay only) | ✗ | ✗ | ✗ | ✗ | open SDK |
 | **Datadog LLM Obs** | ✓ | partial | ✗ | partial | ✗ | ✗ | ✗ |
 | **Arize Phoenix** | ✓ | ✓ (eval traces, log to UI) | ✗ | partial | ✗ | partial (OpenInference) | ✓ |
-| **`whatif` (proposed)** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| **`whatifd` (proposed)** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 
 That table is what gives the differentiator below its shape: not novelty in any single cell, but the combination of all four right-hand axes (open + CLI + tracer-neutral + PR-ready) - which no row owns together.
 
@@ -55,7 +55,7 @@ Existing platforms own *some* of these axes. None owns all four together.
 A single CLI invocation:
 
 ```bash
-$ whatif fork \
+$ whatifd fork \
     --source langfuse \
     --target "python:my_agent.replay:run" \
     --failures "score-below:0.6,since:24h,limit:20" \
@@ -70,7 +70,7 @@ $ whatif fork \
 # exit 0 = passed configured policy
 # exit 1 = failed configured policy
 # exit 2 = inconclusive (setup/replay/scoring failure)
-# whatif enforces *your declared policy*; it does not certify "safety."
+# whatifd enforces *your declared policy*; it does not certify "safety."
 ```
 
 Two things in this invocation that earlier drafts missed:
@@ -80,7 +80,7 @@ Two things in this invocation that earlier drafts missed:
 
 ## The runner contract (new-the hard part)
 
-A trace from Langfuse contains inputs, outputs, spans, tool calls, metadata, scores, prompts. **It is not executable.** To replay an agent with a changed config, `whatif` needs an executable boundary the user supplies.
+A trace from Langfuse contains inputs, outputs, spans, tool calls, metadata, scores, prompts. **It is not executable.** To replay an agent with a changed config, `whatifd` needs an executable boundary the user supplies.
 
 The contract:
 
@@ -101,21 +101,21 @@ def run(trace_input: TraceInput, config: ReplayConfig, tool_cache: ToolCache) ->
     return agent.run(trace_input.user_message)
 ```
 
-**The user runner only produces the replayed output. `whatif` owns everything else** - the original trace artifact, the cohort label, the metadata, the comparison. Internally, the unit handed to scorers is:
+**The user runner only produces the replayed output. `whatifd` owns everything else** - the original trace artifact, the cohort label, the metadata, the comparison. Internally, the unit handed to scorers is:
 
 ```python
-# whatif-internal; users never construct this themselves
+# whatifd-internal; users never construct this themselves
 ScoreCase(
     trace_id: str,
     cohort: Literal["failure", "baseline"],
     input: TraceInput,
-    original_output: TraceOutput,         # owned by whatif from the trace
+    original_output: TraceOutput,         # owned by whatifd from the trace
     replayed_output: ReplayOutput,        # produced by user runner
     metadata: dict,
 )
 ```
 
-Writing this down explicitly prevents the common design mistake of asking the user runner to do too much (provide originals, do scoring, etc.). The runner's job is one thing: produce a fresh output for a given input + modified config. Originals, comparison, scoring, and verdict logic all stay inside `whatif`.
+Writing this down explicitly prevents the common design mistake of asking the user runner to do too much (provide originals, do scoring, etc.). The runner's job is one thing: produce a fresh output for a given input + modified config. Originals, comparison, scoring, and verdict logic all stay inside `whatifd`.
 
 Three replay strategies were considered:
 
@@ -123,7 +123,7 @@ Three replay strategies were considered:
 - B. Framework-specific replay. Easier but narrows adoption.
 - C. Single-LLM-call replay only. Easier still, but breaks the agent-replay pitch.
 
-The runner contract is what makes the architecture sketch real instead of fictional. It's the boundary that lets `whatif` work with any agent stack.
+The runner contract is what makes the architecture sketch real instead of fictional. It's the boundary that lets `whatifd` work with any agent stack.
 
 ## Report shape - five mandatory sections, evidence-first
 
@@ -154,7 +154,7 @@ A report missing any of these is a bug, not a trade-off:
 - Exit codes: 0 / 1 / 2.
 
 ### v0.2 - M11 (CI-ready)
-- `whatif.config.yaml` schema with `selection.mode` field.
+- `whatifd.config.yaml` schema with `selection.mode` field.
 - Deterministic-ish output (sorted keys, stable hashes).
 - Second source adapter (Phoenix or LangSmith - driven by user demand).
 - Tiny **GitHub Action wrapper** (~50 lines; just invokes the CLI).
@@ -162,16 +162,16 @@ A report missing any of these is a bug, not a trade-off:
 
 ### v0.3 - M12 (Path Z preview)
 - Live tool replay as opt-in third cache policy (per-tool allowlist; safety-first default off).
-- Worked sample repo with `whatif` running in real CI on a real (sample) PR.
+- Worked sample repo with `whatifd` running in real CI on a real (sample) PR.
 
 ### v1.0 - Path Z destination (year 2)
-The pre-merge regression gate for LLM behavior. Engineer sees a failing `whatif` check and thinks *"I'm not merging until this is green."*
+The pre-merge regression gate for LLM behavior. Engineer sees a failing `whatifd` check and thinks *"I'm not merging until this is green."*
 
 ## Non-goals (load-bearing)
 
 - Not a tracer (use Langfuse / Phoenix / LangSmith / OpenLLMetry).
 - Not an offline eval harness (use Inspect AI / Promptfoo; we wrap them).
-- Not an SLO platform (use Nobl9 / sloth downstream of `whatif`'s decisions).
+- Not an SLO platform (use Nobl9 / sloth downstream of `whatifd`'s decisions).
 - Not an agent runtime - the runner contract is the boundary.
 - Not a UI or dashboard.
 - Not a managed service in v1.
@@ -184,7 +184,7 @@ Explicitly **not in v0.1** even though tempting:
 
 ## Architecture sketch
 
-![whatif architectural pipeline](./pipeline.png)
+![whatifd architectural pipeline](./pipeline.png)
 
 *ASCII fallback (for terminal viewers / `cat DESIGN.md` / patch reviews):*
 
@@ -236,7 +236,7 @@ Explicitly **not in v0.1** even though tempting:
    └────────────────────┘                └────────────────────┘
 
 Module tree:
-  whatif/
+  whatifd/
     contract/             # public API for user-supplied --target
       __init__.py         # TraceInput, ReplayConfig, ToolCache, ReplayOutput
     ingest/
@@ -262,8 +262,8 @@ Module tree:
       json.py
       exit_codes.py
     config/
-      schema.py           # whatif.config.yaml (v0.2 onward)
-    cli.py                # `whatif fork | report | explain`
+      schema.py           # whatifd.config.yaml (v0.2 onward)
+    cli.py                # `whatifd fork | report | explain`
 ```
 
 ## Config and CLI shape
@@ -271,7 +271,7 @@ Module tree:
 v0.2 introduces the config file so CI doesn't carry argument soup:
 
 ```yaml
-# whatif.config.yaml - version-controlled
+# whatifd.config.yaml - version-controlled
 source:
   type: langfuse
   project: incident-triage-prod
@@ -310,7 +310,7 @@ decision:
 
 CI invocation reduces to:
 ```bash
-whatif fork --config whatif.config.yaml --change system_prompt=prompts/v3.txt
+whatifd fork --config whatifd.config.yaml --change system_prompt=prompts/v3.txt
 # exit code drives PR check
 ```
 
@@ -320,17 +320,17 @@ whatif fork --config whatif.config.yaml --change system_prompt=prompts/v3.txt
 
 1. **Time-to-decision on real prompt iterations.**
    - 20 candidate prompt revisions for the M04–M06 incident-triage agent.
-   - Compare manual (paste-and-eyeball) vs `whatif fork`.
+   - Compare manual (paste-and-eyeball) vs `whatifd fork`.
    - Headline: median minutes per decision (target: <5 min vs ~30 min manual).
 
 2. **Decision quality on a held-out mixed trace set.**
    - For each "ship" decision: does it pass a held-out mixed trace set (failures + baseline) the experiment didn't see?
-   - Compare manual decision precision vs `whatif - driven decision precision.
+   - Compare manual decision precision vs `whatifd - driven decision precision.
    - Headline: % of "ship" decisions that pass held-out evaluation (target: >80%).
    - Real-world 7-day post-merge regression data is *anecdotal supporting evidence* only - too confounded by traffic, model drift, external APIs to be the rigorous metric.
 
 3. **Path Z proof-of-concept (M12-W03).**
-   - Sample agent repo with `whatif` wired into GitHub Actions.
+   - Sample agent repo with `whatifd` wired into GitHub Actions.
    - Open a deliberately-bad PR (prompt that improves failures but regresses baseline).
    - Show CI catching the regression, blocking merge, and producing a verdict report comment on the PR.
    - This is *demonstration*, not measurement; but it's the proof Path Z is real.
@@ -344,7 +344,7 @@ whatif fork --config whatif.config.yaml --change system_prompt=prompts/v3.txt
 - W04: 5-section report (Markdown + JSON), exit codes,  - -fail-on-regression`. **v0.1.0 released.**
 
 **M11-CI-ready + launch.**
-- W01: `whatif.config.yaml` schema with `mode` field, deterministic output, second source adapter.
+- W01: `whatifd.config.yaml` schema with `mode` field, deterministic output, second source adapter.
 - W02: **long-form blog post + talk** - *"Open, CLI-native experiment runner for LLM changes-what's open today, what becomes a CI gate tomorrow."* HN / r/MachineLearning / r/devops / r/sre.
 - W03: outreach to 5 SRE-on-AI engineers; tiny GitHub Action wrapper; model swap.
 - W04: **v0.2.0 released**.
@@ -360,7 +360,7 @@ whatif fork --config whatif.config.yaml --change system_prompt=prompts/v3.txt
 1. **Silent regression on non-failure cases (mitigated, not eliminated).** If users skip baseline cohort (`mode: failures_only`), they optimize for fixing failures while degrading successes. *Mitigation*: baseline runs by default in v0.1; the `failures_only` mode produces a loud "Verdict confidence: limited" warning in every report.
 2. **Braintrust / Langfuse / LangSmith ship CLI-native, tracer-neutral, PR-ready experiments.** Real risk; this is the most credible competitive move. *Mitigation*: ship first; lean on open + tracer-neutral as long-term moats (incumbents have business-model gravity toward their own substrate).
 3. **Runner contract adoption friction.** Users must implement a `replay()` function for their agent. *Mitigation*: ship 1 complete reference adapter in v0.1 (raw SDK / minimal agent) plus stubs + docs for LangChain and LangGraph in v0.1.1; contract is ~30 lines for the simplest case.
-4. **Tool-result staleness.** Tools that return time-sensitive data replay nonsensically with `use-original` cache. *Mitigation*: `whatif explain <trace-id>` flags these per-trace; documentation calls out the failure mode loudly; v0.3 `live` policy with allowlist for cases where it matters.
+4. **Tool-result staleness.** Tools that return time-sensitive data replay nonsensically with `use-original` cache. *Mitigation*: `whatifd explain <trace-id>` flags these per-trace; documentation calls out the failure mode loudly; v0.3 `live` policy with allowlist for cases where it matters.
 5. **Replay-validity is too low to be useful** on certain agents. *Mitigation*: replay-validity reporting in v0.1 makes this honest - the user sees "5/20 skipped" and knows v0.3 live-replay opt-in is needed for their case.
 6. **The CLI gets adopted but Path Z doesn't materialize.** Acceptable failure mode. The CLI alone is portfolio-grade; Path Z is upside.
 
@@ -374,13 +374,13 @@ whatif fork --config whatif.config.yaml --change system_prompt=prompts/v3.txt
 - **Promptfoo CI/CD docs** (`promptfoo.dev/docs/integrations/ci-cd`)-best-in-class CLI ergonomics for LLM tools; learn from it ruthlessly.
 - **Inspect AI source** - how to wrap a scorer cleanly.
 - Hamel Husain on LLM evals - the evidence-not-just-scores discipline.
-- *Working Effectively with Legacy Code* (Feathers) - characterization-test thinking, which `whatif` is essentially industrialising for LLM agents.
+- *Working Effectively with Legacy Code* (Feathers) - characterization-test thinking, which `whatifd` is essentially industrialising for LLM agents.
 
 ## Path Z - the destination, named
 
 This document describes v0.1 as a **CLI for interactive debugging**. That's true. It's also incomplete.
 
-The real product is a **regression-testing system for LLM behavior**, where the CLI is the wedge and CI integration is the moat. Today's PR review for an LLM project doesn't include a check that says "this prompt change won't regress your last 50 production failures *or your last 50 baseline successes*." Tomorrow's should. `whatif` is positioned to be that check.
+The real product is a **regression-testing system for LLM behavior**, where the CLI is the wedge and CI integration is the moat. Today's PR review for an LLM project doesn't include a check that says "this prompt change won't regress your last 50 production failures *or your last 50 baseline successes*." Tomorrow's should. `whatifd` is positioned to be that check.
 
 We don't build CI in v0.1. We build the CLI such that CI is a thin wrapper that already-works:
 - Machine-readable output (JSON).
@@ -389,12 +389,12 @@ We don't build CI in v0.1. We build the CLI such that CI is a thin wrapper that 
 - Deterministic-ish outputs.
 - A 50-line GitHub Action shipped in v0.2 that proves the architecture supports it.
 
-If `whatif` succeeds, the moment to aim for is:
+If `whatifd` succeeds, the moment to aim for is:
 
-> **An engineer sees a failing `whatif` check in a PR and thinks *"I'm not merging until this is green."***
+> **An engineer sees a failing `whatifd` check in a PR and thinks *"I'm not merging until this is green."***
 
 That's the moment a tool crosses from "useful" to "infrastructure."
 
 ## One-line success criterion
 
-> *"In M12-W04 I publish: (a) median time-to-decision for `whatif` vs manual on 20 real prompt iterations, (b) decision-quality precision against a held-out mixed trace set, and (c) a video of `whatif` blocking a bad PR via GitHub Actions on a sample repo. ≥3 external SRE-on-AI practitioners cite the post within 90 days. ≥1 team adopts `whatif` in their CI within 6 months."*
+> *"In M12-W04 I publish: (a) median time-to-decision for `whatifd` vs manual on 20 real prompt iterations, (b) decision-quality precision against a held-out mixed trace set, and (c) a video of `whatifd` blocking a bad PR via GitHub Actions on a sample repo. ≥3 external SRE-on-AI practitioners cite the post within 90 days. ≥1 team adopts `whatifd` in their CI within 6 months."*

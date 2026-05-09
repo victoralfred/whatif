@@ -217,7 +217,7 @@ def build_schema() -> dict[str, Any]:
         "$id": REPORT_SCHEMA_URI,
         "title": "WhatifReportV01",
         "description": (
-            "v0.1 wire-format report emitted by `whatif fork`. "
+            "v0.1 wire-format report emitted by `whatifd fork`. "
             "Hand-written types in `whatifd/report/models_v01.py`; this "
             "schema is generated from them by `scripts/generate_schema.py`."
         ),

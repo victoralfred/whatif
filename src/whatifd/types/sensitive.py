@@ -8,11 +8,11 @@ to write unwrapped sensitive values via three layers of defense:
    core types accept `Sensitive[str]` for sensitive fields. mypy catches
    misuse at type-check time. Lives in this module.
 2. **Pre-serialization graph walk** — `assert_no_unredacted_sensitive(obj)`
-   in `whatif/serialization/graph_walk.py` (Phase 5) walks the full
+   in `whatifd/serialization/graph_walk.py` (Phase 5) walks the full
    object graph before any artifact write and raises on any `Sensitive`
    instance. Catches `dataclasses.asdict()` paths that lose type info.
 3. **Encoder fallback** — `WhatifJSONEncoder.default()` in
-   `whatif/serialization/encoder.py` (Phase 5) raises
+   `whatifd/serialization/encoder.py` (Phase 5) raises
    `UnredactedSensitiveError` if a `Sensitive` reaches it. Last line.
 
 The discipline inversion: instead of "audit every serialization path,"
@@ -50,7 +50,7 @@ class UnredactedSensitiveError(Exception):
     when a `Sensitive[T]` is found in an artifact about to be written.
 
     The expected pattern: adapter wraps user content as `Sensitive[T]`;
-    redaction logic in `whatif/serialization/redaction.py` (Phase 5)
+    redaction logic in `whatifd/serialization/redaction.py` (Phase 5)
     transforms it to a `RedactedValue` per the configured profile;
     the serializer sees a `RedactedValue`, not a `Sensitive[T]`, and
     accepts it. If a `Sensitive[T]` reaches the serializer, redaction
@@ -66,13 +66,13 @@ class SensitiveUnwrap:
     ordering — wall-clock dependent). The schema for that field marks it
     `x-deterministic: false`.
 
-    Defined here, not in `whatif/types/manifest.py`, to avoid a circular
+    Defined here, not in `whatifd/types/manifest.py`, to avoid a circular
     import between sensitive ↔ manifest. Manifest imports from here.
     """
 
     classification: str
     reason: str
-    location: str  # call-site, e.g., "whatif/render/markdown.py:render_evidence:147"
+    location: str  # call-site, e.g., "whatifd/render/markdown.py:render_evidence:147"
 
 
 class _AuditLog:

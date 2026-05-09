@@ -42,18 +42,15 @@ jobs:
       # mandate is to remove it at sub-phase merge time too. The
       # grep ignores its own occurrence here (anchored on `# TODO`
       # + paren).
-      # Brand-vs-distribution-name sentinel: the PyPI distribution
-      # is `whatifd`, but the brand and CLI command stay `whatif`.
-      # Doc snippets like `pip install whatif <other-pkg>` look
-      # plausible to a human reviewer (the brand name appears
-      # everywhere) and will silently install the wrong package
-      # from PyPI. This sentinel catches `pip install whatif`
-      # followed by whitespace (a syntactically-positioned arg),
-      # which is the regex shape three review rounds missed before
-      # PR #75 fixed it. The negative-lookahead-style `[^d]`
-      # excludes the legitimate `whatifd` form. Markdown only —
-      # Python code uses imports, not pip-install shell snippets.
-      - name: pip-install brand-vs-distribution sentinel
+      # Missing-trailing-`d` typo sentinel: the PyPI distribution and
+      # CLI are both `whatifd`. A doc snippet like `pip install whatif
+      # <other-pkg>` (missing the trailing `d`) would silently install
+      # a different package from PyPI — `whatif` is a different
+      # project. This sentinel catches `pip install whatif` followed
+      # by whitespace or end-of-line; the `[^d]|$` excludes the
+      # legitimate `whatifd` form. Markdown only — Python code uses
+      # imports, not pip-install shell snippets.
+      - name: pip-install missing-d sentinel
         run: |
           # `set +e` because `grep` exits 1 on no-match and the
           # default workflow shell is `bash -e`, which would abort
@@ -74,7 +71,7 @@ jobs:
             echo "$MATCHES"
             exit 1
           fi
-          echo "No pip-install brand typos found."
+          echo "No pip-install typos found."
 
       # Workspace version-parity gate: the three packages
       # (whatifd, whatifd-langfuse, whatifd-inspect-ai) release

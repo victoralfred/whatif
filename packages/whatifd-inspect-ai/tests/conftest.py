@@ -6,7 +6,7 @@ adds that directory to `sys.path` so package tests can do
 `from conformance import ScorerConformance`.
 
 If the harness is ever promoted to `whatifd.testing.adapter_conformance`
-per `whatif-features` entry #1, drop this conftest and switch
+per `whatifd-features` entry #1, drop this conftest and switch
 imports to the public surface in the same PR.
 """
 
@@ -20,10 +20,10 @@ _HARNESS_DIR = _REPO_ROOT / "tests" / "adapters"
 
 _HARNESS_MISSING_MESSAGE = (
     "whatifd-inspect-ai conftest cannot locate the conformance harness at "
-    f"{_HARNESS_DIR / 'conformance.py'}. Either the parent whatif repo "
+    f"{_HARNESS_DIR / 'conformance.py'}. Either the parent whatifd repo "
     "is missing (out-of-tree consumer?) or the path-resolution depth "
     "(parents[3]) doesn't match this layout. See "
-    "`.claude/skills/whatif-features/references/deferred-refactors.md` "
+    "`.claude/skills/whatifd-features/references/deferred-refactors.md` "
     "entry #1 for the public-promotion path that removes this seam."
 )
 

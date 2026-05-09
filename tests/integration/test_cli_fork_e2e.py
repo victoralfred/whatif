@@ -1,6 +1,6 @@
-"""Phase 10.4 end-to-end CLI smoke: `whatif fork` runs through.
+"""Phase 10.4 end-to-end CLI smoke: `whatifd fork` runs through.
 
-Constructs a minimal whatif config (stub source + stub scorer +
+Constructs a minimal whatifd config (stub source + stub scorer +
 test-fixture runner), invokes the typer CLI via `CliRunner`, and
 asserts the exit code, stderr/stdout, and that the JSON+Markdown
 artifacts were written. This is the proof that the CLI dispatcher
@@ -69,7 +69,7 @@ def _write_config(tmp_path: Path) -> Path:
           score_seconds: 5.0
         """
     )
-    path = tmp_path / "whatif.config.yaml"
+    path = tmp_path / "whatifd.config.yaml"
     path.write_text(cfg, encoding="utf-8")
     return path
 
@@ -136,7 +136,7 @@ def test_whatif_fork_e2e_unknown_adapter_setup_failure(
           score_seconds: 5.0
         """
     )
-    cfg_path = tmp_path / "whatif.config.yaml"
+    cfg_path = tmp_path / "whatifd.config.yaml"
     cfg_path.write_text(cfg, encoding="utf-8")
     runner = CliRunner()
     result = runner.invoke(app, ["fork", "--config", str(cfg_path)])
@@ -174,7 +174,7 @@ def test_whatif_fork_e2e_bad_runner_target_setup_failure(
           score_seconds: 5.0
         """
     )
-    cfg_path = tmp_path / "whatif.config.yaml"
+    cfg_path = tmp_path / "whatifd.config.yaml"
     cfg_path.write_text(cfg, encoding="utf-8")
     runner = CliRunner()
     result = runner.invoke(app, ["fork", "--config", str(cfg_path)])

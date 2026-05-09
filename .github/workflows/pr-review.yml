@@ -111,13 +111,13 @@ jobs:
         run: |
           ec="${{ steps.review.outputs.exit_code }}"
           case "$ec" in
-              0) echo "::notice::whatif PR review: Ship" ;;
+              0) echo "::notice::whatifd PR review: Ship" ;;
               1)
-                  echo "::error::whatif PR review: Don't Ship — see PR comment for blocking issues."
+                  echo "::error::whatifd PR review: Don't Ship — see PR comment for blocking issues."
                   exit 1
                   ;;
               2)
-                  echo "::warning::whatif PR review: Inconclusive — human review needed."
+                  echo "::warning::whatifd PR review: Inconclusive — human review needed."
                   # Inconclusive does NOT fail the workflow. The PR comment carries the detail.
                   ;;
               *)

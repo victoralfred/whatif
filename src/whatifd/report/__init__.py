@@ -13,8 +13,8 @@ includes:
   sub-phase). The schema match test asserts zero drift between code
   and committed schema.
 
-The split between INTERNAL types (`whatif/types/`) and PUBLIC types
-(`whatif/report/models_v01.py`) is the cardinal #6 boundary. Internal
+The split between INTERNAL types (`whatifd/types/`) and PUBLIC types
+(`whatifd/report/models_v01.py`) is the cardinal #6 boundary. Internal
 types may refactor freely between minor versions; public types are
 the wire contract and require schema-version bumps to change.
 """

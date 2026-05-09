@@ -1,4 +1,4 @@
-"""`whatif diff` — compare two whatif reports.
+"""`whatifd diff` — compare two whatifd reports.
 
 Phase 8.4 of the v0.1 implementation plan. Surfaced in walkthrough
 scenario 6 (rerun-after-fix): an engineer fixes an issue an
@@ -145,7 +145,7 @@ class DiffReport:
 
 
 def load_report(path: Path) -> dict[str, Any]:
-    """Read and parse a whatif report JSON file.
+    """Read and parse a whatifd report JSON file.
 
     Returns the raw dict — diff operates on the wire shape rather
     than reconstructing `ReportV01` because (a) the diff is
@@ -162,7 +162,7 @@ def load_report(path: Path) -> dict[str, Any]:
         raise DiffError(f"cannot read {path}: {exc}") from exc
     try:
         # `json.loads` is fine here: the banned-import lint targets
-        # `json.dumps` outside `whatif/serialization/` (cardinal #5
+        # `json.dumps` outside `whatifd/serialization/` (cardinal #5
         # last-line redaction defense). Reading is unrestricted.
         data = json.loads(raw)
     except json.JSONDecodeError as exc:
@@ -294,7 +294,7 @@ def render_diff_markdown(report: DiffReport) -> str:
     trailing newline (artifact-style). The caller pipes to stdout
     or splices into a PR-comment surface."""
     lines: list[str] = []
-    lines.append("# whatif diff")
+    lines.append("# whatifd diff")
     lines.append("")
 
     # Verdict transition

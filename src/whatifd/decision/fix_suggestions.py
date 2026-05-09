@@ -46,7 +46,7 @@ class FixSuggestion:
     keep it imperative and concrete.
 
     `steps` are Markdown-formatted strings, ordered. Phase 7 renders them
-    as a numbered list. Inline `code` fences and `whatif <subcommand>`
+    as a numbered list. Inline `code` fences and `whatifd <subcommand>`
     references are encouraged; the renderer treats them as Markdown.
 
     `description` is internal-only.
@@ -66,7 +66,7 @@ _REGISTRY_BUILDER: dict[str, FixSuggestion] = {
         steps=(
             "Identify which baseline traces regressed and look for a common pattern (prompt change, "
             "tool behavior change, model output drift).",
-            "Run `whatif diff <previous-report.json> <this-report.json>` to compare against a known-good run.",
+            "Run `whatifd diff <previous-report.json> <this-report.json>` to compare against a known-good run.",
             "If the failure cohort improvement is large enough to justify the baseline regression, consider "
             "adjusting `DecisionPolicy.max_baseline_regression_ratio` — but only with a documented rationale.",
             "Otherwise, do not ship. Iterate on the proposed change to reduce baseline impact.",
@@ -106,9 +106,9 @@ _REGISTRY_BUILDER: dict[str, FixSuggestion] = {
         finding_code="cache_corruption_detected",
         summary="Scorer cache contains entries that fail checksum validation.",
         steps=(
-            "Run `whatif cache verify` to enumerate corrupt entries.",
-            "Run `whatif cache rebuild --force` to rebuild from scratch (slower but safe).",
-            "Investigate the root cause — concurrent writes from multiple whatif processes against the "
+            "Run `whatifd cache verify` to enumerate corrupt entries.",
+            "Run `whatifd cache rebuild --force` to rebuild from scratch (slower but safe).",
+            "Investigate the root cause — concurrent writes from multiple whatifd processes against the "
             "same cache, partial writes from a killed process, or storage-layer corruption — before "
             "shipping a verdict from this cache again.",
         ),
@@ -121,11 +121,11 @@ _REGISTRY_BUILDER: dict[str, FixSuggestion] = {
         finding_code="cache_lock_unavailable",
         summary="Could not acquire the scorer cache lock.",
         steps=(
-            "If you know the previous run is no longer running: `whatif cache rebuild --force` rebuilds "
+            "If you know the previous run is no longer running: `whatifd cache rebuild --force` rebuilds "
             "from scratch (slower next run, but safe).",
-            "If you want to clear just the lock without rebuilding: `whatif cache unlock`. Use only if "
-            "you are certain no other whatif process is using this cache.",
-            "If you suspect file corruption: `whatif cache verify` reports any entries with checksum "
+            "If you want to clear just the lock without rebuilding: `whatifd cache unlock`. Use only if "
+            "you are certain no other whatifd process is using this cache.",
+            "If you suspect file corruption: `whatifd cache verify` reports any entries with checksum "
             "mismatches and optionally repairs.",
         ),
         description=(
@@ -141,7 +141,7 @@ _REGISTRY_BUILDER: dict[str, FixSuggestion] = {
             "specific reason: `sample_too_small` means fewer scored traces than the bootstrap requires; "
             "`zero_variance` means every paired delta was identical; `computation_failed` means the "
             "bootstrap raised an unexpected error.",
-            "If the reason is sample size: increase the cohort selection limit in `whatif.config.yaml` "
+            "If the reason is sample size: increase the cohort selection limit in `whatifd.config.yaml` "
             "so more traces are evaluated, or relax the `selection.<cohort>.filter` if it's too narrow.",
             "Per V0_1_DECISION_RECORD §6 there is no escape-hatch flag for accepting verdict-without-CI "
             "in v0.1 — the run will produce Inconclusive. Persistent acceptance mechanisms are deferred "
@@ -169,12 +169,12 @@ _REGISTRY_BUILDER: dict[str, FixSuggestion] = {
             "trace genuinely needs more time).",
             "Either fix the root cause and re-record traces, OR expand cohort selection so the systemic "
             "failures are a smaller fraction.",
-            "Rerun whatif. Cardinal #2: the floor is about evidence existence, not evidence quality. "
+            "Rerun whatifd. Cardinal #2: the floor is about evidence existence, not evidence quality. "
             "A cohort dominated by one failure mode does not provide the evidence needed for a verdict.",
         ),
         description=(
             "Phase 2.7 aggregation emit. The fix is operational (fix the failure mode) before "
-            "policy (rerun whatif)."
+            "policy (rerun whatifd)."
         ),
     ),
 }

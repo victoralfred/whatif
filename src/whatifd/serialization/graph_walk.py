@@ -45,7 +45,7 @@ encoded = encode_report_v01(report)     # safe to serialize
 write(encoded)
 ```
 
-The `whatif fork` artifact-write path runs the walk immediately
+The `whatifd fork` artifact-write path runs the walk immediately
 before `encode_report_v01` so a Sensitive leak fails the write
 loudly with a typed error pointing at the problem path.
 

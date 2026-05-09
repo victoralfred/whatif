@@ -167,7 +167,7 @@ class TestCacheMissError:
 
     def test_isolated_subprocess_import_works(self) -> None:
         # The module-level `import whatifd.cache` prime in
-        # `whatif/replay/tool_cache.py` is a load-order workaround for
+        # `whatifd/replay/tool_cache.py` is a load-order workaround for
         # the cascade-tracked "Serialization ↔ report ↔ cache import
         # cycle". This test pins that the prime is doing its job:
         # in a fresh subprocess with no prior imports, importing

@@ -1,10 +1,10 @@
 # Contracts
 
-The boundaries between whatif and the systems around it. Contracts are stable; internals can refactor.
+The boundaries between whatifd and the systems around it. Contracts are stable; internals can refactor.
 
 ## The runner contract (user-supplied)
 
-Users write one Python function. whatif owns everything else.
+Users write one Python function. whatifd owns everything else.
 
 ```python
 # my_agent/replay.py
@@ -27,14 +27,14 @@ def run(
 CLI invocation:
 
 ```
-whatif fork --target "python:my_agent.replay:run" ...
+whatifd fork --target "python:my_agent.replay:run" ...
 ```
 
 ### Runner responsibilities (only one)
 
 Produce a fresh `ReplayOutput` for a given input + modified config. That is the entire contract.
 
-### whatif responsibilities (everything else)
+### whatifd responsibilities (everything else)
 
 - Pulling the original trace from the tracer.
 - Constructing cohort labels.
@@ -67,7 +67,7 @@ class AsyncRunner(Protocol):
     ) -> ReplayOutput: ...
 ```
 
-Internally whatif handles both via `asyncio.run` for sync runners called from async contexts and direct await for async runners.
+Internally whatifd handles both via `asyncio.run` for sync runners called from async contexts and direct await for async runners.
 
 ### Tool cache is trace-scoped
 
@@ -104,7 +104,7 @@ class TraceSource(Protocol):
         Real keys are stable identifiers from the production system —
         user_id, session_id, conversation_id, account_id, etc.
 
-        whatif uses these for cluster bootstrap to estimate honest CIs
+        whatifd uses these for cluster bootstrap to estimate honest CIs
         when traces are correlated. Returning an empty tuple means
         "no clusters available; assume i.i.d." — which is also fine, but
         the report will disclose that assumption.
@@ -115,7 +115,7 @@ class TraceSource(Protocol):
         """
 ```
 
-Implementations: `whatifd-langfuse` (v0.1), `whatif-phoenix` (deferred), `whatif-otel-genai` (deferred).
+Implementations: `whatifd-langfuse` (v0.1), `whatifd-phoenix` (deferred), `whatifd-otel-genai` (deferred).
 
 #### Cluster-key disclosure
 
@@ -160,8 +160,8 @@ class Scorer(Protocol):
 
 The `cache_key_components()` method is critical for determinism. It must include:
 
-- whatif report schema version
-- whatif scorer adapter version
+- whatifd report schema version
+- whatifd scorer adapter version
 - scorer type and package version
 - judge provider
 - judge model identifier
@@ -171,7 +171,7 @@ The `cache_key_components()` method is critical for determinism. It must include
 - scoring parameters
 - ScoreCase serialization version
 
-If the adapter changes the rendered prompt without bumping its version, cache poisoning becomes possible. Adapter authors are responsible for surfacing version changes to whatif.
+If the adapter changes the rendered prompt without bumping its version, cache poisoning becomes possible. Adapter authors are responsible for surfacing version changes to whatifd.
 
 Implementations: `whatifd-inspect-ai` (v0.1).
 
@@ -187,7 +187,7 @@ class ScoreCase:
     trace_id: str
     cohort: str  # "failure" | "baseline" | future
     input: TraceInput
-    original_output: TraceOutput  # owned by whatif from the trace
+    original_output: TraceOutput  # owned by whatifd from the trace
     replayed_output: ReplayOutput  # produced by user runner
     metadata: Mapping[str, str | int | float | bool | None]
 ```
@@ -239,10 +239,10 @@ A key that has lived in a `details` map across two minor versions, used by at le
 
 ### Public-vs-internal model split
 
-Public types in `whatif/report/models_v01.py`. Internal types in `whatif/internal/`. Projection functions in `whatif/report/projection.py`.
+Public types in `whatifd/report/models_v01.py`. Internal types in `whatifd/internal/`. Projection functions in `whatifd/report/projection.py`.
 
 CI tests:
-- `test_no_internal_types_in_public_module` — public module imports nothing from `whatif/internal/`.
+- `test_no_internal_types_in_public_module` — public module imports nothing from `whatifd/internal/`.
 - `test_schema_matches_models` — generated JSON Schema from `ReportV01` matches committed `schemas/report/v0.1.schema.json` byte-for-byte.
 - `test_golden_reports_validate` — every committed golden report in `tests/golden/` validates against its declared schema version.
 
@@ -265,7 +265,7 @@ Stable across patch versions. New flags are additive minor; removing flags is ma
 ### Core commands
 
 ```
-whatif fork \
+whatifd fork \
     --source <adapter:identifier> \
     --target <python:module.path:function> \
     --change <kind=value>... \
@@ -299,7 +299,7 @@ CLI flags override environment defaults. Resolved config is captured in manifest
 
 ## Configuration contract
 
-`whatif.config.yaml` schema. Pydantic strict mode for validation with clear error messages.
+`whatifd.config.yaml` schema. Pydantic strict mode for validation with clear error messages.
 
 ```yaml
 source:
@@ -333,7 +333,7 @@ scorer:
     warn_after_days: 30
     block_after_days: 90
     storage_profile: normalized_result_only
-    storage_path: .whatif/cache/scorer
+    storage_path: .whatifd/cache/scorer
 
 decision:
   require_baseline: true
@@ -377,7 +377,7 @@ Storage location, format, and key derivation.
 ### Storage layout
 
 ```
-.whatif/cache/
+.whatifd/cache/
 ├── .lock               (file lock; JSON contents)
 ├── meta.json           (cache schema version, key version, created_at)
 └── entries/
@@ -417,8 +417,8 @@ The `rationale` is included only if `storage_profile: full_judge_io`. Default pr
 
 ### Key version vs schema version
 
-- **Key version** changes when cache identity logic changes. PRs touching `whatif/cache/keying/` bump it. Old entries miss naturally.
-- **Schema version** changes when cache file format changes. PRs touching `whatif/cache/storage/` bump it. Entries with old schema version are read with migration or ignored.
+- **Key version** changes when cache identity logic changes. PRs touching `whatifd/cache/keying/` bump it. Old entries miss naturally.
+- **Schema version** changes when cache file format changes. PRs touching `whatifd/cache/storage/` bump it. Entries with old schema version are read with migration or ignored.
 
 CI test asserts both versions are bumped if their respective directories are touched. Pre-commit hook warns.
 

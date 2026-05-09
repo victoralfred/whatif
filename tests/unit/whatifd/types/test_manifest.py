@@ -120,7 +120,7 @@ class TestRunManifest:
         unwrap = SensitiveUnwrap(
             classification="user_input",
             reason="render evidence section",
-            location="whatif/render/markdown.py:render_evidence:147",
+            location="whatifd/render/markdown.py:render_evidence:147",
         )
         m = dataclasses.replace(
             self._minimal(),

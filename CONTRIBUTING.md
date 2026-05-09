@@ -1,4 +1,4 @@
-# Contributing to whatif
+# Contributing to whatifd
 
 Thanks for thinking about contributing. This document covers the development workflow, branching strategy, commit and PR conventions, security reporting, and how to add the most common kinds of changes.
 
@@ -102,7 +102,7 @@ must update to `tool_cache.get(...)`.
 
 - **Architectural changes** (anything in `src/whatifd/contract/`, `src/whatifd/replay/`, `src/whatifd/score/`, `src/whatifd/diff/`) require a corresponding `DESIGN.md` update or a clear note about why the design is unchanged.
 - **Report format changes** must preserve all 5 mandatory sections (Verdict / Stats / Replay validity / Baseline integrity / Evidence + judge rationale). Removing a section requires a major-version bump.
-- **Public API changes** (anything users import from `whatif.*`) must be either additive or behind a major-version bump. Pre-1.0, breaking changes are allowed but documented in `CHANGELOG.md` under `### Changed (BREAKING)`.
+- **Public API changes** (anything users import from `whatifd.*`) must be either additive or behind a major-version bump. Pre-1.0, breaking changes are allowed but documented in `CHANGELOG.md` under `### Changed (BREAKING)`.
 - **CLI flag or exit-code changes** must update the README quickstart and any docs mentioning them.
 - **Dependency additions** require justification - every dep is a maintenance and security cost.
 
@@ -210,9 +210,9 @@ These have to be set in GitHub's UI; they aren't part of the repo files.
 
 After a manual first publish (or via PyPI's pending publisher flow):
 
-- On `pypi.org` → `whatif` project → `Manage` → `Publishing` → `Add a new publisher`:
+- On `pypi.org` → `whatifd` project → `Manage` → `Publishing` → `Add a new publisher`:
   - **Owner**: `victoralfred`
-  - **Repository name**: `whatif`
+  - **Repository name**: `whatifd`
   - **Workflow filename**: `release.yml`
   - **Environment**: `pypi`
 

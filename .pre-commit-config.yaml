@@ -1,4 +1,4 @@
-# Pre-commit hooks for whatif.
+# Pre-commit hooks for whatifd.
 #
 # `pre-commit` is in the project's [dependency-groups].dev, so `uv sync`
 # installs it. Activate the hook once per clone:
@@ -36,13 +36,13 @@ repos:
   # ----- Local sentinels (mirror CI) --------------------------------------
   - repo: local
     hooks:
-      # Brand-vs-distribution-name sentinel: catches `pip install whatif`
+      # Missing-trailing-`d` typo sentinel: catches `pip install whatif`
       # (without the trailing `d` of the PyPI distribution `whatifd`) in
       # any markdown file. Mirrors the CI step in
       # `.github/workflows/ci.yml`; running here shortens the feedback
       # loop so contributors don't push the typo and wait for CI.
-      - id: pip-install-brand-sentinel
-        name: pip-install brand-vs-distribution sentinel
+      - id: pip-install-missing-d-sentinel
+        name: pip-install missing-d sentinel
         entry: bash -c 'set +e; M=$(grep -rEn "pip install whatif([^d]|$)" --include="*.md" -- .); if [ -n "$M" ]; then echo "$M"; exit 1; fi'
         language: system
         types: [markdown]

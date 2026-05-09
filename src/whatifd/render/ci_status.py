@@ -4,11 +4,11 @@ Phase 7.3 of the v0.1 implementation plan. Produces a single line
 of ≤80 visible characters suitable for a CI-check title, GitHub
 status row, or Slack notification:
 
-  ✓ whatif: Ship — failures 14/20 ↑, baseline 17/20 stable
-  ✗ whatif: Don't Ship — baseline regressed 6/20 (median Δ -0.18)
-  ⚠ whatif: Inconclusive — baseline cohort below floor (3 < 5 min_scored…)
+  ✓ whatifd: Ship — failures 14/20 ↑, baseline 17/20 stable
+  ✗ whatifd: Don't Ship — baseline regressed 6/20 (median Δ -0.18)
+  ⚠ whatifd: Inconclusive — baseline cohort below floor (3 < 5 min_scored…)
 
-The format is `<glyph> whatif: <Verdict> — <reason>` where:
+The format is `<glyph> whatifd: <Verdict> — <reason>` where:
 
 - `<glyph>` is `✓` (Ship) / `✗` (Don't Ship) / `⚠` (Inconclusive).
 - `<Verdict>` is the human label, NOT the wire `verdict_state`.
@@ -24,7 +24,7 @@ The format is `<glyph> whatif: <Verdict> — <reason>` where:
 
 Visible-character length ≤80. The reason is truncated with `…` if
 the full string would exceed the budget. The glyph + prefix
-(`✓ whatif: Ship — `) is 17-25 characters depending on verdict,
+(`✓ whatifd: Ship — `) is 17-25 characters depending on verdict,
 leaving 55-63 chars for the reason on most calls.
 
 NOTE: visible-character count is `len(string)` since the format is
@@ -106,14 +106,14 @@ def render_ci_status(report: ReportV01) -> str:
     glyph = _GLYPH[report.verdict_state]
     label = _LABEL[report.verdict_state]
     reason = _reason_for(report)
-    full = f"{glyph} whatif: {label} — {reason}"
+    full = f"{glyph} whatifd: {label} — {reason}"
 
     if len(full) <= _MAX_LINE_CHARS:
         return full
 
     # Truncate the reason; keep glyph + prefix intact so the
     # verdict is always legible.
-    prefix = f"{glyph} whatif: {label} — "
+    prefix = f"{glyph} whatifd: {label} — "
     budget = _MAX_LINE_CHARS - len(prefix) - 1  # 1 char for the ellipsis
     truncated_reason = reason[:budget].rstrip() + "…"
     return prefix + truncated_reason

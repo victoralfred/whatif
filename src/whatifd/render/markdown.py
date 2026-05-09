@@ -1,7 +1,7 @@
 """`render_full_report` — full Markdown report for a `ReportV01`.
 
 Phase 7.1 of the v0.1 implementation plan. The canonical artifact:
-the Markdown document `whatif fork` writes alongside the JSON
+the Markdown document `whatifd fork` writes alongside the JSON
 report, and the reference document the summary's forward-reference
 jump links resolve into.
 
@@ -10,7 +10,7 @@ jump links resolve into.
 The report is composed of bounded section helpers, each producing
 a list of lines:
 
-1. **Verdict header** — `# whatif verdict: <Verdict>`.
+1. **Verdict header** — `# whatifd verdict: <Verdict>`.
 2. **Reason** — bold one-line summary; clean Ship gets all-passed,
    non-Ship surfaces the highest-severity finding's message.
 3. **Stats** — per-cohort breakdown with median delta + CI.
@@ -28,7 +28,7 @@ a list of lines:
 8. **Manifest pointer** — `[Manifest →](manifest.json)`.
 
 The summary's forward-reference links (`#fix`, `#replay-validity`)
-resolve to the anchors here when `whatif fork` writes summary +
+resolve to the anchors here when `whatifd fork` writes summary +
 full-report to the same Markdown file.
 
 ## Phase 7.1 split
@@ -118,7 +118,7 @@ def render_full_report(report: ReportV01) -> str:
 
 
 def _verdict_header(report: ReportV01) -> list[str]:
-    return [f"# whatif verdict: {_VERDICT_LABEL[report.verdict_state]}"]
+    return [f"# whatifd verdict: {_VERDICT_LABEL[report.verdict_state]}"]
 
 
 def _reason_paragraph(report: ReportV01) -> list[str]:

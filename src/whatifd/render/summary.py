@@ -7,7 +7,7 @@ isn't the full report.
 
 ## Format
 
-  # whatif verdict: <Verdict>
+  # whatifd verdict: <Verdict>
 
   **<Reason line, 1-2 sentences.>**
 
@@ -97,7 +97,7 @@ def render_summary(report: ReportV01) -> str:
     loud rather than silently truncating).
     """
     lines: list[str] = []
-    lines.append(f"# whatif verdict: {_VERDICT_LABEL[report.verdict_state]}")
+    lines.append(f"# whatifd verdict: {_VERDICT_LABEL[report.verdict_state]}")
     lines.append("")
 
     reason = _reason_block(report)

@@ -84,7 +84,7 @@ class CohortResult:
     Numeric fields in the determinism budget (`median_delta`, `ci_lower`,
     `ci_upper`) are typed `DecimalString` per cardinal rule #4. Float
     arithmetic happens internally; emission via `format(value, '.3f')`
-    in `whatif/serialization/decimal.py` (Phase 5) is platform-stable.
+    in `whatifd/serialization/decimal.py` (Phase 5) is platform-stable.
 
     `floor_passed` is True iff `floor_failures` is empty.
 

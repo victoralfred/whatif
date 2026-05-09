@@ -1,4 +1,4 @@
-# whatif: Project Guide for Claude
+# whatifd: Project Guide for Claude
 
 ## Mandatory reading
 
@@ -26,7 +26,7 @@ of these, the proposal is rejected regardless of rationale.
 6. Public schema hand-written; internal types refactor freely.
 7. Two-affirmation for dangerous capabilities.
 8. Inconclusive must be actionable.
-9. whatif is orchestration, not compute. Reject CPU-optimization tools
+9. whatifd is orchestration, not compute. Reject CPU-optimization tools
    (Ray, ProcessPool for replay, NumPy throughout, MKL, SIMD, BF16/INT8,
    Numba, ONNX, shared-memory IPC).
 10. Statistical claims must match the design. Paired trace deltas are

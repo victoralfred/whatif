@@ -2,7 +2,7 @@
 
 Coding decisions, design patterns, library choices, performance discipline.
 
-The frame is fixed: **whatif is a deterministic CI-grade experiment runner, not a numeric processing engine.** The priority order:
+The frame is fixed: **whatifd is a deterministic CI-grade experiment runner, not a numeric processing engine.** The priority order:
 
 1. Typed boundaries
 2. Replay validity
@@ -28,7 +28,7 @@ Performance is a follower, not a driver. A slow-but-trustworthy run is useful. A
 ## Project structure
 
 ```
-whatif/
+whatifd/
 ├── __init__.py             (light: no Langfuse, Inspect, OpenAI, Anthropic imports)
 ├── types/
 │   ├── primitives.py       (DecimalString, JsonPrimitive, etc.)
@@ -155,7 +155,7 @@ class ReplayFailure:
 ReplayResult = ReplaySuccess | ReplayFailure
 ```
 
-Exceptions are reserved for bugs in whatif itself (impossible state, contract violation). Adapter failures, runner timeouts, scorer errors — all values.
+Exceptions are reserved for bugs in whatifd itself (impossible state, contract violation). Adapter failures, runner timeouts, scorer errors — all values.
 
 ## Timeouts everywhere
 
@@ -170,7 +170,7 @@ Every external call has explicit timeout. Defaults:
 | Scorer single (fallback) | 15s | yes |
 | Report write | 5s | no |
 
-Timeouts produce typed failures (`runner_timeout`, `scorer_timeout`), not exceptions. Configurable via `whatif.config.yaml`:
+Timeouts produce typed failures (`runner_timeout`, `scorer_timeout`), not exceptions. Configurable via `whatifd.config.yaml`:
 
 ```yaml
 timeouts:
@@ -218,7 +218,7 @@ class WhatifConfig(BaseModel):
 Validation errors must be human-readable:
 
 ```
-Invalid config (whatif.config.yaml line 14):
+Invalid config (whatifd.config.yaml line 14):
   selection.baseline_cohort.limit must be at least 1, got 0
 
   Hint: baseline cohort is required for Ship verdicts (decision.require_baseline=true).
@@ -262,7 +262,7 @@ experiment = Experiment(
     source=LangfuseAdapter(client),
     runner=user_runner,
     scorer=InspectAIScorer(model="claude-sonnet-4"),
-    cache=ScorerCache.from_dir(".whatif/cache/scorer"),
+    cache=ScorerCache.from_dir(".whatifd/cache/scorer"),
     floor=TrustFloor(version="v1"),
     policy=DecisionPolicy.from_config(config.decision),
     clock=SystemClock(),  # injectable for tests
@@ -351,8 +351,8 @@ class FailureRecord:
 
 ### Banned patterns
 
-- `print()` outside `whatif/cli.py`
-- `json.dumps()` outside `whatif/serialization/`
+- `print()` outside `whatifd/cli.py`
+- `json.dumps()` outside `whatifd/serialization/`
 - `dict[str, Any]` as a function argument or return type, except at the adapter boundary
 - Bare `except:` clauses
 - Catching `Exception` in a way that swallows it (must produce a `FailureRecord`)
@@ -377,7 +377,7 @@ Budgets are soft for v0.1. Profile at the end of Phase 7 (renderer) and address 
 
 ## Statistical methodology
 
-> **whatif's verdict is only as defensible as its sampling, scoring, and uncertainty model.**
+> **whatifd's verdict is only as defensible as its sampling, scoring, and uncertainty model.**
 
 v0.1 uses a deliberately modest statistical model. It does not attempt to prove behavioral equivalence, certify safety, or make causal claims about production behavior. It estimates paired changes in scored behavior over selected production trace cohorts under a declared replay policy. The mathematical posture: **endpoint discipline first, statistical machinery second.**
 
@@ -389,7 +389,7 @@ The atomic statistical unit is the paired trace delta:
 delta_i = replayed_score_i - original_score_i
 ```
 
-The same trace input is evaluated under two configurations: original production behavior, and replayed behavior under the proposed change. Because the comparison is paired, whatif must not treat original and replayed scores as independent samples.
+The same trace input is evaluated under two configurations: original production behavior, and replayed behavior under the proposed change. Because the comparison is paired, whatifd must not treat original and replayed scores as independent samples.
 
 All cohort-level statistics are computed over paired deltas. Internal Python representation uses `float` for delta arithmetic and bootstrap computation. Public JSON output uses `DecimalString` for cross-platform determinism (see "Float platform-stability" notes earlier in this file).
 
@@ -420,11 +420,11 @@ v0.1 default uncertainty method:
 
 The report must disclose: bootstrap method, resample count, seed, sample unit, whether cluster bootstrap was used, and the cluster key if any. A confidence interval without method, sample unit, and assumptions is not defensible — it is decoration.
 
-If the cohort does not meet the trust floor for selected, replayed, and scored traces, whatif must not produce an actionable Ship verdict. Below the floor, the report still emits with `Inconclusive` but the bootstrap method may be `unavailable`.
+If the cohort does not meet the trust floor for selected, replayed, and scored traces, whatifd must not produce an actionable Ship verdict. Below the floor, the report still emits with `Inconclusive` but the bootstrap method may be `unavailable`.
 
 ### Cluster bootstrap (conditional)
 
-If traces are correlated, ordinary i.i.d. bootstrap intervals may be too optimistic. When a tracer adapter can provide a real cluster key (such as `user_id`, `session_id`, `conversation_id`), whatif may use cluster bootstrap by resampling clusters rather than individual traces.
+If traces are correlated, ordinary i.i.d. bootstrap intervals may be too optimistic. When a tracer adapter can provide a real cluster key (such as `user_id`, `session_id`, `conversation_id`), whatifd may use cluster bootstrap by resampling clusters rather than individual traces.
 
 If no cluster key is available, the report must disclose the i.i.d. assumption explicitly:
 
@@ -432,11 +432,11 @@ If no cluster key is available, the report must disclose the i.i.d. assumption e
 Cluster handling: none. CIs assume trace-level independence and may be optimistic if traces are correlated.
 ```
 
-whatif must not manufacture cluster structure using unstable heuristics (e.g., k-means on embeddings) for v0.1 verdicts. Faking cluster structure is worse than ignoring the issue.
+whatifd must not manufacture cluster structure using unstable heuristics (e.g., k-means on embeddings) for v0.1 verdicts. Faking cluster structure is worse than ignoring the issue.
 
 ### Effect size and practical significance
 
-Statistical significance is not enough. whatif reports magnitude.
+Statistical significance is not enough. whatifd reports magnitude.
 
 v0.1 should report, per cohort:
 
@@ -496,7 +496,7 @@ Adding actual measurement is a v0.2 (reliability via repeat judging, position-bi
 
 ### Causal language
 
-whatif estimates the effect of a configuration change under cached-tool replay against past traces. This is **not the same as the change's effect in production.**
+whatifd estimates the effect of a configuration change under cached-tool replay against past traces. This is **not the same as the change's effect in production.**
 
 Cached-tool replay is biased in known ways:
 
@@ -541,11 +541,11 @@ If the methodology does not support a claim, the report must not make it.
 
 ## What this workload is NOT (and what advice doesn't apply)
 
-This section exists because well-meaning generic "high-performance Python" advice will appear in design discussions, and most of it is **wrong for whatif** even when it's correct for its actual domain. Apply the wrong advice and the trust-first guarantees collapse. Worth being explicit.
+This section exists because well-meaning generic "high-performance Python" advice will appear in design discussions, and most of it is **wrong for whatifd** even when it's correct for its actual domain. Apply the wrong advice and the trust-first guarantees collapse. Worth being explicit.
 
-### whatif is orchestration, not compute
+### whatifd is orchestration, not compute
 
-The total CPU work in a 100-trace whatif run, excluding what the user's runner does, is under 2 seconds. Wall-clock time is 30–60 seconds, dominated by external API latency:
+The total CPU work in a 100-trace whatifd run, excluding what the user's runner does, is under 2 seconds. Wall-clock time is 30–60 seconds, dominated by external API latency:
 
 | Stage | What dominates | CPU-bound? |
 |---|---|---|
@@ -557,26 +557,26 @@ The total CPU work in a 100-trace whatif run, excluding what the user's runner d
 | Report rendering | String formatting | Negligible |
 | JSON serialization | String building | Negligible |
 
-**Pegging the CPU is not a goal. It would be a sign that something has gone wrong.** If a profile shows whatif using >50% CPU on a single core during a normal run, the design has drifted — most likely a synchronous loop crept in where async I/O belonged, or someone added a numerical computation that doesn't belong in this layer.
+**Pegging the CPU is not a goal. It would be a sign that something has gone wrong.** If a profile shows whatifd using >50% CPU on a single core during a normal run, the design has drifted — most likely a synchronous loop crept in where async I/O belonged, or someone added a numerical computation that doesn't belong in this layer.
 
 ### Recommendations for CPU-bound AI compute do not apply
 
-The following stack is **industry standard for AI compute workloads** (custom inference servers, simulation engines, numerical solvers, tensor pipelines). It is **the wrong tool for whatif** in nearly every component:
+The following stack is **industry standard for AI compute workloads** (custom inference servers, simulation engines, numerical solvers, tensor pipelines). It is **the wrong tool for whatifd** in nearly every component:
 
-| Tool / pattern | Right for | Wrong for whatif because |
+| Tool / pattern | Right for | Wrong for whatifd because |
 |---|---|---|
 | Ray / Dask | Distributed cluster compute | 200MB+ dependency; blows `import whatifd` < 200ms budget; forces user runner to be Ray-actor-compatible, breaking the simple `def run(...)` contract |
 | `ProcessPoolExecutor` for replay | CPU-bound parallel work | Replay is I/O-bound (LLM API calls); pickle pain breaks non-picklable runners; complicates `ToolCache` sharing; structural guarantees harder to enforce across process boundaries |
 | NumPy throughout | Numerical / tensor workloads | Pulls 50MB to save sub-millisecond on bootstrap CIs; introduces float platform-instability that conflicts with `DecimalString` determinism guarantee |
 | `multiprocessing.shared_memory` | Large array IPC | `Sensitive[T]` cannot survive shared-memory roundtrip; `FloorPassedProof` cannot live in shared memory; breaks redaction enforcement |
-| MKL / oneDNN / AOCL | BLAS-heavy code | whatif makes zero BLAS calls; would be empty dependencies inflating install size |
+| MKL / oneDNN / AOCL | BLAS-heavy code | whatifd makes zero BLAS calls; would be empty dependencies inflating install size |
 | SIMD / AVX-512 vectorization | Loop-heavy numerics | No numerical loops to vectorize |
 | BF16 / INT8 precision reduction | Tensor inference throughput | Different rounding behavior across precisions; conflicts with byte-identical JSON determinism requirement |
 | Numba `@njit(fastmath=True)` | Custom numerical kernels | No numerical kernels; `@njit` doesn't compose with `frozen=True` dataclasses; conflicts with mypy strict |
-| ONNX Runtime / OpenVINO | Running AI models | whatif does not run AI models; the user's *agent* might, but that's outside whatif's scope |
+| ONNX Runtime / OpenVINO | Running AI models | whatifd does not run AI models; the user's *agent* might, but that's outside whatifd's scope |
 | SoA vs AoS layout | Cache-friendly tensor processing | At most a few thousand structured records per run; total typed-record memory under 1MB; cache locality not the bottleneck |
 
-The pattern: every one of these tools is correct for its actual domain (tensor compute, numerical processing, distributed batch jobs). None of them are correct for **orchestration of I/O-bound workflows**, which is what whatif does.
+The pattern: every one of these tools is correct for its actual domain (tensor compute, numerical processing, distributed batch jobs). None of them are correct for **orchestration of I/O-bound workflows**, which is what whatifd does.
 
 ### How to tell which workload class you're in
 
@@ -586,7 +586,7 @@ Before reaching for any performance tool, identify the actual bottleneck:
 2. **Classify the bottleneck.** Is it CPU (compute-limited), I/O (network/disk-limited), memory (allocation-limited), or coordination (lock-contention-limited)?
 3. **Pick a tool from the matching category.**
 
-For whatif's actual bottlenecks (in order):
+For whatifd's actual bottlenecks (in order):
 
 | Bottleneck | Right tool |
 |---|---|
@@ -612,7 +612,7 @@ Everything else — Ray, MKL, Numba, ONNX Runtime, shared memory, precision redu
 
 > **Performance optimization is domain-specific. The right answer for tensor compute is the wrong answer for orchestration. The right answer for orchestration is the wrong answer for streaming. Identify the workload's actual bottleneck before reaching for tools.**
 
-For whatif: the bottleneck is external API latency. The optimizations that matter are caching, batching, and async concurrency. Everything else is solving the wrong problem.
+For whatifd: the bottleneck is external API latency. The optimizations that matter are caching, batching, and async concurrency. Everything else is solving the wrong problem.
 
 ## Style
 

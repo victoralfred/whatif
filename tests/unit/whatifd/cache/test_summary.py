@@ -48,7 +48,7 @@ def _summary(**overrides: object) -> CacheSummary:
         "key_version": "v1",
         "mode": "on",
         "storage_profile": "normalized_result_only",
-        "storage_path": ".whatif/cache",
+        "storage_path": ".whatifd/cache",
         "hits": 0,
         "misses": 0,
         "writes": 0,
@@ -67,7 +67,7 @@ class TestCacheSummaryConstruction:
         assert summary.key_version == "v1"
         assert summary.mode == "on"
         assert summary.storage_profile == "normalized_result_only"
-        assert summary.storage_path == ".whatif/cache"
+        assert summary.storage_path == ".whatifd/cache"
         assert summary.hits == 0
         assert summary.misses == 0
         assert summary.writes == 0

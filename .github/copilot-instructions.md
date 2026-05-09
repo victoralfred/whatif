@@ -25,7 +25,7 @@ Exit codes used by the CLI (from README):
 
 2) High-level architecture (big picture)
 
-- Purpose: `whatif` is an experiment runner that forks production traces, replays them under a proposed change, scores results, and emits a PR-ready verdict + evidence report.
+- Purpose: `whatifd` is an experiment runner that forks production traces, replays them under a proposed change, scores results, and emits a PR-ready verdict + evidence report.
 
 - Planned source layout (per `.claude/skills/whatifd-design/phases.md`; not all dirs exist yet):
   - `src/whatifd/contract/` — public runner-contract types (TraceInput, ReplayConfig, ToolCache, ReplayOutput, ScoreCase, Runner Protocol). **EXISTS.**

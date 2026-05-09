@@ -41,7 +41,7 @@ Please do not publicly disclose the issue or open public PRs that reference it u
 
 **In scope:**
 
-- The `whatif` library and CLI itself.
+- The `whatifd` library and CLI itself.
 - The runner-contract Pydantic models in `src/whatifd/contract/`.
 - Official adapters shipped under `src/whatifd/ingest/`.
 - The default scorer wrappers in `src/whatifd/score/`.

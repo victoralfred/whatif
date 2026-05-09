@@ -1,9 +1,9 @@
 ---
-name: whatif-features
-description: Deferred-work catalog for `whatif`. Use when triaging whether an idea belongs in the active plan now or as future work, when proposing a refactor, or when looking for post-v0.1 candidates.
+name: whatifd-features
+description: Deferred-work catalog for `whatifd`. Use when triaging whether an idea belongs in the active plan now or as future work, when proposing a refactor, or when looking for post-v0.1 candidates.
 ---
 
-# whatif-features: forward-work candidates
+# whatifd-features: forward-work candidates
 
 ## Hard constraint: this skill is a workshop, not a driver
 

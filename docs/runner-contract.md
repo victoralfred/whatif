@@ -1,6 +1,6 @@
 # Runner contract
 
-The `Runner` protocol is whatif's only user-facing extension point in v0.1. You implement it; whatif calls it once per selected trace during replay.
+The `Runner` protocol is whatifd's only user-facing extension point in v0.1. You implement it; whatifd calls it once per selected trace during replay.
 
 The canonical Pydantic models live in [`src/whatifd/contract/__init__.py`](../src/whatifd/contract/__init__.py) — that file is the source of truth. This page is the consumer-facing reference.
 
@@ -78,7 +78,7 @@ The agent's final response.
 
 | Field | Type | Notes |
 |---|---|---|
-| `text` | `str` | The final response. Plain text; whatif rewraps as `Sensitive` for the report. |
+| `text` | `str` | The final response. Plain text; whatifd rewraps as `Sensitive` for the report. |
 | `tool_spans` | `list[dict[str, Any]]` | Per-tool spans recorded during replay. Optional but useful for "Replay validity" auditing. |
 | `metadata` | `dict[str, Any]` | Free-form. `extra="allow"`. |
 
@@ -94,7 +94,7 @@ Detection happens at runner-target import time when the CLI loads `python:<modul
 ## Cardinal alignment
 
 - **#1 Failures-as-data:** if your runner can't replay, raise a typed exception (`CacheMissError`, your own `RunnerInputError`, etc.) — the kernel catches it and emits a structured `ReplayFailure`. **Do not** swallow exceptions yourself; the kernel needs the type to classify the failure.
-- **#5 Sensitive at boundary:** the `TraceInput.user_message` you receive is plain `str` (whatif unwraps from the adapter's `Sensitive[str]` before handing it to you). Your `ReplayOutput.text` is also plain `str` (whatif rewraps for the report). Don't try to wrap on either side; the boundary discipline is whatif's responsibility, not yours.
+- **#5 Sensitive at boundary:** the `TraceInput.user_message` you receive is plain `str` (whatifd unwraps from the adapter's `Sensitive[str]` before handing it to you). Your `ReplayOutput.text` is also plain `str` (whatifd rewraps for the report). Don't try to wrap on either side; the boundary discipline is whatifd's responsibility, not yours.
 - **#7 Two-affirmation:** if your runner produces forensic content (raw user data in `metadata`, full trace context, etc.), the CLI's two-affirmation gate (`reporting.profile=forensic` + `--profile forensic`) is what authorizes the unredacted bundle. Your runner doesn't make that decision; it always emits the same shape.
 
 ## Reference Runner
@@ -117,7 +117,7 @@ The Phase 9B integration suite (`tests/integration/test_real_adapters.py`) is a 
 ### CLI (Phase 10)
 
 ```bash
-whatif fork --target "python:my_agent.replay:run" \
+whatifd fork --target "python:my_agent.replay:run" \
             --source langfuse \
             --change "system_prompt=prompts/v3.txt" \
             --score "inspect_ai:faithfulness"

@@ -9,7 +9,7 @@ cardinal #5 redaction enforcement; this module deliberately does not.
 ## Why a separate helper
 
 The banned-import lint (Phase 5, per `references/enforcement.md` row 2)
-blocks `json.dumps` outside `whatif/serialization/` to enforce that
+blocks `json.dumps` outside `whatifd/serialization/` to enforce that
 artifact-path bytes traverse the redaction graph walk. Hash-input bytes
 are categorically different:
 
@@ -22,7 +22,7 @@ are categorically different:
 Centralizing canonical encoding in this module gives the cache keying
 code (and any future hash-input code) a single source of truth. When
 the Phase 5 banned-import lint lands, it will allow `json.dumps`
-inside `whatif/serialization/` and block it everywhere else;
+inside `whatifd/serialization/` and block it everywhere else;
 everything outside the package imports from here.
 
 ## The canonical encoding

@@ -2,7 +2,7 @@
 
 Per `references/enforcement.md` row 2 (cardinal #5 boundary):
 
-> Banned-import lint blocks `json.dumps` outside `whatif/serialization/`.
+> Banned-import lint blocks `json.dumps` outside `whatifd/serialization/`.
 
 Implementation: walk the AST of every module under `src/whatifd/`,
 flag any `Call` whose function reference is `json.dumps` (whether
@@ -120,7 +120,7 @@ def test_no_json_dumps_outside_serialization_package() -> None:
             violations.append(f"{py_file}:{line}: {expr}(...)")
 
     assert not violations, (
-        "json.dumps used outside whatif/serialization/ "
+        "json.dumps used outside whatifd/serialization/ "
         "(references/enforcement.md row 2 — cardinal #5 boundary):\n"
         + "\n".join(f"  - {v}" for v in violations)
     )
@@ -147,7 +147,7 @@ def test_serialization_package_uses_json_dumps() -> None:
             break
 
     assert found_in_serialization, (
-        "expected at least one json.dumps call inside whatif/serialization/ "
+        "expected at least one json.dumps call inside whatifd/serialization/ "
         "(canonical.py and encoder.py both use it); none found. The "
         "boundary test would pass vacuously without this sanity check."
     )
@@ -156,7 +156,7 @@ def test_serialization_package_uses_json_dumps() -> None:
 def test_module_name_resolution() -> None:
     """Defensive: ensure _module_name_for handles `__init__.py` and
     nested modules correctly. Otherwise the boundary test could
-    silently classify a file outside whatif/serialization/ as inside.
+    silently classify a file outside whatifd/serialization/ as inside.
     """
     init_path = _SRC_ROOT / "serialization" / "__init__.py"
     assert _module_name_for(init_path) == "whatifd.serialization"

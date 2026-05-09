@@ -82,7 +82,7 @@ class TrustFloor:
     """Structural minimum below which no verdict can be rendered.
 
     Cardinal rule #2: floor cannot be bypassed by configuration. The
-    `evaluate_floor()` function in `whatif/decision/floor.py` checks
+    `evaluate_floor()` function in `whatifd/decision/floor.py` checks
     these rules per-cohort; failing any one produces an `Inconclusive`
     verdict regardless of policy state.
 
@@ -96,7 +96,7 @@ class TrustFloor:
     """
 
     version: str = "v1"
-    source: str = "whatif-0.1.0"
+    source: str = "whatifd-0.1.0"
     min_selected_per_required_cohort: int = 5
     min_replayed_per_required_cohort: int = 5
     min_scored_per_required_cohort: int = 5

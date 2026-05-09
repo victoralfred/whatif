@@ -13,7 +13,7 @@ not stylistic:
 
 - The only way to obtain a `Ship` instance is through `compute_verdict`
   / `evaluate_floor`, which produce and consume `FloorPassedProof`.
-- The witness-token closure-capture in `whatif/decision/floor.py`
+- The witness-token closure-capture in `whatifd/decision/floor.py`
   prevents external construction of `FloorPassedProof`, and `Ship`
   requires one.
 - Therefore: if the caller has a `Verdict` to pass in, the floor was
@@ -146,7 +146,7 @@ def _flatten_verdict(
     exhaustiveness — adding a new `Verdict` variant in v1.0 (e.g.,
     `ConditionallyShip`) without a `case` here is a mypy-strict
     failure, not a silent bug. Matches the dispatch pattern used by
-    `whatif/decision/guards/primary_endpoint.py`.
+    `whatifd/decision/guards/primary_endpoint.py`.
 
     The wire format takes only `findings` (not `blocking_findings`)
     because blocking findings are a derived view — `blocking_findings`

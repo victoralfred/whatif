@@ -51,7 +51,7 @@ the same encode twice on identical input and asserts byte equality.
 ## Banned-import lint scope
 
 Per `references/enforcement.md` row 2, `json.dumps` is banned
-outside `whatif/serialization/`. This module IS in the serialization
+outside `whatifd/serialization/`. This module IS in the serialization
 package, so the import is sanctioned. Test
 `tests/unit/whatifd/serialization/test_banned_imports.py` walks
 `src/whatifd/` AST and asserts zero `json.dumps` calls outside the
@@ -93,7 +93,7 @@ if TYPE_CHECKING:
 
 
 class WhatifJSONEncoder(json.JSONEncoder):
-    """Artifact-write encoder for the whatif report shape.
+    """Artifact-write encoder for the whatifd report shape.
 
     Use via `encode_report_v01(report)` for the canonical-encode path
     that stamps determinism kwargs (sort_keys, separators,
@@ -189,7 +189,7 @@ def encode_report_v01(report: ReportV01) -> bytes:
     # `assert_no_unredacted_sensitive(report)` (graph_walk.py — cardinal
     # #5 layer (b)). The encoder's `default()` raise is the last-line
     # fallback, NOT the primary defense. The CLI artifact-write path
-    # (`whatif fork`) wires the sequence in Phase 8; the Phase 9
+    # (`whatifd fork`) wires the sequence in Phase 8; the Phase 9
     # integration test pins it. See cascade-catalog entry
     # "Artifact-write call-site sequencing for graph walk".
 

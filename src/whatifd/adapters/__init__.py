@@ -1,6 +1,6 @@
 """`whatifd.adapters` — adapter protocol surface.
 
-Phase 4A of the v0.1 implementation plan. Adapters bridge `whatif`
+Phase 4A of the v0.1 implementation plan. Adapters bridge `whatifd`
 core to external trace-source backends (Langfuse) and scorer
 backends (Inspect AI). The protocols and result types live here;
 concrete adapters live in separate, lazy-loaded packages.
@@ -12,7 +12,7 @@ concrete adapters live in separate, lazy-loaded packages.
   `AdapterMetadata`). No implementation.
 - **4A.2 — conformance harness.** Parameterized test suite that
   any concrete adapter must pass. Lives in `tests/adapters/`.
-- **4A.3 — synthetic stub adapter.** `whatif/adapters/stub.py`.
+- **4A.3 — synthetic stub adapter.** `whatifd/adapters/stub.py`.
   Drives Phase 9A integration tests.
 - **4B — real adapters.** `whatifd-langfuse`, `whatifd-inspect-ai`
   as separate packages. Lazy-loaded; never imported by core.
@@ -21,7 +21,7 @@ concrete adapters live in separate, lazy-loaded packages.
 
 Cardinal-#5 Sensitive[T] discipline lives at the adapter boundary:
 external SDKs return raw text, the adapter wraps it in `Sensitive`
-before any `whatif` code sees it. Co-locating adapters with core
+before any `whatifd` code sees it. Co-locating adapters with core
 would invite shortcut imports that bypass the wrap. The lazy-load
 test (`python -c "import whatifd"` doesn't import any adapter)
 enforces the boundary.

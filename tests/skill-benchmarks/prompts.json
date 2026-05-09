@@ -51,7 +51,7 @@
     {
       "id": "experiment-shape-scope",
       "category": "scope-discipline",
-      "prompt": "I want to use whatif to do an A/B test between two prompt variants on a fresh trace set. There's no failure cohort, just two prompts I want to compare.",
+      "prompt": "I want to use whatifd to do an A/B test between two prompt variants on a fresh trace set. There's no failure cohort, just two prompts I want to compare.",
       "expected_behavior": "Should explain v0.1 is failure-rescue only, A/B comparison is deferred to v0.2 with proper design. Should NOT offer to extend v0.1 ad hoc to support this case. Should either offer to record this as a v0.2 use case in the cascade catalog, or suggest the user wait for v0.2. Should reference the v0.1 doctrine vs tool doctrine split in references/doctrine.md.",
       "should_read": ["references/doctrine.md", "references/phases.md"],
       "should_cite_rule": null,
@@ -79,7 +79,7 @@
       "id": "should-not-trigger-generic-python",
       "category": "negative-test",
       "prompt": "Show me how to read a CSV file in Python and compute the mean of one column.",
-      "expected_behavior": "Should NOT invoke the whatifd-design skill. This is a generic Python question with no whatif relevance. Should answer the question directly without consulting whatifd-design references or citing cardinal rules.",
+      "expected_behavior": "Should NOT invoke the whatifd-design skill. This is a generic Python question with no whatifd relevance. Should answer the question directly without consulting whatifd-design references or citing cardinal rules.",
       "should_read": [],
       "should_cite_rule": null,
       "should_refuse": false
@@ -88,7 +88,7 @@
       "id": "should-not-trigger-unrelated-llm",
       "category": "negative-test",
       "prompt": "Help me write a system prompt for a customer service chatbot that handles refund requests.",
-      "expected_behavior": "Should NOT invoke the whatifd-design skill. LLM-related but unrelated to whatif's domain (experiment running, verdict reports, trace replay). Should answer the prompting question directly without consulting whatifd-design references.",
+      "expected_behavior": "Should NOT invoke the whatifd-design skill. LLM-related but unrelated to whatifd's domain (experiment running, verdict reports, trace replay). Should answer the prompting question directly without consulting whatifd-design references.",
       "should_read": [],
       "should_cite_rule": null,
       "should_refuse": false

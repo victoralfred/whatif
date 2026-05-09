@@ -1,4 +1,4 @@
-# whatif verdict: Don't Ship
+# whatifd verdict: Don't Ship
 
 **Reason:** the failure cohort improved on only 2/20 traces (10%), below the 50% threshold.
 The proposed change does not appear to fix the targeted failures.

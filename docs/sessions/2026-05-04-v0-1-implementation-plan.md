@@ -68,4 +68,4 @@ Rule #10 (statistical claims) is in the skill update queue (SKILL_UPDATE_PLAN.md
 - Awaiting confirmation to proceed with Phase A.2 (walkthrough revision adding methodology blocks).
 - Awaiting answer to Phase 0.3 audience-distribution question.
 - Phase 0.4 enforcement audit can run after A.2 and A.3 settle — most of the audit is now positive (every structural claim has a paired mechanism in enforcement.md), but I haven't done the formal cross-reference audit pass yet.
-- After Phase 0 gate clears, Phase 1 begins with `whatif/types/primitives.py` — the smallest possible starting move.
+- After Phase 0 gate clears, Phase 1 begins with `whatifd/types/primitives.py` — the smallest possible starting move.

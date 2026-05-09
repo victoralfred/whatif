@@ -60,7 +60,7 @@ After the workflow completes:
 - [ ] All three packages visible at `https://pypi.org/project/whatifd/0.1.0/` (and `/whatifd-langfuse/`, `/whatifd-inspect-ai/`)
 - [ ] GitHub Release created at `https://github.com/victoralfred/whatifd/releases/tag/v0.1.0` with auto-generated notes
 - [ ] `pip install whatifd whatifd-langfuse whatifd-inspect-ai` in a clean venv resolves cleanly
-- [ ] `whatif --help` works after install
+- [ ] `whatifd --help` works after install
 - [ ] **Schema URL `https://whatif.codes/schema/report/v0.1.json` resolves with HTTP 200** (every report's `schema_uri` field points here; a 404 silently breaks any consumer that fetches the schema for validation). If the URL still 404s post-tag-push, deploy `src/whatifd/report/schema/v0.1.schema.json` to the static host backing `whatif.codes` BEFORE announcing the release. This is a load-bearing post-release step, not optional.
 
 ### 4. Announce
@@ -97,7 +97,7 @@ Steps:
 2. In a temporary workflow branch, point each `pypa/gh-action-pypi-publish` step at TestPyPI by adding `repository-url: https://test.pypi.org/legacy/`.
 3. Tag and push `v0.1.0rc1`. Verify all three packages appear at `https://test.pypi.org/project/whatifd/0.1.0rc1/` etc.
 4. `pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ whatifd==0.1.0rc1 whatifd-langfuse==0.1.0rc1 whatifd-inspect-ai==0.1.0rc1` in a clean venv.
-5. If everything resolves and `whatif --help` works, revert the workflow back to PyPI proper, push the real `v0.1.0` tag.
+5. If everything resolves and `whatifd --help` works, revert the workflow back to PyPI proper, push the real `v0.1.0` tag.
 
 The pre-release tag remains on TestPyPI and on a GitHub Release; you can delete the GitHub Release if you want to keep the public release notes focused on the real tag.
 
@@ -128,6 +128,6 @@ The schema URI is stable across `v0.1.x` patches; do NOT regenerate the schema u
 When the wire format changes (`schema_version: "v0.2"`), additional steps:
 
 1. New schema file at `src/whatifd/report/schema/v0.2.schema.json`; old `v0.1.schema.json` kept (consumers still validate older reports against the v0.1 schema)
-2. `whatif report-migrate` body wired to project v0.1 reports forward
+2. `whatifd report-migrate` body wired to project v0.1 reports forward
 3. Schema URL deployed at `https://whatif.codes/schema/report/v0.2.json` BEFORE the tag push (otherwise `schema_uri` resolves to a 404 in the immediate post-release window)
 4. CHANGELOG `[0.2.0]` block calls out every breaking change explicitly under `### Changed (BREAKING)`

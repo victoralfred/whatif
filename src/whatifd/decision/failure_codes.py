@@ -16,7 +16,7 @@ registry and validates programmer-contract invariants (unknown code,
 missing required details, scope/trace_id/cohort mismatch). These are
 programmer errors, not runtime data failures — `ValueError` is the right
 shape per the cardinal #1 doctrine ("expected failures are data;
-contract violations are bugs in whatif itself").
+contract violations are bugs in whatifd itself").
 
 Phase 9 integration tests (per phases.md) inject every code in this
 registry and verify each produces a structured `FailureRecord`, never an
@@ -158,9 +158,9 @@ _REGISTRY_BUILDER: dict[str, FailureCodeSpec] = {
         required_details=("lock_path",),
         retryable_default=False,
         description=(
-            "Could not acquire the scorer cache lock. Another whatif "
+            "Could not acquire the scorer cache lock. Another whatifd "
             "process may hold it, or a previous run terminated abnormally "
-            "and left the lock orphaned. See `whatif cache unlock`."
+            "and left the lock orphaned. See `whatifd cache unlock`."
         ),
     ),
     "cache_corruption_detected": FailureCodeSpec(
@@ -171,7 +171,7 @@ _REGISTRY_BUILDER: dict[str, FailureCodeSpec] = {
         description=(
             "One or more cache entries failed checksum validation. The "
             "cache is in an inconsistent state and cannot be trusted for a "
-            "Ship verdict. See `whatif cache rebuild --force`."
+            "Ship verdict. See `whatifd cache rebuild --force`."
         ),
     ),
 }

@@ -1,7 +1,7 @@
-"""Internal types for whatif.
+"""Internal types for whatifd.
 
-Public types live in `whatif/contract/` (runner-contract boundary) and
-`whatif/report/models_v01.py` (public report shape; lands in Phase 5).
+Public types live in `whatifd/contract/` (runner-contract boundary) and
+`whatifd/report/models_v01.py` (public report shape; lands in Phase 5).
 
 This package holds the frozen-dataclass internal types. Per cardinal
 rule #6 (public schema hand-written), nothing here is part of the

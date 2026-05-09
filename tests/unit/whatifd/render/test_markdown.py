@@ -54,15 +54,15 @@ def _report_for(verdict, *, failures=None):
 class TestVerdictHeader:
     def test_ship_header(self) -> None:
         out = render_full_report(_report_for(ship()))
-        assert out.startswith("# whatif verdict: Ship\n")
+        assert out.startswith("# whatifd verdict: Ship\n")
 
     def test_dont_ship_header(self) -> None:
         out = render_full_report(_report_for(dont_ship()))
-        assert out.startswith("# whatif verdict: Don't Ship\n")
+        assert out.startswith("# whatifd verdict: Don't Ship\n")
 
     def test_inconclusive_header(self) -> None:
         out = render_full_report(_report_for(inconclusive()))
-        assert out.startswith("# whatif verdict: Inconclusive\n")
+        assert out.startswith("# whatifd verdict: Inconclusive\n")
 
     def test_trailing_newline(self) -> None:
         out = render_full_report(_report_for(ship()))

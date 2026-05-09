@@ -1,4 +1,4 @@
-# whatif verdict: Inconclusive
+# whatifd verdict: Inconclusive
 
 **Reason:** the baseline cohort has only 3 successfully-scored traces (floor requires 5).
 There is insufficient evidence to evaluate this change against silent regression.
@@ -23,7 +23,7 @@ The baseline cohort had 8 selected traces but only 3 reached scoring. Causes:
    to handle the older schema.
 
 3. **Selection limit may be too low.** Try increasing `selection.baseline_cohort.limit`
-   to 20+ in `whatif.config.yaml` to give more headroom.
+   to 20+ in `whatifd.config.yaml` to give more headroom.
 
 After addressing these, rerun the experiment.
 

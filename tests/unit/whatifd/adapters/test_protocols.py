@@ -281,13 +281,13 @@ class TestLazyLoad:
             f"subprocess failed (exit {result.returncode}); stderr:\n{result.stderr}"
         )
         # Whatif-namespace stderr filter: a regression that exits 0
-        # but emits a whatif-related deprecation warning passes the
+        # but emits a whatifd-related deprecation warning passes the
         # exit-code check; this catches it. Transitive third-party
         # warnings (e.g., from pydantic, anyio) are out of scope.
         whatif_stderr = "\n".join(
-            line for line in result.stderr.splitlines() if "whatif" in line.lower()
+            line for line in result.stderr.splitlines() if "whatifd" in line.lower()
         )
-        assert whatif_stderr == "", f"unexpected whatif-related stderr:\n{whatif_stderr}"
+        assert whatif_stderr == "", f"unexpected whatifd-related stderr:\n{whatif_stderr}"
         assert result.stdout.strip() == "[]", (
             f"`import whatifd` triggered adapter imports: {result.stdout!r}"
         )
@@ -316,13 +316,13 @@ class TestLazyLoad:
             f"subprocess failed (exit {result.returncode}); stderr:\n{result.stderr}"
         )
         # Whatif-namespace stderr filter: a regression that exits 0
-        # but emits a whatif-related deprecation warning passes the
+        # but emits a whatifd-related deprecation warning passes the
         # exit-code check; this catches it. Transitive third-party
         # warnings (e.g., from pydantic, anyio) are out of scope.
         whatif_stderr = "\n".join(
-            line for line in result.stderr.splitlines() if "whatif" in line.lower()
+            line for line in result.stderr.splitlines() if "whatifd" in line.lower()
         )
-        assert whatif_stderr == "", f"unexpected whatif-related stderr:\n{whatif_stderr}"
+        assert whatif_stderr == "", f"unexpected whatifd-related stderr:\n{whatif_stderr}"
         assert result.stdout.strip() == "[]", (
             f"core modules triggered adapter imports: {result.stdout!r}"
         )

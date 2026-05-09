@@ -5,13 +5,13 @@ Write a `skill.md` file, which will contain the declarative definition of the sk
 
 ---
 
-## The quick path: `whatif skill <name>`
+## The quick path: `whatifd skill <name>`
 
 ```
 skills/
   <name>/
     skill.md  <- you write this
-  generate.py <- runs automatically to generate the skill code via `whatif skill <name>`
+  generate.py <- runs automatically to generate the skill code via `whatifd skill <name>`
 ```
 
 The generator:

@@ -1,4 +1,4 @@
-# whatif verdict: Don't Ship
+# whatifd verdict: Don't Ship
 
 **Reason:** baseline cohort regressed 6/20 traces (30%), exceeding the 10% threshold.
 Median baseline Δ: **-0.18** (CI: [-0.24, -0.12]).
