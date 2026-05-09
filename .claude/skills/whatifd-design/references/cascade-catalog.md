@@ -1200,6 +1200,22 @@ The v1 digest is preserved across the refactor: the canonical encoding contract 
 
 
 
+### `__version__` source-of-truth: `importlib.metadata`, not source literal (resolved 2026-05-09)
+
+**Source decision:** PR #76 (post-PR-#74 release-prep). The TestPyPI dry-run for `v0.1.0rc1` exposed a drift bug: `pyproject.toml` advertised `0.1.0rc1` but `whatifd.__version__` still reported the stale literal `0.0.1` because the rename + release-prep PRs never bumped the source string. PyPI version slots cannot be republished, so a real `v0.1.0` cut without this fix would have shipped a wrong-forever `__version__`.
+
+**Resolution:** all three packages (`whatifd`, `whatifd-langfuse`, `whatifd-inspect-ai`) read `__version__` from `importlib.metadata.version(<dist-name>)` at import time. `PackageNotFoundError` (source-only / pre-`pip install` checkout) falls back to the sentinel `"0.0.0+unknown"`. Distribution metadata (the `version` field in each `pyproject.toml`) is the single source of truth.
+
+**Rippled to:**
+- `src/whatifd/__init__.py`, `packages/whatifd-langfuse/src/whatifd_langfuse/__init__.py`, `packages/whatifd-inspect-ai/src/whatifd_inspect_ai/__init__.py` — all three switched to the `importlib.metadata` pattern.
+- `tests/unit/whatifd/test_version_parity.py` — pins parity for all three packages and asserts the sentinel never leaks into an installed test environment. Regression guard against any future contributor reverting to a hardcoded literal.
+- **Downstream `__version__` consumers** — anything that compares `whatifd.__version__` for compatibility now reads installed metadata, not a frozen literal. The semantics match what consumers expect from `pkg.__version__`.
+- **Release runbook** — `RELEASING.md` already documents bumping `pyproject.toml` `version`; with this fix, that single edit propagates correctly. No second source-string bump step needed.
+
+**Recovery path:** if a future contributor re-introduces a hardcoded literal, the parity test fails at CI on the PR, before the drift can ship.
+
+**Resolved by:** PR #76, commit `6cfe099` + the parity test added in the same branch.
+
 ## Audit checklist for schema freeze
 
 Before publishing v0.1 JSON Schema:

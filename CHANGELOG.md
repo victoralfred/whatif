@@ -12,6 +12,10 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`__version__` drift between `pyproject.toml` and source literal** — `src/whatifd/__init__.py` previously hardcoded `__version__ = "0.0.1"` and was never bumped when `pyproject.toml` moved to `0.1.0`. The TestPyPI dry-run install verification surfaced the drift (`whatifd 0.0.1` reported by an installed `0.1.0rc1` distribution). All three packages (`whatifd`, `whatifd-langfuse`, `whatifd-inspect-ai`) now read `__version__` from `importlib.metadata.version(<dist>)` at import time, so the distribution metadata is the single source of truth. Source-only checkouts fall back to `0.0.0+unknown`. A new `tests/unit/whatifd/test_version_parity.py` pins the parity to prevent regression.
+
 ### Documentation
 
 - **`README.md` and `docs/getting-started.md` install snippet** — the first package in the install command was missing the trailing `d`. The PyPI distribution is `whatifd`; only the CLI command and brand-name prose stay as `whatif`. Caught by user review pre-publish; would have shipped a broken install command otherwise.
