@@ -91,9 +91,13 @@ jobs:
       # second `version = ` line under a different table (e.g.,
       # a tool config or a dependency pin) would silently confuse
       # a regex-based extractor. The TOML parser is unambiguous.
+      # `uv run python` (not bare `python`) so the interpreter is the
+      # uv-managed one set up by `astral-sh/setup-uv@v7` above —
+      # consistent with every other Python invocation in this workflow
+      # and immune to any future change in the runner's default Python.
       - name: Workspace version-parity sentinel
         run: |
-          python - <<'EOF'
+          uv run python - <<'EOF'
           import sys
           import tomllib
           from pathlib import Path

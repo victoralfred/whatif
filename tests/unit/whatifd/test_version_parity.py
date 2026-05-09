@@ -46,7 +46,14 @@ def _require_distributions_installed() -> Generator[None, None, None]:
     co-located with the tests it protects — `conftest.py` would broaden
     the precondition to every test under this directory, which isn't
     the intent. `pytest.importorskip` is deliberately NOT used; skipping
-    would let CI go green on a broken install."""
+    would let CI go green on a broken install.
+
+    Control flow: the precondition runs BEFORE `yield`. On failure,
+    `pytest.fail(...)` raises and the fixture never yields — pytest
+    handles that as a setup error and skips teardown, which is exactly
+    what we want (no setup happened, nothing to tear down). On success
+    the unconditional `yield` runs and there's no teardown body, so
+    the fixture is clean either way."""
     missing = []
     for dist in _DISTRIBUTIONS:
         try:
