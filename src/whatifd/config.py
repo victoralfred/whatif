@@ -240,12 +240,17 @@ class ScorerConfig(BaseModel):
     judge_model_snapshot: str | None = None
     rubric_id: str | None = None
     rubric_text: str | None = None
-    scoring_parameters: dict[str, JsonPrimitive] = Field(default_factory=dict)
-    """Bounded JSON-primitive values only — keeps the cardinal #6
-    boundary clean (no `dict[str, Any]` crossing into the factory →
-    InspectAIScorer pipeline). Operators expressing tuple-shaped
-    knobs encode them as serialized strings; deserialization is the
-    score_fn author's concern."""
+    scoring_parameters: dict[str, JsonPrimitive] = Field(
+        default_factory=dict,
+        description=(
+            "Arbitrary JSON-primitive knobs (temperature, max_tokens, etc.) "
+            "passed through to the InspectAIScorer. Bounded to "
+            "`str | int | float | bool | None` so no `dict[str, Any]` crosses "
+            "the cardinal #6 boundary. Operators expressing tuple-shaped knobs "
+            "encode them as serialized strings; deserialization is the "
+            "score_fn author's concern."
+        ),
+    )
 
     @model_validator(mode="after")
     def _validate_inspect_ai_required_fields(self) -> ScorerConfig:
@@ -258,9 +263,9 @@ class ScorerConfig(BaseModel):
         ]
         if missing:
             raise ValueError(
-                f"scorer.adapter='inspect_ai' requires: {missing}. v0.2 introduced "
-                "config-loaded score_fn; populate the missing fields or fall back to "
-                "scorer.adapter='stub' for offline/CLI smoke tests."
+                f"scorer.adapter='inspect_ai' requires: {', '.join(missing)}. v0.2 "
+                "introduced config-loaded score_fn; populate the missing fields or "
+                "fall back to scorer.adapter='stub' for offline/CLI smoke tests."
             )
         return self
 
