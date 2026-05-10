@@ -240,18 +240,17 @@ class ScorerConfig(BaseModel):
     judge_model_snapshot: str | None = None
     rubric_id: str | None = None
     rubric_text: str | None = None
+    # `scoring_parameters` carries arbitrary JSON-primitive knobs
+    # (temperature, max_tokens, ...) that pass through to the
+    # InspectAIScorer. Bounded to `str | int | float | bool | None` so
+    # no `dict[str, Any]` crosses the cardinal #6 boundary. Non-primitive
+    # shapes (lists, tuples, nested dicts) are out of scope — operators
+    # encode them as serialized strings (JSON or comma-separated) and the
+    # score_fn deserializes. There is no other contract surface; this
+    # comment is the documented convention.
     scoring_parameters: dict[str, JsonPrimitive] = Field(
         default_factory=dict,
-        description=(
-            "Arbitrary JSON-primitive knobs (temperature, max_tokens, etc.) "
-            "passed through to the InspectAIScorer. Bounded to "
-            "`str | int | float | bool | None` so no `dict[str, Any]` crosses "
-            "the cardinal #6 boundary. Non-primitive shapes (lists, tuples, "
-            "nested dicts) are out of scope — operators encode them as "
-            "serialized strings (JSON, comma-separated) and the score_fn "
-            "deserializes. The serialized-string convention is documented "
-            "alongside this field; there is no other contract surface."
-        ),
+        description="Arbitrary JSON-primitive knobs passed through to InspectAIScorer.",
     )
 
     @model_validator(mode="after")
