@@ -135,7 +135,19 @@ import fcntl  # POSIX-only; Windows fails the sys.platform check above
 import psutil
 
 from whatifd.cache._types import CacheLock, LockFileContent
-from whatifd.serialization import canonical_json_bytes, parse_lock_file_content
+
+# `whatifd.serialization` is imported lazily inside the functions that
+# use it (see issue #85). Importing it at module-load-time creates a
+# circular re-entry when `whatifd.serialization`'s own `__init__`
+# triggers the chain that loads this module (via `lock_io` →
+# `whatifd.cache._types` → `whatifd.cache.__init__` → `lock`). The
+# cycle resolves implicitly when the full test suite preloads other
+# modules first, but a single-test invocation surfaces the
+# ImportError. Function-local imports break the module-load-time
+# dependency without changing the public surface — every callable
+# defined here that needs serialization helpers imports them on
+# entry; the cost is one dict lookup per call (negligible against
+# the file I/O these functions already do).
 
 # Re-export the shared types so `whatifd.cache.lock` remains the stable
 # public surface — external callers should not reach into _types.py.
@@ -292,6 +304,8 @@ def acquire_cache_lock(
         content = _build_lock_content()
         fp.seek(0)
         fp.truncate()
+        from whatifd.serialization import canonical_json_bytes
+
         fp.write(canonical_json_bytes(_content_to_dict(content)).decode("ascii"))
         fp.flush()
         os.fsync(fp.fileno())
@@ -353,6 +367,8 @@ def _try_takeover_if_stale(
     "stale by definition" here.
     """
     fp.seek(0)
+    from whatifd.serialization import parse_lock_file_content
+
     recorded = parse_lock_file_content(fp.read())
     if recorded is None:
         return True
@@ -478,6 +494,8 @@ def _build_locked_error(lock_path: Path) -> CacheLockedError:
         # equivalent on a returned-but-not-yet-raised exception object.
         err.__cause__ = diag_err
         return err
+
+    from whatifd.serialization import parse_lock_file_content
 
     content = parse_lock_file_content(raw)
     if content is not None:
