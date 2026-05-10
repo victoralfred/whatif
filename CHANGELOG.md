@@ -12,6 +12,13 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+### Changed — Phase J (determinism widening: per-field `x-deterministic` on `RunManifest`)
+
+- **`runtime` is no longer excluded as a whole** from the deterministic subset. The schema's `$def` for `RunManifest` now carries per-field `x-deterministic` annotations; the extractor descends into runtime and includes the documented-deterministic sub-fields (`experiment_id`, `whatif_version`, `config_hash`, `selection_seed`, `source`, `target`, `trust_floor`, `decision_policy`, `experiment_shape`).
+- **`RunManifest._DETERMINISTIC_FIELDS: frozenset[str]`** is the new source of truth. Adding/removing a sub-field there updates the dataclass; `scripts/generate_schema.py` reads the attribute on regen and emits the schema annotations to match. A drift-detection test (`test_runtime_subfield_annotations_match_dataclass_optin`) catches schema-vs-dataclass divergence.
+- **Cross-platform CI matrix** (Ubuntu + macOS) emits the canonical deterministic-subset JSON on each runner OS and asserts byte-equality across them. Catches platform-specific float formatting, JSON key-ordering, and line-ending drift that today's single-platform determinism test would miss.
+- **Cardinal #4 honored structurally**, not by convention: the previous blanket exclusion of `runtime` enforced determinism on the documented-deterministic sub-fields by docstring claim only; a future refactor that swapped `selection_seed: int` for a wall-clock fallback would have silently broken determinism without failing the test. Phase J closes that gap.
+
 ### Added — Phase I (`whatifd-fork` GitHub Action wrapper)
 
 - **Composite GitHub Action** at `.github/actions/whatifd-fork/`. Wraps `whatifd fork --config <path>`, captures the `./reports/*.json` and `./reports/*.md` artifacts, posts the rendered Markdown verdict as a PR comment on `pull_request` events, and surfaces the verdict via a GitHub status annotation (`::notice` / `::warning` / `::error` based on the verdict).

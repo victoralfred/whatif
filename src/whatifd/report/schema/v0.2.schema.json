@@ -883,31 +883,39 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "x-deterministic": false
         },
         "config_hash": {
-          "type": "string"
+          "type": "string",
+          "x-deterministic": true
         },
         "decision_policy": {
-          "$ref": "#/$defs/DecisionPolicy"
+          "$ref": "#/$defs/DecisionPolicy",
+          "x-deterministic": true
         },
         "duration_ms": {
-          "type": "integer"
+          "type": "integer",
+          "x-deterministic": false
         },
         "environment": {
-          "$ref": "#/$defs/EnvironmentFingerprint"
+          "$ref": "#/$defs/EnvironmentFingerprint",
+          "x-deterministic": false
         },
         "experiment_id": {
-          "type": "string"
+          "type": "string",
+          "x-deterministic": true
         },
         "experiment_shape": {
           "enum": [
             "failure_rescue",
             "regression_check"
-          ]
+          ],
+          "x-deterministic": true
         },
         "finished_at": {
-          "type": "string"
+          "type": "string",
+          "x-deterministic": false
         },
         "redaction": {
           "additionalProperties": {
@@ -920,31 +928,39 @@
               }
             ]
           },
-          "type": "object"
+          "type": "object",
+          "x-deterministic": false
         },
         "selection_seed": {
-          "type": "integer"
+          "type": "integer",
+          "x-deterministic": true
         },
         "sensitive_unwraps": {
           "items": {
             "$ref": "#/$defs/SensitiveUnwrap"
           },
-          "type": "array"
+          "type": "array",
+          "x-deterministic": false
         },
         "source": {
-          "type": "string"
+          "type": "string",
+          "x-deterministic": true
         },
         "started_at": {
-          "type": "string"
+          "type": "string",
+          "x-deterministic": false
         },
         "target": {
-          "type": "string"
+          "type": "string",
+          "x-deterministic": true
         },
         "trust_floor": {
-          "$ref": "#/$defs/TrustFloor"
+          "$ref": "#/$defs/TrustFloor",
+          "x-deterministic": true
         },
         "whatif_version": {
-          "type": "string"
+          "type": "string",
+          "x-deterministic": true
         }
       },
       "required": [

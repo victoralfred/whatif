@@ -1167,6 +1167,27 @@ The cycle is broken at import time because `TYPE_CHECKING` is False at runtime; 
 
 > **Ordering convention:** entries are reverse-chronological — newest at the top, oldest at the bottom. New resolved cascades are PREPENDED to this section, not appended. Reasoning: a contributor scanning for "what shipped recently" or "what's the latest doctrine on X" gets the answer in the first few entries instead of paging to the end. The original v0.1 entries (PRs #26, #31, etc.) sit at the bottom because they were resolved earliest; the most recent v0.2 phases sit at the top.
 
+### Phase J — Determinism widening: per-field `x-deterministic` on `RunManifest` + cross-platform CI (resolved 2026-05-10)
+
+**Source decision:** v0.1 ships with `runtime` (the entire `RunManifest`) tagged `x-deterministic: false` as a blanket exclusion, but the dataclass's docstring documents that 9+ sub-fields ARE deterministic by intent (`experiment_id`, `whatif_version`, `config_hash`, `selection_seed`, `source`, `target`, `trust_floor`, `decision_policy`, `experiment_shape`). The blanket-exclusion enforced cardinal #4 by convention only — a future refactor that swapped `selection_seed: int` for a `time.time()`-based fallback would silently break determinism without failing the determinism test. Phase J closes the gap.
+
+**Rippled to / refactor protection:**
+- `RunManifest._DETERMINISTIC_FIELDS: frozenset[str]` is the source of truth. Adding/removing a sub-field updates the dataclass; the schema generator reads the attribute and emits per-property `x-deterministic` on the `$def` for `RunManifest`.
+- `scripts/generate_schema.py::_dataclass_to_schema` now descends into dataclasses with `_DETERMINISTIC_FIELDS` and tags each property accordingly. Classes without the opt-in attribute behave as before (no per-field annotations).
+- `whatifd.serialization.determinism.extract_deterministic_subset` descends into the `runtime` subtree when its `$ref` points to a `$def` carrying per-field `x-deterministic` annotations. `runtime` is no longer excluded as a whole; the deterministic subset now includes a partial `runtime` mapping with only the documented-deterministic sub-fields.
+- `tests/integration/test_determinism.py::test_runtime_subfield_annotations_match_dataclass_optin` pins schema↔dataclass agreement: a schema regen that doesn't update the dataclass (or vice versa) fails this test.
+- `tests/integration/test_determinism.py::test_runtime_field_partial_subset_per_field_determinism` (replaces the prior `_excluded_from_subset` test) pins the partial-subset shape: deterministic sub-fields present, non-deterministic ones excluded.
+- New CI matrix `determinism-cross-platform-emit` runs on `[ubuntu-latest, macos-latest]`, emits `determinism-subset.json` from the canonical `scenario_clean_ship` fixture, uploads as a per-OS artifact. The `determinism-cross-platform-compare` job downloads both artifacts and asserts byte-equality via `diff -q`. Real cross-platform float-formatting / JSON-key-ordering / line-ending drift surfaces as a workflow failure with an `::error` annotation.
+- Walkthrough fixtures already encode stable `RunManifest` values; no fixture regeneration required.
+- Schema bumped fields stay under `REPORT_SCHEMA_VERSION = "0.2"` (annotations are additive metadata, not breaking schema changes).
+
+**What this PR explicitly does NOT change:**
+- `environment.*` sub-fields stay non-deterministic (pip-resolution-dependent dependencies; per-host python/platform). Future audit could canonicalize.
+- `sensitive_unwraps` stays non-deterministic (cross-thread call ordering). Sorting by `(timestamp, classification, reason_hash)` is a v0.3+ project.
+- `agent_identity` stays non-deterministic (Mapping ordering not guaranteed in v0.2).
+
+**Resolved by:** Phase J PR on branch `phase-j-determinism-widening`.
+
 ### Phase I — `whatifd-fork` GitHub Action wrapper (resolved 2026-05-10)
 
 **Source decision:** The public site (whatif.codes) promises a "GitHub Action wrapper" as a v0.2 feature. The CLI is already CI-ready (config-file driven, structured exit codes 0/1/2, deterministic `./reports/` artifacts); the Action's job is to capture the artifacts and surface the verdict through GitHub's PR/status surface.

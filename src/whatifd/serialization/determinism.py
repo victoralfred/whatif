@@ -130,25 +130,64 @@ def deterministic_field_names() -> frozenset[str]:
     return _deterministic_field_names()
 
 
+def _runtime_deterministic_subfields() -> frozenset[str]:
+    """Phase J: read RunManifest's per-field `x-deterministic`
+    annotations from the v0.2 schema's `$def` for `RunManifest`.
+    The runtime top-level field has `x-deterministic: false` (the
+    whole subtree is non-deterministic by default), but the schema
+    annotates each sub-field individually. The extractor descends
+    when a top-level field is excluded-by-blanket but its nested
+    `$ref`'s `$def` carries per-field annotations — those tagged
+    `true` are the deterministic projection.
+
+    Returns an empty frozenset if the schema doesn't carry the
+    annotations (e.g., consumer running an older bundled schema
+    that pre-dates Phase J).
+    """
+    from whatifd.report.models_v01 import REPORT_SCHEMA_VERSION
+
+    properties = _schema_properties()
+    runtime_prop = properties.get("runtime", {})
+    ref = runtime_prop.get("$ref", "")
+    if not ref.startswith("#/$defs/"):
+        return frozenset()
+    def_name = ref[len("#/$defs/") :]
+    schema_resource = files("whatifd.report.schema").joinpath(
+        f"v{REPORT_SCHEMA_VERSION}.schema.json"
+    )
+    schema = json.loads(schema_resource.read_text(encoding="utf-8"))
+    runtime_def = schema.get("$defs", {}).get(def_name, {})
+    return frozenset(
+        name
+        for name, prop in runtime_def.get("properties", {}).items()
+        if prop.get("x-deterministic") is True
+    )
+
+
 def extract_deterministic_subset(report_dict: Mapping[str, Any]) -> dict[str, Any]:
     """Project `report_dict` down to the deterministic subset.
 
     `report_dict` is the JSON-serialized form (a `dict[str, Any]`) of
     a `ReportV01`. Returns a new dict containing only the keys whose
-    schema property carries `x-deterministic: true`. Non-deterministic
-    keys (currently just `runtime`) are dropped.
+    schema property carries `x-deterministic: true`.
+
+    Phase J (v0.2 widening): nested dataclasses that opt into per-
+    field determinism (currently `RunManifest` via its
+    `_DETERMINISTIC_FIELDS` class attribute) get partial-subtree
+    projection. Top-level `runtime` is excluded by blanket, but the
+    extractor descends into it and includes only the sub-fields the
+    schema's `$def` for `RunManifest` tags `x-deterministic: true`.
+
+    Other top-level fields (cohort_results, failures, decision_findings,
+    cache_summary, etc.) keep their pre-Phase-J behavior: included as
+    a whole subtree because their top-level annotation is `true`.
 
     Emits `DeterministicSubsetWarning` for any input key not present
     in the schema's top-level properties — typically schema drift
-    (producer is newer than the consumer's bundled schema). Warning,
-    not raise, so byte-equality comparisons on otherwise-compatible
-    reports stay possible; the surfaced warning still flags the
-    drift loudly.
+    (producer is newer than the consumer's bundled schema).
 
     This function does NOT serialize — pass it the result of
     `json.loads(WhatifJSONEncoder.encode(report))` (or equivalent).
-    Splitting serialization from extraction keeps the determinism
-    test composable with any future JSON-shape changes.
     """
     schema_properties = _schema_properties()
     unknown = sorted(k for k in report_dict if k not in schema_properties)
@@ -159,8 +198,16 @@ def extract_deterministic_subset(report_dict: Mapping[str, Any]) -> dict[str, An
             DeterministicSubsetWarning,
             stacklevel=2,
         )
-    keep = _deterministic_field_names()
-    return {k: v for k, v in report_dict.items() if k in keep}
+    keep_top = _deterministic_field_names()
+    result: dict[str, Any] = {k: v for k, v in report_dict.items() if k in keep_top}
+
+    # Phase J: descend into `runtime` for per-field determinism.
+    runtime_value = report_dict.get("runtime")
+    if isinstance(runtime_value, Mapping):
+        keep_runtime = _runtime_deterministic_subfields()
+        if keep_runtime:
+            result["runtime"] = {k: v for k, v in runtime_value.items() if k in keep_runtime}
+    return result
 
 
 def extract_deterministic_subset_from_report(

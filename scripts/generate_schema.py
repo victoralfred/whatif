@@ -155,12 +155,25 @@ def _type_to_schema(tp: Any, defs: dict[str, dict[str, Any]]) -> dict[str, Any]:
 
 
 def _dataclass_to_schema(cls: type, defs: dict[str, dict[str, Any]]) -> dict[str, Any]:
-    """Build a JSON Schema object for a frozen dataclass."""
+    """Build a JSON Schema object for a frozen dataclass.
+
+    Phase J — Determinism widening: dataclasses that opt into per-field
+    determinism via a class-attribute `_DETERMINISTIC_FIELDS:
+    frozenset[str]` get `x-deterministic: true|false` annotations on
+    each property of their generated `$def`. Fields named in the
+    frozenset are tagged `true`; all other fields default to `false`.
+    The presence of `_DETERMINISTIC_FIELDS` on a class is the
+    structural opt-in — classes without it (e.g., `CohortResult`) get
+    no per-property annotations because their determinism is governed
+    by the top-level annotation propagation on `ReportV01`.
+    """
     # `include_extras=True` would surface `Annotated` metadata; the v0.1
     # types don't use Annotated, so the default is fine.
     hints = typing.get_type_hints(cls)
     properties: dict[str, dict[str, Any]] = {}
     required: list[str] = []
+    deterministic_fields: frozenset[str] = getattr(cls, "_DETERMINISTIC_FIELDS", frozenset())
+    annotate_per_field = bool(deterministic_fields)
     for field in dataclasses.fields(cls):
         # General rule: skip computed fields (`init=False`). They are
         # derived in `__post_init__` from other fields, so they don't
@@ -173,7 +186,10 @@ def _dataclass_to_schema(cls: type, defs: dict[str, dict[str, Any]]) -> dict[str
         if not field.init:
             continue
         field_tp = hints[field.name]
-        properties[field.name] = _type_to_schema(field_tp, defs)
+        prop = _type_to_schema(field_tp, defs)
+        if annotate_per_field:
+            prop["x-deterministic"] = field.name in deterministic_fields
+        properties[field.name] = prop
         if field.default is dataclasses.MISSING and field.default_factory is dataclasses.MISSING:
             required.append(field.name)
 

@@ -176,3 +176,56 @@ jobs:
           name: coverage-xml
           path: coverage.xml
           if-no-files-found: warn
+
+  # Phase J — Determinism widening (cardinal #4): the deterministic
+  # subset must be byte-stable across runner OSes, not just across
+  # re-runs on the same OS. This job runs the determinism extractor
+  # on Ubuntu and macOS, uploads the canonical-JSON output as an
+  # artifact per OS, and a finalizer job downloads both and asserts
+  # byte-equality.
+  determinism-cross-platform-emit:
+    name: determinism cross-platform (emit ${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - name: Install
+        run: uv sync --all-extras --dev --group workspace
+      - name: Emit deterministic-subset bytes
+        run: uv run python tests/integration/_emit_determinism_artifact.py
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: determinism-subset-${{ matrix.os }}
+          path: determinism-subset.json
+          if-no-files-found: error
+
+  determinism-cross-platform-compare:
+    name: determinism cross-platform (compare)
+    needs: determinism-cross-platform-emit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v7
+        with:
+          name: determinism-subset-ubuntu-latest
+          path: ubuntu/
+      - uses: actions/download-artifact@v7
+        with:
+          name: determinism-subset-macos-latest
+          path: macos/
+      - name: Byte-equality assertion
+        run: |
+          if ! diff -q ubuntu/determinism-subset.json macos/determinism-subset.json; then
+            echo "::error title=cross-platform determinism::deterministic-subset bytes differ across Ubuntu and macOS"
+            diff ubuntu/determinism-subset.json macos/determinism-subset.json || true
+            exit 1
+          fi
+          echo "::notice title=cross-platform determinism::deterministic-subset bytes are identical across Ubuntu and macOS"
