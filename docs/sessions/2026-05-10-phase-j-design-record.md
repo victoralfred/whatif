@@ -2,7 +2,7 @@
 session_id: 2026-05-10-phase-j-design-record
 started_at: 2026-05-10T00:00:00Z
 type: design-record
-status: DRAFT (awaiting review before implementation)
+status: IMPLEMENTED (PR #95)
 ---
 
 # Phase J — Determinism widening: design record

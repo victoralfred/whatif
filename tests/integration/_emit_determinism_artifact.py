@@ -21,7 +21,6 @@ workflow's finalizer step (a `diff -q`), not here.
 
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 
@@ -36,8 +35,10 @@ def main() -> int:
 
     from integration._fixtures import scenario_clean_ship
     from whatifd.pipeline import run_pipeline
-    from whatifd.serialization import canonical_json_bytes, encode_report_v01
-    from whatifd.serialization.determinism import extract_deterministic_subset
+    from whatifd.serialization import canonical_json_bytes
+    from whatifd.serialization.determinism import (
+        extract_deterministic_subset_from_report,
+    )
     from whatifd.types.policy import DecisionPolicy, TrustFloor
 
     fx = scenario_clean_ship()
@@ -50,8 +51,13 @@ def main() -> int:
         methodology=fx.methodology,
         cache_summary=fx.cache_summary,
     )
-    report_dict = json.loads(encode_report_v01(report))
-    subset = extract_deterministic_subset(report_dict)
+    # Use the typed helper instead of round-tripping through
+    # `json.loads(encode_report_v01(...))`. Both paths produce
+    # equivalent output (pinned by
+    # tests/integration/test_determinism.py::
+    # test_extract_from_report_matches_round_trip), but the typed
+    # helper avoids a raw json call outside `whatifd/serialization/`.
+    subset = extract_deterministic_subset_from_report(report)
     out_path = Path("determinism-subset.json")
     out_path.write_bytes(canonical_json_bytes(subset))
     print(f"wrote {out_path} ({out_path.stat().st_size} bytes)")

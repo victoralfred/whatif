@@ -141,8 +141,12 @@ def _runtime_deterministic_subfields() -> frozenset[str]:
     `true` are the deterministic projection.
 
     Returns an empty frozenset if the schema doesn't carry the
-    annotations (e.g., consumer running an older bundled schema
-    that pre-dates Phase J).
+    annotations AND emits a `DeterministicSubsetWarning` so the
+    silent-degrade path is observable. Cardinal #1: missing
+    annotations are structured data, not silent fallback. The
+    empty frozenset still degrades gracefully (extractor drops
+    runtime entirely, matching pre-Phase-J behavior) but the
+    warning makes the degradation visible.
     """
     from whatifd.report.models_v01 import REPORT_SCHEMA_VERSION
 
@@ -150,6 +154,15 @@ def _runtime_deterministic_subfields() -> frozenset[str]:
     runtime_prop = properties.get("runtime", {})
     ref = runtime_prop.get("$ref", "")
     if not ref.startswith("#/$defs/"):
+        warnings.warn(
+            "_runtime_deterministic_subfields: runtime property has no $ref to a "
+            "$def — schema doesn't carry Phase J per-field annotations. "
+            "Falling back to pre-Phase-J behavior (runtime excluded as a whole). "
+            "Likely cause: bundled schema pre-dates Phase J or has been "
+            "regenerated against an older RunManifest dataclass.",
+            DeterministicSubsetWarning,
+            stacklevel=2,
+        )
         return frozenset()
     def_name = ref[len("#/$defs/") :]
     schema_resource = files("whatifd.report.schema").joinpath(
@@ -157,11 +170,21 @@ def _runtime_deterministic_subfields() -> frozenset[str]:
     )
     schema = json.loads(schema_resource.read_text(encoding="utf-8"))
     runtime_def = schema.get("$defs", {}).get(def_name, {})
-    return frozenset(
+    annotated = frozenset(
         name
         for name, prop in runtime_def.get("properties", {}).items()
         if prop.get("x-deterministic") is True
     )
+    if not annotated:
+        warnings.warn(
+            f"_runtime_deterministic_subfields: $def {def_name!r} has no properties "
+            "tagged `x-deterministic: true`. Falling back to pre-Phase-J behavior "
+            "(runtime excluded as a whole). Likely cause: dataclass's "
+            "_DETERMINISTIC_FIELDS opt-in was emptied without intention.",
+            DeterministicSubsetWarning,
+            stacklevel=2,
+        )
+    return annotated
 
 
 def extract_deterministic_subset(report_dict: Mapping[str, Any]) -> dict[str, Any]:

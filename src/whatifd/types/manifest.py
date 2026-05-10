@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import ClassVar, Literal
 
 from whatifd.types.policy import DecisionPolicy, TrustFloor
 from whatifd.types.sensitive import SensitiveUnwrap
@@ -100,7 +100,13 @@ class RunManifest:
     # the schema annotation; the determinism CI test reads the
     # schema, so a future refactor that moves a field's
     # determinism status updates the test surface automatically.
-    _DETERMINISTIC_FIELDS = frozenset(
+    # `ClassVar` annotation prevents dataclass machinery (and any
+    # downstream Pydantic boundary that introspects __annotations__)
+    # from treating this as an instance field. Cardinal #6: typed
+    # boundary discipline. Without ClassVar, a future PR adding
+    # Pydantic validation around RunManifest could mistakenly try
+    # to coerce/validate this as an init field.
+    _DETERMINISTIC_FIELDS: ClassVar[frozenset[str]] = frozenset(
         {
             "experiment_id",
             "whatif_version",

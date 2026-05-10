@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import json
 from importlib.resources import files
+from unittest import mock
 
 import pytest
 
@@ -135,6 +136,62 @@ def test_extract_from_report_matches_round_trip() -> None:
     via_helper = extract_deterministic_subset_from_report(report)
     via_round_trip = extract_deterministic_subset(json.loads(encode_report_v01(report)))
     assert via_helper == via_round_trip
+
+
+def test_runtime_deterministic_subfields_warns_on_missing_annotations() -> None:
+    """Phase J: the schema-walking helper that backs the extractor's
+    runtime descent emits `DeterministicSubsetWarning` when the
+    schema lacks per-field annotations (e.g., consumer running an
+    older bundled schema). Cardinal #1: the silent-degrade path is
+    observable via warning, not invisible.
+    """
+    from whatifd.serialization.determinism import (
+        DeterministicSubsetWarning,
+        _runtime_deterministic_subfields,
+    )
+
+    # Patch the schema-properties cache to return a runtime entry
+    # without a `$ref`, simulating a pre-Phase-J or hand-rolled
+    # schema.
+    with (
+        mock.patch(
+            "whatifd.serialization.determinism._schema_properties",
+            return_value={"runtime": {"x-deterministic": False}},  # no $ref
+        ),
+        pytest.warns(DeterministicSubsetWarning, match="no \\$ref"),
+    ):
+        result = _runtime_deterministic_subfields()
+    assert result == frozenset()
+
+
+def test_runtime_deterministic_subfields_warns_on_empty_annotations() -> None:
+    """Companion to the above: the `$def` exists but has no fields
+    tagged `x-deterministic: true`. Same warning class, different
+    message; same fallback (empty frozenset).
+    """
+    from whatifd.serialization.determinism import (
+        DeterministicSubsetWarning,
+        _runtime_deterministic_subfields,
+    )
+
+    # _schema_properties returns the runtime $ref pointer; the
+    # subsequent json.load of the schema file picks up an empty
+    # $def (none of its properties tagged true). Patch the file
+    # read to control what comes back.
+    fake_schema = '{"$defs": {"RunManifest": {"properties": {"x": {"x-deterministic": false}}}}}'
+    with (
+        mock.patch(
+            "whatifd.serialization.determinism._schema_properties",
+            return_value={"runtime": {"$ref": "#/$defs/RunManifest"}},
+        ),
+        mock.patch(
+            "whatifd.serialization.determinism.files",
+        ) as mock_files,
+    ):
+        mock_files.return_value.joinpath.return_value.read_text.return_value = fake_schema
+        with pytest.warns(DeterministicSubsetWarning, match="no properties tagged"):
+            result = _runtime_deterministic_subfields()
+    assert result == frozenset()
 
 
 def test_runtime_subfield_annotations_match_dataclass_optin() -> None:
