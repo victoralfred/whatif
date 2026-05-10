@@ -15,6 +15,7 @@ runner. The structural pins catch the most common refactor regressions
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -456,8 +457,6 @@ class TestEditLastGrepLocaleFragility:
     current behavior, not a desired-future-state) — when issue #94
     lands, this class can be deleted.
     """
-
-    import re
 
     # Regex pattern from action.yml — kept in sync via the source-
     # text test in TestDisclosureSeedCoupling. If the action's
