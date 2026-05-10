@@ -438,6 +438,7 @@ def _run_fork_pipeline(cfg: WhatifConfig, proof: TwoAffirmationProof) -> int:
             platform=sys.platform,
             whatif_version=_whatif_version,
         ),
+        experiment_shape=cfg.experiment_shape,
     )
 
     try:

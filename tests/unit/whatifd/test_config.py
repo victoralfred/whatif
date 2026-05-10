@@ -606,3 +606,43 @@ class TestInspectAiScorerConfig:
         for bad_value in ([1, 2, 3], {"nested": True}, (1, 2, 3), {1, 2, 3}):
             with pytest.raises(ValidationError, match="nested structures not allowed"):
                 ScorerConfig(adapter="stub", scoring_parameters={"k": bad_value})
+
+
+# ---------------------------------------------------------------------------
+# Phase C completion (#84): experiment_shape config field
+# ---------------------------------------------------------------------------
+
+
+class TestExperimentShapeConfig:
+    """Issue #84: WhatifConfig.experiment_shape closes the regression-
+    check loop end-to-end. Without this field, regression-check was
+    reachable only by programmatic RunManifest construction; now CLI
+    YAML users can select it.
+    """
+
+    def test_default_is_failure_rescue(self) -> None:
+        # Back-compat: existing v0.1 configs (no experiment_shape
+        # key) get failure_rescue automatically.
+        cfg = WhatifConfig(**_minimal_config_dict())
+        assert cfg.experiment_shape == "failure_rescue"
+
+    def test_regression_check_accepted(self) -> None:
+        d = _minimal_config_dict()
+        d["experiment_shape"] = "regression_check"
+        cfg = WhatifConfig(**d)
+        assert cfg.experiment_shape == "regression_check"
+
+    def test_failure_rescue_accepted_explicit(self) -> None:
+        d = _minimal_config_dict()
+        d["experiment_shape"] = "failure_rescue"
+        cfg = WhatifConfig(**d)
+        assert cfg.experiment_shape == "failure_rescue"
+
+    def test_unknown_shape_rejected(self) -> None:
+        # Literal-typed: unknown values fail at config-load with a
+        # named-field error rather than silently flowing to the
+        # verdict layer.
+        d = _minimal_config_dict()
+        d["experiment_shape"] = "exploratory_ab"
+        with pytest.raises(ValidationError, match="experiment_shape"):
+            WhatifConfig(**d)

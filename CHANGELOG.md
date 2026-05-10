@@ -12,6 +12,11 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+### Added — Phase C completion: WhatifConfig.experiment_shape (#84)
+
+- **`WhatifConfig.experiment_shape`** (`Literal["failure_rescue", "regression_check"]`, default `"failure_rescue"`). Closes the Phase C loop: the verdict-layer branch on `experiment_shape` shipped in PR #82, but `whatifd fork` CLI users could only get `failure_rescue` because the config schema didn't expose the field. Operators can now set `experiment_shape: regression_check` in `whatifd.config.yaml` and the CLI threads it into `RunManifest`.
+- Unknown values (e.g., `experiment_shape: exploratory_ab`) fail at config-load with a Pydantic ValidationError naming the field — fail-early discipline matching the rest of v0.2's config validators.
+
 ### Added — Phase D (Arize Phoenix / OpenInference TraceSource adapter)
 
 - **New package: `whatifd-phoenix`** (v0.2.0). Implements `whatifd.adapters.TraceSource` against an OpenInference span-iterator surface. Tracer-neutrality proof: the `TraceSource` Protocol is genuinely shape-agnostic, not Langfuse-shaped by accident.

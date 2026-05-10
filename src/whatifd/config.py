@@ -68,6 +68,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
+from whatifd.types.manifest import ExperimentShape
 from whatifd.types.primitives import JsonPrimitive
 
 # ---------------------------------------------------------------------------
@@ -406,6 +407,13 @@ class WhatifConfig(BaseModel):
     decision: DecisionConfig
     reporting: ReportingConfig
     timeouts: TimeoutsConfig
+
+    # Phase C wired the verdict-policy branch on experiment_shape;
+    # this field closes the CLI loop. Defaults to "failure_rescue"
+    # (v0.1 behavior) so existing configs don't require any change.
+    # Set to "regression_check" for the regression-check shape;
+    # see whatifd.types.manifest.ExperimentShape for the contract.
+    experiment_shape: ExperimentShape = "failure_rescue"
 
 
 # ---------------------------------------------------------------------------
