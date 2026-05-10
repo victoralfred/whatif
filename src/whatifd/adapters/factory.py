@@ -127,12 +127,49 @@ def build_scorer(cfg: ScorerConfig) -> Scorer:
         # verdict will be misleading.
         return StubScorer()
     if name == "inspect_ai":
-        raise AdapterFactoryError(
-            "v0.1 'inspect_ai' scorer requires a programmatic score_fn that "
-            "config cannot load (it's user code). Use the run_pipeline API "
-            "shown in docs/getting-started.md, or wait for the v0.2 "
-            "scorer.score_fn config field. Current scorer.adapter='inspect_ai'."
+        # v0.2: config-loaded score_fn closes the v0.1 setup-failure
+        # cliff. Required fields are enforced by ScorerConfig's
+        # model_validator before we get here, so cfg.score_fn etc.
+        # are guaranteed non-None — but keep an assertion-style check
+        # so a future refactor that drops the validator surfaces
+        # immediately instead of producing an obscure InspectAIScorer
+        # constructor error.
+        if cfg.score_fn is None:
+            raise AdapterFactoryError(
+                "scorer.adapter='inspect_ai' requires scorer.score_fn (a "
+                "`python:<module.path>:<attr>` reference). The config-validation "
+                "layer normally catches this before factory dispatch; reaching "
+                "this branch means the validator was bypassed."
+            )
+        from whatifd.scorer_loader import ScorerLoadError, load_score_fn
+
+        try:
+            score_fn = load_score_fn(cfg.score_fn)
+        except ScorerLoadError as exc:
+            raise AdapterFactoryError(str(exc)) from exc
+
+        # Lazy import — the inspect_ai package is an optional adapter
+        # extra. Importing at module top-level would violate the
+        # core-modules-do-not-load-real-adapter-packages contract.
+        from whatifd_inspect_ai import InspectAIScorer
+
+        # MyPy: cfg.* fields narrowed-non-None by the validator;
+        # explicit asserts make the type-narrow visible.
+        assert cfg.judge_provider is not None
+        assert cfg.judge_model_id is not None
+        assert cfg.rubric_id is not None
+        assert cfg.rubric_text is not None
+
+        scorer: Scorer = InspectAIScorer(
+            score_fn=score_fn,
+            judge_provider=cfg.judge_provider,
+            judge_model_id=cfg.judge_model_id,
+            judge_model_snapshot=cfg.judge_model_snapshot,
+            rubric_id=cfg.rubric_id,
+            rubric_text=cfg.rubric_text,
+            scoring_parameters=cfg.scoring_parameters,
         )
+        return scorer
     raise AdapterFactoryError(
         f"Unknown scorer adapter {name!r}. v0.1 CLI supports 'stub' "
         "(programmatic API supports 'inspect_ai' via run_pipeline)."

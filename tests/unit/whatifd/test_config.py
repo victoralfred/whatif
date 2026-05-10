@@ -46,7 +46,7 @@ def _minimal_config_dict() -> dict:
             "baseline_cohort": {"limit": 20},
         },
         "change": {"system_prompt": "be concise"},
-        "scorer": {"adapter": "inspect_ai", "cache_mode": "auto"},
+        "scorer": {"adapter": "stub", "cache_mode": "auto"},
         "decision": {},
         "reporting": {},
         "timeouts": {},
@@ -385,7 +385,7 @@ class TestLoadConfig:
             "  failure_cohort:\n    limit: 20\n"
             "  baseline_cohort:\n    limit: 20\n"
             "change:\n  system_prompt: be concise\n"
-            "scorer:\n  adapter: inspect_ai\n  cache_mode: auto\n"
+            "scorer:\n  adapter: stub\n  cache_mode: auto\n"
             "decision: {}\n"
             "reporting: {}\n"
             "timeouts: {}\n",
@@ -470,7 +470,7 @@ class TestLoadConfig:
             "  failure_cohort:\n    limit: 20\n"
             "  baseline_cohort:\n    limit: 20\n"
             "change: {}\n"
-            "scorer:\n  adapter: inspect_ai\n"
+            "scorer:\n  adapter: stub\n"
             "decision: {}\n"
             "reporting:\n"
             "  profile: forensic\n"
@@ -503,7 +503,7 @@ class TestLoadConfig:
             "  failure_cohort:\n    limit: 0\n"  # invalid: ge=1
             "  baseline_cohort:\n    limit: 20\n"
             "change: {}\n"
-            "scorer:\n  adapter: inspect_ai\n"
+            "scorer:\n  adapter: stub\n"
             "decision: {}\n"
             "reporting: {}\n"
             "timeouts: {}\n",

@@ -12,6 +12,14 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+### Added — Phase B (config-loaded score_fn; inspect_ai reachable from YAML)
+
+- **`scorer.score_fn` config field** — `python:<module.path>:<attr>` reference to an Inspect AI score function. Closes the v0.1 setup-failure cliff where `scorer.adapter: inspect_ai` was reachable only via the programmatic `run_pipeline` API.
+- **`scorer.judge_provider` / `judge_model_id` / `judge_model_snapshot` / `rubric_id` / `rubric_text` / `scoring_parameters`** — the remaining `InspectAIScorer` constructor fields, all expressible from YAML.
+- **`ScorerConfig.model_validator`** enforces all five required fields when `adapter='inspect_ai'`. Validation fires at config-load time, before factory dispatch — a v0.1-shaped config (`adapter: inspect_ai` alone) now fails Pydantic validation with a named-field error.
+- **`whatifd.scorer_loader`** — new module mirroring `runner_loader`: resolves `python:<module>:<attr>` to a callable, with typed `ScorerLoadError` for every failure path.
+- **`build_scorer` constructs `InspectAIScorer` from config** — adapter='inspect_ai' branch wires `score_fn` + judge fields straight through to the `InspectAIScorer` constructor. The lazy-import contract is preserved.
+
 ### Added — Phase A (v0.2 schema groundwork)
 
 - **`ExperimentShape` literal + top-level `experiment_shape` field on `ReportV01`** — `Literal["failure_rescue", "regression_check"]`. v0.1 was failure-rescue only; the field is now structural so the v0.2 verdict-policy branch (Phase C) has somewhere to dispatch. Default on `RunManifest` is `"failure_rescue"` for caller ergonomics; required (no default) on the wire shape.

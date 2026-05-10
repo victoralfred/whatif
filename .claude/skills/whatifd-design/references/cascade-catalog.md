@@ -1165,6 +1165,22 @@ The cycle is broken at import time because `TYPE_CHECKING` is False at runtime; 
 
 ## Resolved cascades
 
+### Phase B — Scorer score_fn config-loadable; inspect_ai reachable from YAML (resolved 2026-05-10)
+
+**Source decision:** v0.1 shipped with `scorer.adapter: inspect_ai` reachable only via the programmatic `run_pipeline` API; the CLI surfaced an actionable setup-failure error pointing at the gap. v0.2 closes the cliff by adding `scorer.score_fn: "python:<module>:<attr>"` plus the judge-config fields (`judge_provider`, `judge_model_id`, `rubric_id`, `rubric_text`, optional `judge_model_snapshot` / `scoring_parameters`) to `ScorerConfig`. A new `whatifd.scorer_loader.load_score_fn` mirrors `runner_loader.load_runner` for the `python:` reference resolution.
+
+**Rippled to / refactor protection:**
+- `ScorerConfig.model_validator` enforces all five required fields when `adapter='inspect_ai'`. Validation fires at config-load time, before factory dispatch — a v0.1-shaped config (just `adapter: inspect_ai`) now fails Pydantic validation with a named-field error rather than crashing later in `build_scorer`.
+- `whatifd.adapters.factory.build_scorer` constructs `InspectAIScorer` directly when adapter='inspect_ai'. The `score_fn is None` branch becomes unreachable belt-and-suspenders (the validator catches it first); kept in code so a future contributor who bypasses the validator surfaces a clear error.
+- `whatifd_inspect_ai` import remains lazy inside the factory branch — the `core-modules-do-not-load-real-adapter-packages` contract is unbroken.
+- Existing test fixtures that used `adapter: inspect_ai` as a v0.1 sentinel-failure config (test_config.py, test_cli.py) now use `adapter: stub` for the same purpose. The behavior they pin (e.g. "two-affirmation reaches dispatcher → setup-failure exit 2") is unchanged because stub source's empty trace list also produces a setup-failure outcome.
+- `test_build_scorer_inspect_ai_raises_actionable` was retired; replaced by `test_build_scorer_inspect_ai_missing_score_fn_blocked_by_validator` (tests the validator-time enforcement) and `test_build_scorer_inspect_ai_with_real_score_fn_returns_inspect_scorer` (happy-path integration).
+- Docs updates (drop "v0.1 caveat" admonitions across inspect-ai.md, langfuse.md, workflow.md, first-experiment.md, live-langfuse.md, config.md) are deferred to a follow-up PR in the `whatifd-docs` repo so the docs reflect shipped behavior.
+
+**Resolved by:** Phase B PR on branch `phase-b-config-score-fn`.
+
+
+
 ### Phase A v0.2 schema groundwork — experiment_shape + frozen v0.1 + real report-migrate (resolved 2026-05-10)
 
 **Source decision:** v0.2 roadmap Phase A introduces `ExperimentShape = Literal["failure_rescue","regression_check"]` to ReportV01 + RunManifest. The verdict-policy branch on shape lands in Phase C; Phase A is structural-only. Three downstream concerns rippled together: (a) v0.1.schema.json must become immutable now that v0.1.0 has shipped to PyPI consumers, (b) v0.2.schema.json must be generated alongside, (c) the report-migrate CLI's v0.1 no-op stub becomes real v0.1→v0.2 logic.

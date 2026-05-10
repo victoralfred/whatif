@@ -258,18 +258,59 @@ def test_build_scorer_satisfies_protocol() -> None:
     assert isinstance(scorer, Scorer)
 
 
-def test_build_scorer_inspect_ai_raises_actionable() -> None:
-    # v0.1 doesn't load score_fn from config (it's user code, not
-    # config data). The factory surfaces this with an actionable
-    # error pointing at the programmatic path. Pinned because a
-    # future contributor might silently default `score_fn` to a
-    # zero-stub here, which would produce uniformly zero deltas
-    # under an `inspect_ai` config — a misleading Ship verdict.
-    with pytest.raises(AdapterFactoryError) as excinfo:
-        build_scorer(ScorerConfig(adapter="inspect_ai"))
-    msg = str(excinfo.value)
-    assert "score_fn" in msg
-    assert "run_pipeline" in msg
+def test_build_scorer_inspect_ai_missing_score_fn_blocked_by_validator() -> None:
+    # v0.2: ScorerConfig's model_validator enforces score_fn + judge
+    # fields when adapter='inspect_ai'. Validation fires at config
+    # construction, BEFORE factory dispatch. The factory branch that
+    # would re-raise is now an unreachable belt-and-suspenders check;
+    # this test pins the validator-time enforcement instead.
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError, match="score_fn"):
+        ScorerConfig(adapter="inspect_ai")
+
+
+def test_build_scorer_inspect_ai_with_score_fn_constructs() -> None:
+    # v0.2 happy path: a fully-populated inspect_ai config produces
+    # an InspectAIScorer instance via the factory.
+    cfg = ScorerConfig(
+        adapter="inspect_ai",
+        score_fn="python:whatifd_inspect_ai.scorer:_dummy_score_fn_does_not_exist",
+        judge_provider="anthropic",
+        judge_model_id="claude-haiku-4-5",
+        rubric_id="test-rubric-v1",
+        rubric_text="Score 0-1 by faithfulness.",
+    )
+    # The score_fn ref is intentionally bogus so we don't depend on
+    # a real Inspect AI score function — but the load helper raises
+    # AdapterFactoryError when the attr is missing, surfacing the
+    # actionable "module has no attribute" message.
+    with pytest.raises(AdapterFactoryError, match="has no attribute"):
+        build_scorer(cfg)
+
+
+def test_build_scorer_inspect_ai_with_real_score_fn_returns_inspect_scorer() -> None:
+    # End-to-end: a score_fn that resolves to a real callable produces
+    # an InspectAIScorer. Uses a trivial lambda-style helper exposed
+    # for testing.
+    from whatifd_inspect_ai import InspectAIScorer
+
+    cfg = ScorerConfig(
+        adapter="inspect_ai",
+        # `len` is a stand-in callable — the factory only needs a
+        # callable to wire into InspectAIScorer.score_fn; the actual
+        # score-call shape is exercised by the InspectAIScorer
+        # contract tests, not here.
+        score_fn="python:builtins:len",
+        judge_provider="anthropic",
+        judge_model_id="claude-haiku-4-5",
+        rubric_id="test-rubric-v1",
+        rubric_text="Score 0-1 by faithfulness.",
+    )
+    scorer = build_scorer(cfg)
+    assert isinstance(scorer, InspectAIScorer)
+    assert scorer.judge_provider == "anthropic"
+    assert scorer.rubric_id == "test-rubric-v1"
 
 
 def test_build_scorer_unknown_adapter_raises() -> None:

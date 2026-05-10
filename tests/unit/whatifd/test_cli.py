@@ -67,7 +67,7 @@ def _minimal_config_dict() -> dict[str, object]:
             "baseline_cohort": {"limit": 20},
         },
         "change": {"system_prompt": "be concise"},
-        "scorer": {"adapter": "inspect_ai", "cache_mode": "auto"},
+        "scorer": {"adapter": "stub", "cache_mode": "auto"},
         "decision": {},
         "reporting": {},
         "timeouts": {},
@@ -175,12 +175,12 @@ class TestForkTwoAffirmation:
     ) -> None:
         # Both surfaces forensic-aligned → two-affirmation passes;
         # CLI proceeds into _run_fork_pipeline. The minimal config
-        # uses inspect_ai scorer, which requires a programmatic
-        # score_fn config can't load (Phase 10.1 documented behavior),
-        # so the dispatcher exits 2 with a setup-failure message.
-        # The witness-token threading is proven by reaching the
-        # dispatcher body at all — the stderr is the real adapter
-        # factory error, not a witness-token bypass.
+        # uses the stub trace source (empty by default) so the
+        # dispatcher exits 2 with a setup-failure message after the
+        # adapters return zero traces. The witness-token threading
+        # is proven by reaching the dispatcher body at all — the
+        # stderr is the real adapter pipeline outcome, not a
+        # witness-token bypass.
         p = tmp_path / "forensic.json"
         p.write_text(json.dumps(_forensic_config_dict()), encoding="utf-8")
 
@@ -200,12 +200,11 @@ class TestForkDefaultFlow:
     ) -> None:
         # Non-forensic config + no --profile → two-affirmation
         # returns proof with forensic_active=False; CLI proceeds
-        # into _run_fork_pipeline. The minimal config uses
-        # inspect_ai scorer (config can't load score_fn) so the
-        # dispatcher's adapter factory raises AdapterFactoryError →
-        # setup-failure stderr → exit 2 (cardinal #1: structured
-        # data, not stack trace). Pin that the path completes
-        # cleanly, not that any specific stub message appears.
+        # into _run_fork_pipeline. The minimal config uses the stub
+        # trace source (empty by default), so the dispatcher exits 2
+        # with a setup-failure message after the adapters return
+        # zero traces (cardinal #1: structured data, not a stack
+        # trace). Pin that the path completes cleanly.
         p = tmp_path / "cfg.json"
         p.write_text(json.dumps(_minimal_config_dict()), encoding="utf-8")
         result = runner.invoke(app, ["fork", "--config", str(p)])

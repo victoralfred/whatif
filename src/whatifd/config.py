@@ -64,7 +64,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
@@ -203,10 +203,59 @@ class ChangeConfig(BaseModel):
 
 
 class ScorerConfig(BaseModel):
+    """Scorer configuration. v0.2 introduces config-loaded `score_fn`
+    so the `inspect_ai` adapter is reachable from YAML; v0.1 was
+    programmatic-only.
+
+    For `adapter="inspect_ai"`: `score_fn`, `judge_provider`,
+    `judge_model_id`, `rubric_id`, `rubric_text` are all required.
+    The validator enforces this so misconfigured runs fail at
+    startup with a named field, not at scorer-invocation time.
+
+    For `adapter="stub"`: only `cache_mode` matters; the other fields
+    are silently ignored if set (the validator does not reject them
+    so that the same config block can be retargeted from stub→inspect_ai
+    with one keystroke during development).
+    """
+
     model_config = _STRICT
 
     adapter: str
     cache_mode: Literal["auto", "on", "off", "read_only", "refresh"] = "auto"
+
+    # v0.2 inspect_ai fields. All optional at the schema level so
+    # `adapter: stub` configs don't require them; the inspect_ai-specific
+    # cross-field validator enforces presence below.
+    score_fn: str | None = Field(
+        default=None,
+        description=(
+            "`python:<module.path>:<attr>` reference to the Inspect AI score function. "
+            "Required when adapter='inspect_ai'."
+        ),
+    )
+    judge_provider: str | None = None
+    judge_model_id: str | None = None
+    judge_model_snapshot: str | None = None
+    rubric_id: str | None = None
+    rubric_text: str | None = None
+    scoring_parameters: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _validate_inspect_ai_required_fields(self) -> ScorerConfig:
+        if self.adapter != "inspect_ai":
+            return self
+        missing = [
+            name
+            for name in ("score_fn", "judge_provider", "judge_model_id", "rubric_id", "rubric_text")
+            if getattr(self, name) is None
+        ]
+        if missing:
+            raise ValueError(
+                f"scorer.adapter='inspect_ai' requires: {missing}. v0.2 introduced "
+                "config-loaded score_fn; populate the missing fields or fall back to "
+                "scorer.adapter='stub' for offline/CLI smoke tests."
+            )
+        return self
 
 
 class DecisionConfig(BaseModel):
