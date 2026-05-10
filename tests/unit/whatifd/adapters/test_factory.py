@@ -271,6 +271,32 @@ def test_build_scorer_inspect_ai_belt_and_suspenders_branch() -> None:
         build_scorer(cfg)
 
 
+@pytest.mark.parametrize(
+    "missing_field",
+    ["judge_provider", "judge_model_id", "rubric_id", "rubric_text"],
+)
+def test_build_scorer_inspect_ai_belt_and_suspenders_judge_fields(missing_field: str) -> None:
+    # Each of the four judge-config fields has its own belt-and-
+    # suspenders guard in the factory. The model_validator catches
+    # missing fields at config-load; this test bypasses the validator
+    # via model_construct and asserts each guard fires individually
+    # with a field-named error message (cardinal #1: actionable
+    # failure-as-data).
+    pytest.importorskip("whatifd_inspect_ai")
+    fields: dict[str, object] = {
+        "adapter": "inspect_ai",
+        "score_fn": f"python:{__name__}:_test_score_fn_stand_in",
+        "judge_provider": "anthropic",
+        "judge_model_id": "claude-haiku-4-5",
+        "rubric_id": "test-rubric-v1",
+        "rubric_text": "Score 0-1 by faithfulness.",
+    }
+    fields[missing_field] = None
+    cfg = ScorerConfig.model_construct(**fields)
+    with pytest.raises(AdapterFactoryError, match=rf"requires scorer\.{missing_field}"):
+        build_scorer(cfg)
+
+
 def test_build_scorer_inspect_ai_missing_score_fn_blocked_by_validator() -> None:
     # v0.2: ScorerConfig's model_validator enforces score_fn + judge
     # fields when adapter='inspect_ai'. Validation fires at config
@@ -317,8 +343,11 @@ def _test_score_fn_stand_in(case: object) -> object:
     """ScoreCase-shaped stand-in for the factory wiring test.
 
     Returns a fixed shape compatible with what InspectAIScorer.score
-    expects from score_fn. Defined at module level so the
-    `python:<module>:<attr>` resolver can find it.
+    expects from score_fn. MUST stay at module level — the
+    `python:<module>:<attr>` resolver uses `importlib.import_module`
+    + `getattr`, which only resolves module-level attributes. A
+    future refactor that pulls this into a test method (or a
+    fixture function) silently breaks the resolver path.
     """
     return None
 

@@ -163,12 +163,22 @@ def build_scorer(cfg: ScorerConfig) -> Scorer:
                 "`pip install whatifd-inspect-ai` (or `uv pip install whatifd-inspect-ai`)."
             ) from exc
 
-        # MyPy: cfg.* fields narrowed-non-None by the validator;
-        # explicit asserts make the type-narrow visible.
-        assert cfg.judge_provider is not None
-        assert cfg.judge_model_id is not None
-        assert cfg.rubric_id is not None
-        assert cfg.rubric_text is not None
+        # Belt-and-suspenders runtime guards. The ScorerConfig
+        # model_validator catches missing fields at config-load
+        # time, but a caller using `model_construct` (Pydantic's
+        # explicit validation-bypass escape hatch) can reach this
+        # point with None. Cardinal #1: surface as a typed
+        # AdapterFactoryError naming the missing field, not an
+        # AssertionError. Each field is checked individually so the
+        # error message is actionable.
+        for field_name in ("judge_provider", "judge_model_id", "rubric_id", "rubric_text"):
+            if getattr(cfg, field_name) is None:
+                raise AdapterFactoryError(
+                    f"scorer.adapter='inspect_ai' requires scorer.{field_name}. "
+                    "The config-validation layer normally catches this before "
+                    "factory dispatch; reaching this branch means the validator "
+                    "was bypassed (e.g., via ScorerConfig.model_construct)."
+                )
 
         scorer: Scorer = InspectAIScorer(
             score_fn=score_fn,
