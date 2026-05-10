@@ -15,6 +15,7 @@ runner. The structural pins catch the most common refactor regressions
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -24,9 +25,20 @@ import yaml
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _ACTION_YML = _REPO_ROOT / ".github" / "actions" / "whatifd-fork" / "action.yml"
 
+# `Mapping[str, Any]` (not `dict[str, Any]`) signals read-only
+# intent across the test fixture boundary — matches the project
+# convention used in adapter constructors (e.g.,
+# `LangfuseTraceSource.list_kwargs: Mapping[str, Any]`). Tests
+# never mutate the parsed action.yml; the type signature reflects
+# that. `yaml.safe_load` itself returns `Any`, so the inner Any
+# can't be narrowed without writing a TypedDict mirroring every
+# action-yml key — that's maintenance overhead without a
+# doctrinal payoff.
+ActionYmlData = Mapping[str, Any]
+
 
 @pytest.fixture(scope="module")
-def action() -> dict[str, Any]:
+def action() -> ActionYmlData:
     return yaml.safe_load(_ACTION_YML.read_text(encoding="utf-8"))
 
 
@@ -34,24 +46,24 @@ class TestActionStructure:
     def test_action_yml_exists(self) -> None:
         assert _ACTION_YML.is_file(), f"action.yml missing at {_ACTION_YML}"
 
-    def test_top_level_keys(self, action: dict[str, Any]) -> None:
+    def test_top_level_keys(self, action: ActionYmlData) -> None:
         for key in ("name", "description", "inputs", "outputs", "runs"):
             assert key in action, f"action.yml missing top-level key: {key}"
 
-    def test_runs_using_composite(self, action: dict[str, Any]) -> None:
+    def test_runs_using_composite(self, action: ActionYmlData) -> None:
         assert action["runs"]["using"] == "composite", (
             "Action must be a composite action — the v0.2 plan calls for a "
             "thin wrapper, not a Docker action."
         )
 
-    def test_runs_has_steps(self, action: dict[str, Any]) -> None:
+    def test_runs_has_steps(self, action: ActionYmlData) -> None:
         steps = action["runs"]["steps"]
         assert isinstance(steps, list) and len(steps) >= 2, (
             "Composite action needs at least 2 steps (run whatifd fork + "
             "PR comment / fail-handler)."
         )
 
-    def test_runs_steps_is_list_not_map(self, action: dict[str, Any]) -> None:
+    def test_runs_steps_is_list_not_map(self, action: ActionYmlData) -> None:
         # YAML structural pin: `runs.steps` must be a sequence (list),
         # not a mapping (dict). A typo that drops the `- ` prefix
         # silently parses as a key-value pair under `steps:` and
@@ -62,7 +74,7 @@ class TestActionStructure:
             "Got a dict — likely a missing `- ` prefix on a step key."
         )
 
-    def test_inputs_and_outputs_are_maps_of_maps(self, action: dict[str, Any]) -> None:
+    def test_inputs_and_outputs_are_maps_of_maps(self, action: ActionYmlData) -> None:
         # YAML structural pin: each input / output is a mapping with
         # `description`, optional `default`, etc. A typo that turns
         # one into a plain string would silently break the workflow
@@ -93,7 +105,7 @@ class TestInputs:
             ("fail-on-dont-ship", "true"),
         ],
     )
-    def test_input_default(self, action: dict[str, Any], name: str, default: str) -> None:
+    def test_input_default(self, action: ActionYmlData, name: str, default: str) -> None:
         inputs = action["inputs"]
         assert name in inputs, f"action.yml missing input: {name}"
         assert inputs[name].get("default") == default, (
@@ -101,7 +113,7 @@ class TestInputs:
             f"README documents {default!r}"
         )
 
-    def test_github_token_input_default_pinned(self, action: dict[str, Any]) -> None:
+    def test_github_token_input_default_pinned(self, action: ActionYmlData) -> None:
         # The default IS a YAML expression string `${{ github.token }}`
         # — yaml.safe_load preserves it verbatim because GitHub
         # expressions aren't standard YAML constructs. Pin the
@@ -124,7 +136,7 @@ class TestOutputs:
         "name",
         ["verdict", "exit-code", "report-json", "report-md"],
     )
-    def test_output_present(self, action: dict[str, Any], name: str) -> None:
+    def test_output_present(self, action: ActionYmlData, name: str) -> None:
         outputs = action["outputs"]
         assert name in outputs, f"action.yml missing output: {name}"
         # The value field must reference a step output expression.
@@ -143,13 +155,13 @@ class TestIfExpressionWrapping:
     """
 
     @staticmethod
-    def _step_by_name(action: dict[str, Any], name_prefix: str) -> dict[str, Any]:
+    def _step_by_name(action: ActionYmlData, name_prefix: str) -> Mapping[str, Any]:
         for step in action["runs"]["steps"]:
             if step.get("name", "").startswith(name_prefix):
                 return step
         raise AssertionError(f"step starting with {name_prefix!r} not found")
 
-    def test_pr_comment_if_uses_interpolation_wrapper(self, action: dict[str, Any]) -> None:
+    def test_pr_comment_if_uses_interpolation_wrapper(self, action: ActionYmlData) -> None:
         step = self._step_by_name(action, "Post PR comment")
         guard = step.get("if", "")
         assert guard.startswith("${{") and guard.rstrip().endswith("}}"), (
@@ -159,7 +171,7 @@ class TestIfExpressionWrapping:
             "versions; the wrapper makes the intent unambiguous."
         )
 
-    def test_fail_step_if_uses_interpolation_wrapper(self, action: dict[str, Any]) -> None:
+    def test_fail_step_if_uses_interpolation_wrapper(self, action: ActionYmlData) -> None:
         step = self._step_by_name(action, "Fail on Don't Ship")
         guard = step.get("if", "")
         assert guard.startswith("${{") and guard.rstrip().endswith("}}"), (
@@ -173,7 +185,7 @@ class TestPathDiscoveryErrorHandling:
     unreadable" (real bug → surface ::error + exit non-zero).
     """
 
-    def test_discover_propagates_real_errors(self, action: dict[str, Any]) -> None:
+    def test_discover_propagates_real_errors(self, action: ActionYmlData) -> None:
         for step in action["runs"]["steps"]:
             if step.get("id") == "fork":
                 run = step["run"]
@@ -202,13 +214,13 @@ class TestStepGuards:
     workflow (broken)."""
 
     @staticmethod
-    def _step_by_name(action: dict[str, Any], name_prefix: str) -> dict[str, Any]:
+    def _step_by_name(action: ActionYmlData, name_prefix: str) -> Mapping[str, Any]:
         for step in action["runs"]["steps"]:
             if step.get("name", "").startswith(name_prefix):
                 return step
         raise AssertionError(f"step starting with {name_prefix!r} not found")
 
-    def test_pr_comment_guard_includes_pull_request_event(self, action: dict[str, Any]) -> None:
+    def test_pr_comment_guard_includes_pull_request_event(self, action: ActionYmlData) -> None:
         step = self._step_by_name(action, "Post PR comment")
         guard = step.get("if", "")
         assert "github.event_name == 'pull_request'" in guard, (
@@ -219,7 +231,7 @@ class TestStepGuards:
             "PR-comment step must respect the `comment-on-pr` input toggle."
         )
 
-    def test_pr_comment_guard_skips_when_no_report(self, action: dict[str, Any]) -> None:
+    def test_pr_comment_guard_skips_when_no_report(self, action: ActionYmlData) -> None:
         step = self._step_by_name(action, "Post PR comment")
         guard = step.get("if", "")
         assert "steps.fork.outputs.report_md != ''" in guard, (
@@ -227,7 +239,7 @@ class TestStepGuards:
             "(setup-failure path, where the CLI exits before writing artifacts)."
         )
 
-    def test_fail_step_guard_respects_input_and_exit_code(self, action: dict[str, Any]) -> None:
+    def test_fail_step_guard_respects_input_and_exit_code(self, action: ActionYmlData) -> None:
         step = self._step_by_name(action, "Fail on Don't Ship")
         guard = step.get("if", "")
         assert "inputs.fail-on-dont-ship == 'true'" in guard, (
@@ -246,21 +258,21 @@ class TestExitCodeMapping:
     """
 
     @staticmethod
-    def _fork_step_run(action: dict[str, Any]) -> str:
+    def _fork_step_run(action: ActionYmlData) -> str:
         for step in action["runs"]["steps"]:
             if step.get("id") == "fork":
                 return step["run"]
         raise AssertionError("fork step not found")
 
-    def test_exit_zero_maps_to_ship(self, action: dict[str, Any]) -> None:
+    def test_exit_zero_maps_to_ship(self, action: ActionYmlData) -> None:
         run = self._fork_step_run(action)
         assert '0) verdict="ship"' in run
 
-    def test_exit_one_maps_to_dont_ship(self, action: dict[str, Any]) -> None:
+    def test_exit_one_maps_to_dont_ship(self, action: ActionYmlData) -> None:
         run = self._fork_step_run(action)
         assert '1) verdict="dont_ship"' in run
 
-    def test_exit_other_maps_to_inconclusive(self, action: dict[str, Any]) -> None:
+    def test_exit_other_maps_to_inconclusive(self, action: ActionYmlData) -> None:
         run = self._fork_step_run(action)
         # Exit 2 (and any future non-0/1) → inconclusive. Pinned
         # via the `*)` catch-all branch.
@@ -280,7 +292,7 @@ class TestCrossPlatformPathDiscovery:
     on every GitHub runner.
     """
 
-    def test_path_discovery_does_not_use_gnu_find_printf(self, action: dict[str, Any]) -> None:
+    def test_path_discovery_does_not_use_gnu_find_printf(self, action: ActionYmlData) -> None:
         for step in action["runs"]["steps"]:
             if step.get("id") == "fork":
                 run = step["run"]
@@ -306,7 +318,7 @@ class TestPRCommentDeduplication:
     prior comment exists, it falls back to creating a new one.
     """
 
-    def test_pr_comment_step_uses_edit_last(self, action: dict[str, Any]) -> None:
+    def test_pr_comment_step_uses_edit_last(self, action: ActionYmlData) -> None:
         for step in action["runs"]["steps"]:
             if step.get("name", "").startswith("Post PR comment"):
                 run = step["run"]
@@ -319,7 +331,7 @@ class TestPRCommentDeduplication:
         raise AssertionError("Post PR comment step not found")
 
     def test_pr_comment_step_distinguishes_edit_failure_classes(
-        self, action: dict[str, Any]
+        self, action: ActionYmlData
     ) -> None:
         # Cardinal #1: the fallback path must distinguish "no prior
         # comment" (legitimate first-run case → fall through and
@@ -354,7 +366,7 @@ class TestNoHardcodedTmpPath:
     pins the structural guarantee documented in the cascade catalog.
     """
 
-    def test_pr_comment_step_uses_runner_temp(self, action: dict[str, Any]) -> None:
+    def test_pr_comment_step_uses_runner_temp(self, action: ActionYmlData) -> None:
         for step in action["runs"]["steps"]:
             if step.get("name", "").startswith("Post PR comment"):
                 run = step["run"]
@@ -384,7 +396,7 @@ class TestFailStepDoesNotDuplicateAnnotation:
     twice in the Actions UI annotation list.
     """
 
-    def test_fail_step_has_no_error_echo(self, action: dict[str, Any]) -> None:
+    def test_fail_step_has_no_error_echo(self, action: ActionYmlData) -> None:
         for step in action["runs"]["steps"]:
             if step.get("name", "").startswith("Fail on Don't Ship"):
                 run = step["run"]
