@@ -391,6 +391,11 @@ class TestRegressionCheckShape:
     """
 
     def test_clean_baseline_only_run_produces_ship(self) -> None:
+        # Pins the GUARD-side: _REGRESSION_CHECK_GUARDS does not emit
+        # any blocks_ship finding against a passing baseline. Companion
+        # test `test_failure_cohort_not_required_under_regression_check`
+        # pins the FLOOR-side override; both halves together confirm
+        # "regression_check + clean baseline = Ship."
         verdict = compute_verdict(
             cohort_results=[_passing_baseline_cohort()],
             floor=TrustFloor(),
@@ -398,6 +403,10 @@ class TestRegressionCheckShape:
             experiment_shape="regression_check",
         )
         assert isinstance(verdict, Ship)
+        # Findings list is empty: improvement_observation_guard is
+        # excluded from _REGRESSION_CHECK_GUARDS so no info-finding
+        # appears here either.
+        assert verdict.findings == []
 
     def test_baseline_regression_produces_dont_ship(self) -> None:
         # 30% baseline regression > policy.max_baseline_regression_ratio
@@ -422,18 +431,20 @@ class TestRegressionCheckShape:
         assert isinstance(verdict, Inconclusive)
 
     def test_failure_cohort_not_required_under_regression_check(self) -> None:
-        # Even though policy.required_cohorts defaults to
-        # ('failure', 'baseline'), the regression_check shape
-        # overrides to ('baseline',). A baseline-only run must NOT
-        # produce an Inconclusive due to "missing failure cohort."
+        # Pins the FLOOR-side override: policy.required_cohorts
+        # defaults to ("failure", "baseline"), but
+        # _required_cohorts_for_shape("regression_check", policy)
+        # returns ("baseline",). Without that override, this run
+        # would be Inconclusive(floor_failures=[required_cohort_missing
+        # for "failure"]). Companion test
+        # `test_clean_baseline_only_run_produces_ship` pins the
+        # GUARD-side (no spurious findings).
         verdict = compute_verdict(
             cohort_results=[_passing_baseline_cohort()],
             floor=TrustFloor(),
-            policy=DecisionPolicy(),
+            policy=DecisionPolicy(),  # .required_cohorts == ("failure", "baseline")
             experiment_shape="regression_check",
         )
-        # Ship, not Inconclusive. The shape override is the load-
-        # bearing behavior here.
         assert isinstance(verdict, Ship)
 
     def test_failure_rescue_still_requires_failure_cohort(self) -> None:
