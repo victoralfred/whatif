@@ -12,8 +12,8 @@ started_at: 2026-05-10T00:00:00Z
 ## Session end
 
 **Artifacts produced:**
-- `src/whatifd/pipeline.py`: `_cohort_result_from_bucket` calls `paired_percentile_bootstrap` (with `_BOOTSTRAP_SEED = 4_872_109`) and `to_decimal_string` instead of `statistics.quantiles`. `import statistics` dropped — no other call site needs it.
-- `src/whatifd/cli.py`: `MethodologyDisclosure.bootstrap` declares `method="paired_percentile_bootstrap"`, `resamples=2000`, `seed=4_872_109`, `unavailable_reason=None`, plus an i.i.d.-across-paired-traces assumption note. The seed mirrors the pipeline constant so the disclosure echoes the real seed used.
+- `src/whatifd/pipeline.py`: `_cohort_result_from_bucket` calls `paired_percentile_bootstrap` (with `BOOTSTRAP_SEED` / `BOOTSTRAP_RESAMPLES` / `BOOTSTRAP_CI_LEVEL` imported from `whatifd.statistical`) and `to_decimal_string` instead of `statistics.quantiles`. `import statistics` dropped — no other call site needs it.
+- `src/whatifd/cli.py`: `MethodologyDisclosure.bootstrap` declares `method="paired_percentile_bootstrap"` and consumes `BOOTSTRAP_RESAMPLES` / `BOOTSTRAP_SEED` / `BOOTSTRAP_CI_LEVEL_DECIMAL` directly from `whatifd.statistical` so the disclosure is structurally coupled to the pipeline's actual bootstrap call. No duplicated literals.
 - `docs/getting-started.md`: programmatic example flipped + v0.1 "Known limitations" entry marked resolved.
 - `.claude/skills/whatifd-design/references/cascade-catalog.md`: Phase E.2 resolved entry.
 - `CHANGELOG.md`: Phase E.2 section under [Unreleased].

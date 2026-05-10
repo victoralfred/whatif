@@ -43,7 +43,7 @@ from whatifd.cache.summary import CachePolicySnapshot, CacheSummary
 from whatifd.pipeline import run_pipeline
 from whatifd.serialization import encode_report_v01
 from whatifd.statistical import (
-    BOOTSTRAP_CI_LEVEL,
+    BOOTSTRAP_CI_LEVEL_DECIMAL,
     BOOTSTRAP_RESAMPLES,
     BOOTSTRAP_SEED,
 )
@@ -118,14 +118,12 @@ methodology = MethodologyDisclosure(
         # Cardinal #10: the disclosure echoes what the pipeline
         # actually ran. Import the constants instead of duplicating
         # literals so a future change to BOOTSTRAP_SEED /
-        # BOOTSTRAP_RESAMPLES / BOOTSTRAP_CI_LEVEL updates the
-        # disclosure automatically. (Module-level imports already in
-        # the file: `from whatifd.statistical import BOOTSTRAP_SEED,
-        # BOOTSTRAP_RESAMPLES, BOOTSTRAP_CI_LEVEL`.)
+        # BOOTSTRAP_RESAMPLES / BOOTSTRAP_CI_LEVEL_DECIMAL updates
+        # the disclosure automatically.
         resamples=BOOTSTRAP_RESAMPLES,
         seed=BOOTSTRAP_SEED,
         sample_unit="paired_trace_delta",
-        ci_level=DecimalString(f"{BOOTSTRAP_CI_LEVEL:.3f}"),
+        ci_level=BOOTSTRAP_CI_LEVEL_DECIMAL,
         cluster_key=None,
         assumptions=(
             "i.i.d. resampling across paired traces (no cluster boundaries respected)",
