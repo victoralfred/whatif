@@ -12,6 +12,14 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+### Added — Phase E.1 (paired-percentile bootstrap algorithm + property tests)
+
+- **New module: `whatifd.statistical`**, with `paired_percentile_bootstrap(deltas, *, resamples, ci_level, seed) -> BootstrapResult`. Doctrinally-correct replacement for the v0.1 empirical-percentile shortcut in `whatifd.pipeline`. Resamples paired-trace deltas with replacement, returns the empirical (alpha/2, 1 - alpha/2) percentile of the bootstrap median distribution.
+- **Cardinal #4 determinism:** seed is required (no default); the algorithm uses a local `random.Random` instance, never the global module — concurrent uses of `random.random()` elsewhere in the process stay reproducible.
+- **Cardinal #9 orchestration-not-compute:** pure-Python implementation. The cascade-catalog notes a vectorized-NumPy variant as a v0.3 optimization gated on profile data showing this is a real bottleneck; the schema enum is forward-compatible either way.
+- **Cardinal #10 unit-of-analysis:** paired bootstrap respects the per-trace delta as the analytic atom. Cluster-paired bootstrap (resamples that respect cluster boundaries like `session_id`) lands as the v0.3 surface; the schema enum already distinguishes `paired_percentile_bootstrap` from `cluster_paired_percentile_bootstrap`.
+- **19 new tests** covering happy path, determinism (same-seed, different-seed, no-global-perturbation), structural errors (empty input, bad resamples, bad ci_level), CI-width monotonicity in ci_level, and Hypothesis property tests on arbitrary delta sequences.
+
 ### Added — Phase C completion: WhatifConfig.experiment_shape (#84)
 
 - **`WhatifConfig.experiment_shape`** (`Literal["failure_rescue", "regression_check"]`, default `"failure_rescue"`). Closes the Phase C loop: the verdict-layer branch on `experiment_shape` shipped in PR #82, but `whatifd fork` CLI users could only get `failure_rescue` because the config schema didn't expose the field. Operators can now set `experiment_shape: regression_check` in `whatifd.config.yaml` and the CLI threads it into `RunManifest`.
