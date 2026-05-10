@@ -197,6 +197,88 @@ class TestAdapterMetadata:
         assert source.adapter_metadata().sdk_version == "1.5.0-test"
 
 
+class TestRootIdentificationCorrectness:
+    """Cardinal #1: silent wrong results are forbidden. Root-span
+    identification must not pick a child LLM span as the root just
+    because its parent_id was dropped from the upstream tracer.
+    """
+
+    def test_llm_kind_without_parent_is_not_root(self) -> None:
+        # Earlier draft of `_ROOT_SPAN_KINDS` included "LLM"; if a
+        # child LLM span has no parent_id (which happens with
+        # under-instrumented libraries), it would have been
+        # misidentified as the trace root and surfaced the LLM
+        # call's prompt as the trace's `user_message`. Pinned: only
+        # CHAIN/AGENT count as orchestration-kind roots; LLM does not.
+        spans = [
+            _make_root_span("t-1", user_input="user's question", llm_output="agent's answer"),
+            {
+                "context.trace_id": "t-1",
+                "parent_id": None,  # ← simulated missing parent
+                "openinference.span.kind": "LLM",
+                "input.value": "internal prompt to the model",
+                "output.value": "model raw completion",
+            },
+        ]
+        source = PhoenixTraceSource(
+            spans_provider=lambda: spans,
+            cohort_classifier=_classify_baseline,
+        )
+        [trace] = list(source.iter_traces())
+        # The user_message must be the orchestration-root's input,
+        # not the LLM child's prompt.
+        assert trace.user_message.unwrap(reason="root-id test") == "user's question"
+
+
+class TestStringifyJsonRouting:
+    """Cardinal #5/#9: non-string span attribute values (dicts,
+    lists, structured tool-call outputs) must route through the
+    canonical JSON encoder, not Python's `str()` (which produces
+    repr garbage).
+    """
+
+    def test_dict_input_serialized_canonically(self) -> None:
+        spans = [
+            {
+                "context.trace_id": "t-1",
+                "parent_id": None,
+                "openinference.span.kind": "CHAIN",
+                "input.value": {"role": "user", "content": "hello"},
+                "output.value": "world",
+            },
+        ]
+        source = PhoenixTraceSource(
+            spans_provider=lambda: spans,
+            cohort_classifier=_classify_baseline,
+        )
+        [trace] = list(source.iter_traces())
+        unwrapped = trace.user_message.unwrap(reason="stringify test")
+        # Canonical JSON: sort_keys=True, separators=(",",":")
+        assert unwrapped == '{"content":"hello","role":"user"}'
+
+    def test_list_output_serialized_canonically(self) -> None:
+        spans = [
+            {
+                "context.trace_id": "t-1",
+                "parent_id": None,
+                "openinference.span.kind": "CHAIN",
+                "input.value": "q",
+                "output.value": [{"tool": "search", "args": {"q": "x"}}],
+            },
+        ]
+        source = PhoenixTraceSource(
+            spans_provider=lambda: spans,
+            cohort_classifier=_classify_baseline,
+        )
+        [trace] = list(source.iter_traces())
+        unwrapped = trace.original_response.unwrap(reason="stringify test")
+        # Defends against the str()-on-dict regression: repr would
+        # produce single-quoted Python output; canonical_json_bytes
+        # produces double-quoted JSON.
+        assert '"' in unwrapped  # JSON, not repr
+        assert "'" not in unwrapped
+
+
 class TestSensitiveWrappingAtIngress:
     """Cardinal #5 boundary: input.value / output.value on EVERY
     span (root + children) must be Sensitive-wrapped before the

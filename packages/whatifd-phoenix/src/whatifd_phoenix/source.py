@@ -19,6 +19,7 @@ from whatifd.adapters.protocols import (
     AdapterMetadata,
     RawTrace,
 )
+from whatifd.serialization.canonical import canonical_json_bytes
 from whatifd.types.sensitive import Sensitive
 from whatifd.types.statistical import ClusterKeySupport
 
@@ -36,19 +37,47 @@ _ATTR_OUTPUT = "output.value"
 _ATTR_TRACE_ID = "context.trace_id"
 _ATTR_PARENT_ID = "parent_id"
 _ATTR_SPAN_KIND = "openinference.span.kind"
-_ROOT_SPAN_KINDS = frozenset({"CHAIN", "AGENT", "LLM"})
+# Root-span kind fallback. CHAIN and AGENT are top-level orchestration
+# kinds; a span with no parent_id and one of these kinds is the trace
+# root by OpenInference convention.
+#
+# LLM is INTENTIONALLY EXCLUDED here (it was in an earlier draft).
+# Direct LLM-call spans without a recorded parent_id can occur in
+# OpenInference traces produced by less-instrumented libraries; if
+# the LLM-kind were a root signal, a child LLM call with a missing
+# parent_id would be misidentified as the trace root and `_project`
+# would surface the LLM call's prompt as the trace's
+# `user_message` — a silent wrong result, not a structured failure
+# (cardinal #1). The narrower set is correct: only orchestration-
+# kind spans without a parent are roots.
+_ROOT_SPAN_KINDS = frozenset({"CHAIN", "AGENT"})
 
 
 def _stringify(value: object) -> str:
-    """Project an OpenInference attribute value (typically str, but
-    Phoenix occasionally surfaces serialized JSON or None) into a
-    canonical string. None and empty values render as the empty
-    string so downstream `Sensitive[str]` wrapping always succeeds."""
+    """Project an OpenInference attribute value into a canonical string.
+
+    Phoenix attributes are typed Any in practice — string is the
+    common case (Phoenix renders dict/list payloads as JSON before
+    storing), but tool-call outputs and structured response payloads
+    occasionally arrive as raw dicts/lists. Using `str(value)` on
+    those produces Python-repr garbage (`"{'k': 'v'}"`); routing
+    through `whatifd.serialization.canonical.canonical_json_bytes`
+    produces stable JSON instead. None and empty values render as
+    the empty string so downstream `Sensitive[str]` wrapping always
+    succeeds with a real `str` value.
+
+    Mirrors `whatifd_langfuse.source._stringify` exactly — both
+    adapters route non-string values through the canonical encoder
+    so any downstream rendering of `metadata` (which may include
+    pre-stringified attribute values) sees byte-stable JSON, not
+    repr output.
+    """
     if value is None:
         return ""
     if isinstance(value, str):
         return value
-    return str(value)
+    decoded: str = canonical_json_bytes(value).decode("ascii")
+    return decoded
 
 
 def _wrap_user_content_in_span(span: dict[str, object]) -> dict[str, object]:
