@@ -94,6 +94,18 @@ step fails with a 403.
   config's `forensic_acknowledgment` block. The action does NOT bypass
   cardinal #7.
 
+## Security: pinning third-party actions
+
+The example workflow above uses `astral-sh/setup-uv@v7` (version-tag
+pinning) to match the whatifd repo's own CI convention. For
+**security-hardened production workflows**, GitHub
+[recommends pinning to a commit SHA](https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions#using-third-party-actions)
+so a compromised tag cannot silently swap the action's source.
+Operators adopting this Action in production should replace each
+`uses: ...@v7` with `uses: ...@<sha>  # v7.x.y` before checking in.
+A repo-wide SHA-pin migration is tracked separately and applies to
+the whatifd repo's own workflows alongside the example.
+
 ## What this Action does NOT do
 
 - Manage adapter credentials. Set `LANGFUSE_*` / `ANTHROPIC_API_KEY` in

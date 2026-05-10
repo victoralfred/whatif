@@ -178,6 +178,56 @@ class TestExitCodeMapping:
         assert '*) verdict="inconclusive"' in run
 
 
+class TestNoHardcodedTmpPath:
+    """The PR-comment step uses a per-job temp directory rather
+    than a hardcoded `/tmp` path — concurrent matrix-job collisions
+    would silently corrupt comment bodies otherwise. This test
+    pins the structural guarantee documented in the cascade catalog.
+    """
+
+    def test_pr_comment_step_uses_runner_temp(self, action: dict[str, Any]) -> None:
+        for step in action["runs"]["steps"]:
+            if step.get("name", "").startswith("Post PR comment"):
+                run = step["run"]
+                # `RUNNER_TEMP` is GitHub Actions' per-job temp
+                # directory; `mktemp -d` is the documented fallback
+                # for self-hosted runners that don't export it.
+                assert "$RUNNER_TEMP" in run or "${RUNNER_TEMP" in run, (
+                    "PR-comment step must reference $RUNNER_TEMP for matrix-safe "
+                    "temp file paths. A hardcoded /tmp path would silently collide "
+                    "across concurrent matrix jobs on the same runner."
+                )
+                # And no hardcoded `/tmp/` path that bypasses the
+                # safety pattern.
+                assert "/tmp/whatifd-pr-comment" not in run, (
+                    "PR-comment step contains a hardcoded /tmp path. Use "
+                    "$RUNNER_TEMP (or `mktemp -d` fallback) so concurrent matrix "
+                    "jobs don't collide."
+                )
+                return
+        raise AssertionError("Post PR comment step not found")
+
+
+class TestFailStepDoesNotDuplicateAnnotation:
+    """The fork step already emits `::error` for dont_ship and
+    inconclusive verdicts. The fail step's job is to set the exit
+    code, not re-emit the annotation — duplicates would show up
+    twice in the Actions UI annotation list.
+    """
+
+    def test_fail_step_has_no_error_echo(self, action: dict[str, Any]) -> None:
+        for step in action["runs"]["steps"]:
+            if step.get("name", "").startswith("Fail on Don't Ship"):
+                run = step["run"]
+                assert "::error" not in run, (
+                    "Fail step must not emit ::error — the fork step already "
+                    "emitted one for dont_ship/inconclusive verdicts. A duplicate "
+                    "annotation shows up twice in the Actions UI."
+                )
+                return
+        raise AssertionError("Fail step not found")
+
+
 class TestExampleWorkflow:
     def test_example_workflow_present(self) -> None:
         # The .example suffix prevents GitHub Actions from running

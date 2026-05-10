@@ -22,6 +22,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Security note: GitHub recommends pinning third-party actions
+      # to a commit SHA rather than a version tag for production
+      # workflows (https://docs.github.com/en/actions/security-guides/
+      # security-hardening-for-github-actions#using-third-party-actions).
+      # The whatifd repo's own CI uses `@v7` tags as a deliberate
+      # trade-off (transparent upgrades vs. supply-chain hardening);
+      # operators copying this example into a security-hardened
+      # production workflow should replace `@v7` with the SHA of a
+      # specific release commit (e.g.,
+      # `astral-sh/setup-uv@<sha>  # v7.x.y`) before checking in.
       - name: Set up uv
         uses: astral-sh/setup-uv@v7
         with:
