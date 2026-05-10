@@ -64,9 +64,11 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
+
+from whatifd.types.primitives import JsonPrimitive
 
 # ---------------------------------------------------------------------------
 # Forensic-profile enforcement (cardinal #7)
@@ -238,7 +240,12 @@ class ScorerConfig(BaseModel):
     judge_model_snapshot: str | None = None
     rubric_id: str | None = None
     rubric_text: str | None = None
-    scoring_parameters: dict[str, Any] = Field(default_factory=dict)
+    scoring_parameters: dict[str, JsonPrimitive] = Field(default_factory=dict)
+    """Bounded JSON-primitive values only — keeps the cardinal #6
+    boundary clean (no `dict[str, Any]` crossing into the factory →
+    InspectAIScorer pipeline). Operators expressing tuple-shaped
+    knobs encode them as serialized strings; deserialization is the
+    score_fn author's concern."""
 
     @model_validator(mode="after")
     def _validate_inspect_ai_required_fields(self) -> ScorerConfig:

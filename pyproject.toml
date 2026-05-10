@@ -107,6 +107,17 @@ strict = true
 warn_unused_ignores = true
 warn_return_any = true
 
+# Optional adapter packages: type stubs are not exposed (no py.typed
+# marker today) so untyped-import errors are expected when mypy runs
+# without the workspace install (e.g., the pre-commit isolated env).
+# `ignore_missing_imports` here also silences the corresponding
+# `unused-ignore` warning when the workspace IS installed and types
+# are available — the per-module override is the correct shape for
+# "import is fine, just don't try to type-check the foreign code."
+[[tool.mypy.overrides]]
+module = ["whatifd_inspect_ai", "whatifd_inspect_ai.*", "whatifd_langfuse", "whatifd_langfuse.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests", "packages"]
 # `--import-mode=importlib` avoids module-name collisions across

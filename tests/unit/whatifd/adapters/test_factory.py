@@ -258,6 +258,19 @@ def test_build_scorer_satisfies_protocol() -> None:
     assert isinstance(scorer, Scorer)
 
 
+def test_build_scorer_inspect_ai_belt_and_suspenders_branch() -> None:
+    # The factory's `score_fn is None` branch is normally unreachable
+    # because ScorerConfig's model_validator catches the gap at
+    # config-load time. This test bypasses the validator via
+    # `model_construct` — which Pydantic explicitly documents as the
+    # "construct without validation" escape hatch — to exercise the
+    # belt-and-suspenders branch. If a future refactor drops the
+    # validator, this test becomes the last line of defense.
+    cfg = ScorerConfig.model_construct(adapter="inspect_ai", score_fn=None)
+    with pytest.raises(AdapterFactoryError, match=r"requires scorer\.score_fn"):
+        build_scorer(cfg)
+
+
 def test_build_scorer_inspect_ai_missing_score_fn_blocked_by_validator() -> None:
     # v0.2: ScorerConfig's model_validator enforces score_fn + judge
     # fields when adapter='inspect_ai'. Validation fires at config
@@ -271,8 +284,12 @@ def test_build_scorer_inspect_ai_missing_score_fn_blocked_by_validator() -> None
 
 
 def test_build_scorer_inspect_ai_with_score_fn_constructs() -> None:
-    # v0.2 happy path: a fully-populated inspect_ai config produces
-    # an InspectAIScorer instance via the factory.
+    # v0.2 path: a fully-populated inspect_ai config; score_fn ref
+    # points at a missing attribute, surfacing the actionable
+    # "module has no attribute" error from the loader. Uses
+    # importorskip so environments without the optional adapter
+    # package skip cleanly (lazy-import contract at the test boundary).
+    pytest.importorskip("whatifd_inspect_ai")
     cfg = ScorerConfig(
         adapter="inspect_ai",
         score_fn="python:whatifd_inspect_ai.scorer:_dummy_score_fn_does_not_exist",
@@ -291,8 +308,9 @@ def test_build_scorer_inspect_ai_with_score_fn_constructs() -> None:
 
 def test_build_scorer_inspect_ai_with_real_score_fn_returns_inspect_scorer() -> None:
     # End-to-end: a score_fn that resolves to a real callable produces
-    # an InspectAIScorer. Uses a trivial lambda-style helper exposed
-    # for testing.
+    # an InspectAIScorer. Uses a trivial stand-in callable exposed
+    # for testing. importorskip guards optional-adapter absence.
+    pytest.importorskip("whatifd_inspect_ai")
     from whatifd_inspect_ai import InspectAIScorer
 
     cfg = ScorerConfig(
