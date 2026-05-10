@@ -749,7 +749,14 @@ def report_migrate(
 
     from whatifd.serialization import canonical_json_bytes
 
-    out_path = report if in_place else report.with_suffix(f".v{REPORT_SCHEMA_VERSION}.json")
+    # `parent / (stem + suffix)` rather than `with_suffix` — explicit
+    # about intent: keep the original stem, append the version marker,
+    # land beside the input. `with_suffix` strips only the last suffix
+    # which works for `report.json` but is less obvious for multi-dot
+    # filenames like `run.2026-05-10.json`.
+    out_path = (
+        report if in_place else report.parent / f"{report.stem}.v{REPORT_SCHEMA_VERSION}.json"
+    )
     out_path.write_bytes(canonical_json_bytes(migrated) + b"\n")
     typer.echo(f"whatifd report-migrate: wrote {out_path} (v{REPORT_SCHEMA_VERSION}).")
     raise typer.Exit(code=EXIT_SUCCESS)

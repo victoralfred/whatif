@@ -27,7 +27,7 @@ The dispatcher walks the chain: v0.1 → v0.2 → v0.3 → ... → current.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from typing import Any, TypeAlias
 
 from whatifd.report.models_v01 import REPORT_SCHEMA_URI, REPORT_SCHEMA_VERSION
@@ -65,9 +65,12 @@ def _migrate_v0_1_to_v0_2(report: RawReport) -> RawReport:
     return upgraded
 
 
-_MIGRATIONS: Mapping[str, Callable[[RawReport], RawReport]] = {
+_MIGRATIONS: dict[str, Callable[[RawReport], RawReport]] = {
     "0.1": _migrate_v0_1_to_v0_2,
 }
+"""Mutable at the type level (not `Mapping`) because tests mutate it via
+`monkeypatch.setitem` to inject buggy migrators for chain-integrity
+coverage. Annotating as `dict` keeps the type-narrowing honest."""
 
 
 def migrate_report(report: RawReport) -> tuple[RawReport, bool]:
