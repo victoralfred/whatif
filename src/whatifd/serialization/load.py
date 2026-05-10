@@ -17,9 +17,13 @@ import json
 from pathlib import Path
 from typing import Any, TypeAlias
 
+# Defined locally (not re-exported from `whatifd.report.migrate`) to
+# avoid a circular import: `serialization` is initialized eagerly via
+# `whatifd/serialization/__init__.py`, while `report.migrate` imports
+# from `report.models_v01`, which transitively pulls serialization.
+# The TypeAlias is a zero-cost duplicate signaling the same cardinal #6
+# wire-shape boundary.
 RawReport: TypeAlias = dict[str, Any]
-"""Wire-shape report dict — named alias for the cardinal #6 boundary.
-Mirrors `whatifd.report.migrate.RawReport`."""
 
 
 class ReportLoadError(Exception):

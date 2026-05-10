@@ -51,11 +51,17 @@ class MigrationError(Exception):
 def _migrate_v0_1_to_v0_2(report: RawReport) -> RawReport:
     """Inject `experiment_shape` (the only v0.2 schema addition) and
     bump schema_version / schema_uri. v0.1 was failure-rescue only,
-    so the inject value is structurally determined."""
+    so the inject value is structurally determined.
+
+    Reads `REPORT_SCHEMA_URI` rather than hardcoding the URI string —
+    if the constant ever moves the migrator follows. Already covered
+    by the post-chain integrity check, but reading the constant kills
+    the drift risk at the source.
+    """
     upgraded = dict(report)
     upgraded["experiment_shape"] = "failure_rescue"
     upgraded["schema_version"] = "0.2"
-    upgraded["schema_uri"] = "https://whatif.codes/schema/report/v0.2.json"
+    upgraded["schema_uri"] = REPORT_SCHEMA_URI
     return upgraded
 
 

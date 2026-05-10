@@ -360,8 +360,13 @@ class TestSubcommands:
         assert "No-op" in _all_output(result)
 
     def test_report_migrate_malformed_input_exits_two(self, runner: CliRunner, tmp_path) -> None:
+        # Missing `schema_version` — exercises the MigrationError
+        # branch (structural problem inside `migrate_report`), not
+        # the ReportLoadError branch (file/JSON-parse problems).
+        # Both branches map to exit 2; this test pins the migration-
+        # error path specifically.
         report = tmp_path / "report.json"
-        report.write_text("{}", encoding="utf-8")  # missing schema_version
+        report.write_text("{}", encoding="utf-8")
         result = runner.invoke(app, ["report-migrate", str(report)])
         assert result.exit_code == EXIT_INCONCLUSIVE_OR_SETUP_FAILURE
 
