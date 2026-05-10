@@ -113,10 +113,16 @@ def _is_root_span(span: dict[str, object]) -> bool:
     """Identify the root span of a trace.
 
     OpenInference root spans either (a) have no `parent_id` or
-    (b) carry an `openinference.span.kind` of `CHAIN` / `AGENT` / `LLM`
-    at the top level. The adapter prefers (a) for correctness — a
+    (b) carry an `openinference.span.kind` of `CHAIN` / `AGENT` at
+    the top level. The adapter prefers (a) for correctness — a
     trace's root span is structurally the one with no parent — and
-    falls back to (b) for cases where the parent_id wasn't recorded.
+    falls back to (b) for malformed traces where the parent_id was
+    dropped upstream. **`LLM` is intentionally excluded from the
+    fallback set**: a child LLM-call span with a missing parent_id
+    would otherwise be misidentified as the trace root and surface
+    its prompt as the user's question. See
+    `TestRootIdentificationCorrectness` and the comment on
+    `_ROOT_SPAN_KINDS` for the full rationale.
     """
     if span.get(_ATTR_PARENT_ID) in (None, ""):
         return True
