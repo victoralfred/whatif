@@ -1,4 +1,16 @@
-"""Phase 10 CLI wiring foundation — adapter factory tests."""
+"""Phase 10 CLI wiring foundation — adapter factory tests.
+
+## Optional-adapter skip discipline
+
+Tests that touch `whatifd_inspect_ai` (the v0.2 inspect_ai factory
+path) gate on `pytest.importorskip("whatifd_inspect_ai")` — including
+the parametrized belt-and-suspenders test
+`test_build_scorer_inspect_ai_belt_and_suspenders_judge_fields`. CI
+matrices that don't install the optional adapter package will skip
+those rows; the lazy-import contract is preserved at the test
+boundary. Coverage of the inspect_ai-specific branches is therefore
+conditional on the adapter being installed in the test environment.
+"""
 
 from __future__ import annotations
 
@@ -307,6 +319,24 @@ def test_build_scorer_inspect_ai_missing_score_fn_blocked_by_validator() -> None
 
     with pytest.raises(ValidationError, match="score_fn"):
         ScorerConfig(adapter="inspect_ai")
+
+
+def test_build_scorer_stub_silently_ignores_inspect_ai_fields() -> None:
+    # Pin: ScorerConfig docstring promises that inspect_ai-specific
+    # fields are silently ignored when adapter='stub' (so a config
+    # block can be retargeted from stub→inspect_ai with one keystroke
+    # during development). Without this test, the silent-ignore claim
+    # is doc-only.
+    cfg = ScorerConfig(
+        adapter="stub",
+        score_fn="python:my_pkg.scorers:faithfulness",
+        judge_provider="anthropic",
+        judge_model_id="claude-haiku-4-5",
+        rubric_id="faith-v1",
+        rubric_text="Score 0-1 by faithfulness.",
+    )
+    scorer = build_scorer(cfg)
+    assert isinstance(scorer, StubScorer)
 
 
 def test_build_scorer_inspect_ai_with_score_fn_constructs() -> None:

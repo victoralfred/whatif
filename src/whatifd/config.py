@@ -246,9 +246,11 @@ class ScorerConfig(BaseModel):
             "Arbitrary JSON-primitive knobs (temperature, max_tokens, etc.) "
             "passed through to the InspectAIScorer. Bounded to "
             "`str | int | float | bool | None` so no `dict[str, Any]` crosses "
-            "the cardinal #6 boundary. Operators expressing tuple-shaped knobs "
-            "encode them as serialized strings; deserialization is the "
-            "score_fn author's concern."
+            "the cardinal #6 boundary. Non-primitive shapes (lists, tuples, "
+            "nested dicts) are out of scope — operators encode them as "
+            "serialized strings (JSON, comma-separated) and the score_fn "
+            "deserializes. The serialized-string convention is documented "
+            "alongside this field; there is no other contract surface."
         ),
     )
 
