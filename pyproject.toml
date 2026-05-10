@@ -76,6 +76,7 @@ dev = [
 workspace = [
   "whatifd-langfuse",
   "whatifd-inspect-ai",
+  "whatifd-phoenix",
 ]
 
 [project.scripts]
@@ -115,7 +116,14 @@ warn_return_any = true
 # are available — the per-module override is the correct shape for
 # "import is fine, just don't try to type-check the foreign code."
 [[tool.mypy.overrides]]
-module = ["whatifd_inspect_ai", "whatifd_inspect_ai.*", "whatifd_langfuse", "whatifd_langfuse.*"]
+module = [
+    "whatifd_inspect_ai",
+    "whatifd_inspect_ai.*",
+    "whatifd_langfuse",
+    "whatifd_langfuse.*",
+    "whatifd_phoenix",
+    "whatifd_phoenix.*",
+]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
@@ -135,7 +143,7 @@ asyncio_mode = "auto"
 # have their own pyproject.toml and version, but share this venv
 # during development. PyPI publication is per-package.
 [tool.uv.workspace]
-members = ["packages/whatifd-langfuse", "packages/whatifd-inspect-ai"]
+members = ["packages/whatifd-langfuse", "packages/whatifd-inspect-ai", "packages/whatifd-phoenix"]
 
 # Resolve the workspace adapter packages from the in-tree path
 # instead of PyPI. With this binding, `uv sync` installs them
@@ -144,3 +152,4 @@ members = ["packages/whatifd-langfuse", "packages/whatifd-inspect-ai"]
 [tool.uv.sources]
 whatifd-langfuse = { workspace = true }
 whatifd-inspect-ai = { workspace = true }
+whatifd-phoenix = { workspace = true }

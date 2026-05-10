@@ -1,0 +1,72 @@
+[project]
+name = "whatifd-phoenix"
+version = "0.2.0"
+description = "Arize Phoenix / OpenInference `TraceSource` adapter for whatifd. Phase D of the v0.2 plan."
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.11"
+authors = [
+  { name = "victoralfred" },
+]
+keywords = ["whatifd", "phoenix", "openinference", "llm", "tracing", "evaluation"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Software Development :: Testing",
+]
+
+# Hard runtime deps: only `whatifd`. The Phoenix SDK
+# (`arize-phoenix-client`) is intentionally NOT a hard dep at v0.2
+# because the adapter is span-iterator-shaped — callers wire their
+# preferred Phoenix client (or any OpenInference-emitting tracer)
+# to the constructor's `spans_provider` callable. See README §"Wiring
+# arize-phoenix-client" for the canonical hookup.
+dependencies = [
+  "whatifd",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=9.0.3",
+]
+# `live` extra pulls the canonical Phoenix client. v0.2 ships the
+# Protocol surface; v0.3 adds a recorded-cassette smoke test that
+# requires this extra. Operators using `whatifd-phoenix` against
+# real Phoenix today install with `pip install whatifd-phoenix[live]`
+# and supply the client themselves; the adapter is API-agnostic
+# beyond the span-iterator shape.
+live = [
+  "arize-phoenix-client>=1.0,<2.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/victoralfred/whatifd"
+Issues   = "https://github.com/victoralfred/whatifd/issues"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/whatifd_phoenix"]
+
+[tool.uv.sources]
+whatifd = { workspace = true }
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "N", "RUF"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unused_ignores = true
+warn_return_any = true

@@ -1165,6 +1165,24 @@ The cycle is broken at import time because `TYPE_CHECKING` is False at runtime; 
 
 ## Resolved cascades
 
+### Phase D — Phoenix / OpenInference TraceSource adapter; tracer-neutrality proof (resolved 2026-05-10)
+
+**Source decision:** v0.1 shipped a single trace-source adapter (`whatifd-langfuse`). The v0.2 roadmap declared Phoenix as the second adapter — not because Phoenix is the strongest competitor to Langfuse, but because shipping a second adapter proves the `TraceSource` Protocol isn't shape-coupled to Langfuse. The risk was that v0.1's Protocol absorbed Langfuse-specific assumptions silently; landing Phoenix surfaces any such coupling as a real refactor cost.
+
+**Rippled to / refactor protection:**
+- New package `packages/whatifd-phoenix/` (v0.2.0) follows the `whatifd-langfuse` template structurally: pyproject.toml shape, `src/whatifd_phoenix/source.py` projection, `tests/test_conformance.py` harness subclass.
+- The adapter is **span-iterator-shaped, not Phoenix-Client-shaped.** Constructor takes a `spans_provider: Callable[[], Iterable[dict]]` rather than a typed Phoenix client. This sidesteps the moving-target arize-phoenix-client API and makes the package usable against any OpenInference-emitting tracer (Phoenix, custom OTLP collectors, etc.). The trade-off: callers write a ~5-line `spans_provider` callable. The README documents the canonical Phoenix client wiring.
+- OpenInference attribute conventions are pinned at the top of `source.py`: `_ATTR_INPUT = "input.value"`, `_ATTR_OUTPUT = "output.value"`, `_ATTR_TRACE_ID = "context.trace_id"`, `_ATTR_PARENT_ID = "parent_id"`, `_ATTR_SPAN_KIND = "openinference.span.kind"`. A future OpenInference-spec revision lands in one place.
+- `arize-phoenix-client` is an optional dep via the `[live]` extra, not a hard dep. Operators who wire their own client don't pay the install cost; the conformance test runs against synthetic span dicts.
+- Conformance harness reused unchanged. The 5 inherited `TraceSourceConformance` test methods plus 9 adapter-specific tests (TestSpanGrouping, TestAdapterMetadata, TestClusterKeySupport) prove the Protocol shape works for non-Langfuse adapters without harness modification.
+- `cluster_key_support` returns empty `available_keys` — same doctrinal stance as Langfuse. Cardinal #10 forbids fabricating cluster keys for confirmatory verdicts; v0.3+ adds explicit per-attribute opt-in.
+- Recorded-cassette live smoke test is **deferred to v0.3** — Phoenix HTTP-cassette infrastructure parity with `whatifd-langfuse` is its own surface and shouldn't gate the Protocol-shape proof.
+- Workspace registration: `pyproject.toml [tool.uv.workspace] members` adds `packages/whatifd-phoenix`. `uv sync` installs editably alongside the other adapters.
+
+**Resolved by:** Phase D PR on branch `phase-d-phoenix-adapter`.
+
+
+
 ### Phase C — regression_check experiment shape: shape-aware guard chain + required_cohorts (resolved 2026-05-10)
 
 **Source decision:** v0.1 supported only the `failure_rescue` experiment shape — a known-bad failure cohort + a representative baseline cohort, with the verdict policy checking both "did the change rescue failures" and "did it preserve baseline." Phase A introduced `experiment_shape: Literal["failure_rescue", "regression_check"]` structurally; Phase C makes the verdict layer actually branch on it. Regression-check has no failure cohort — only baseline-vs-baseline-with-change — so the failure-cohort guards (`practical_delta`, `improvement_observation`) and the failure-required `required_cohorts` floor input must be conditional.

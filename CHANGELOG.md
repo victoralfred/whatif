@@ -12,6 +12,15 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+### Added — Phase D (Arize Phoenix / OpenInference TraceSource adapter)
+
+- **New package: `whatifd-phoenix`** (v0.2.0). Implements `whatifd.adapters.TraceSource` against an OpenInference span-iterator surface. Tracer-neutrality proof: the `TraceSource` Protocol is genuinely shape-agnostic, not Langfuse-shaped by accident.
+- **Span-iterator construction** rather than Phoenix-Client-pinned. Callers pass a `spans_provider: Callable[[], Iterable[dict]]` that yields OpenInference-shaped span dicts. Wires from `arize-phoenix-client`, custom OTLP collectors, or any other OpenInference-emitting tracer with a ~5-line adapter callable.
+- **OpenInference attribute conventions:** the adapter reads `context.trace_id`, `parent_id`, `openinference.span.kind`, `input.value`, `output.value`. `input.value` and `output.value` are wrapped as `Sensitive[str]`; other attributes pass through to `RawTrace.metadata` unwrapped (cardinal #5).
+- **Conformance harness coverage:** 14 tests (5 inherited from `TraceSourceConformance` + 9 adapter-specific) pin Protocol shape, span grouping, root-span identification, classifier-receives-full-span-list semantics, and `cluster_key_support` honest-empty.
+- **Workspace-aware:** `packages/whatifd-phoenix` registered as a workspace member; `uv sync` installs editably alongside `whatifd-langfuse` and `whatifd-inspect-ai`.
+- **Recorded-cassette smoke test** (live Phoenix HTTP) is deferred to v0.3 — Phoenix HTTP-cassette infrastructure parity with `whatifd-langfuse` is its own surface.
+
 ### Added — Phase C (regression_check experiment shape)
 
 - **Shape-aware verdict computation.** `compute_verdict` gains `experiment_shape: ExperimentShape = "failure_rescue"`. Default is the v0.1 behavior; `experiment_shape="regression_check"` switches to the lean guard chain (`primary_endpoint` + `ci_availability` only) and overrides `required_cohorts` to `("baseline",)` so a baseline-only run doesn't produce a spurious "missing failure cohort" floor failure.
