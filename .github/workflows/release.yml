@@ -18,6 +18,35 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      # Tag↔version parity guard. The `version` field in each
+      # pyproject.toml is what PyPI actually publishes; the git tag
+      # is decorative metadata. A mismatch silently publishes the
+      # wrong version, burning the slot forever (PyPI rejects
+      # republishing). Surfaced during the v0.2.0rc1 TestPyPI dry-run
+      # where the tag was `v0.2.0rc1` but pyproject still declared
+      # `0.2.0` — the dry-run published `0.2.0` to TestPyPI, not the
+      # intended rc1. This step fails the build before any artifact
+      # is produced if the tag (minus leading `v`) doesn't match the
+      # declared version in every workspace pyproject.
+      - name: Verify tag matches package versions
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          declare -i bad=0
+          for pkg in pyproject.toml \
+                     packages/whatifd-langfuse/pyproject.toml \
+                     packages/whatifd-inspect-ai/pyproject.toml \
+                     packages/whatifd-phoenix/pyproject.toml; do
+            PKG_VERSION=$(grep -m1 '^version = ' "$pkg" | cut -d'"' -f2)
+            if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+              echo "::error file=$pkg::tag $GITHUB_REF_NAME implies version $TAG_VERSION but $pkg declares $PKG_VERSION"
+              bad+=1
+            fi
+          done
+          if [ "$bad" -gt 0 ]; then
+            echo "::error::$bad pyproject.toml file(s) disagree with tag $GITHUB_REF_NAME. Bump versions in lockstep and re-tag."
+            exit 1
+          fi
+          echo "Tag $GITHUB_REF_NAME matches all four workspace pyproject.toml versions ($TAG_VERSION)."
       - uses: astral-sh/setup-uv@v7
         with:
           python-version: "3.12"

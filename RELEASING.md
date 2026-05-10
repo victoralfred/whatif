@@ -95,9 +95,10 @@ If `whatifd` publishes but one of the adapters fails, the resulting state is inc
 Steps:
 1. Configure a parallel set of TestPyPI Trusted Publishers at https://test.pypi.org/manage/account/publishing/ — same owner / repo / workflow / environment-name claims; `test.pypi.org` is a separate registry from `pypi.org` so the publishers don't collide.
 2. In a temporary workflow branch, point each `pypa/gh-action-pypi-publish` step at TestPyPI by adding `repository-url: https://test.pypi.org/legacy/`.
-3. Tag and push `vX.Y.ZrcN` (e.g., `v0.2.0rc1`). Verify all four packages appear at `https://test.pypi.org/project/whatifd/X.Y.ZrcN/` etc.
-4. `pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ whatifd==X.Y.ZrcN whatifd-langfuse==X.Y.ZrcN whatifd-inspect-ai==X.Y.ZrcN whatifd-phoenix==X.Y.ZrcN` in a clean venv.
-5. If everything resolves and `whatifd --help` works, revert the workflow back to PyPI proper, push the real `vX.Y.Z` tag.
+3. **On the same throwaway branch, bump every workspace `pyproject.toml` version to `X.Y.ZrcN`** (root + all three adapters). The git tag is metadata only — PyPI publishes whatever the `pyproject.toml` `version` field declares. The tag↔version guard in `release.yml` will fail the workflow if these disagree (cardinal #1: structural enforcement, not convention). Skipping this step silently publishes the wrong version and burns the slot.
+4. Tag and push `vX.Y.ZrcN` (e.g., `v0.2.0rc1`). Verify all four packages appear at `https://test.pypi.org/project/whatifd/X.Y.ZrcN/` etc.
+5. `pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ whatifd==X.Y.ZrcN whatifd-langfuse==X.Y.ZrcN whatifd-inspect-ai==X.Y.ZrcN whatifd-phoenix==X.Y.ZrcN` in a clean venv.
+6. If everything resolves and `whatifd --help` works, delete the throwaway branch (the workflow + version edits never reach `main`). Then from `main` — where pyproject still declares the production version — push the real `vX.Y.Z` tag.
 
 The pre-release tag remains on TestPyPI and on a GitHub Release; you can delete the GitHub Release if you want to keep the public release notes focused on the real tag.
 
