@@ -178,19 +178,22 @@ def test_runtime_deterministic_subfields_warns_on_empty_annotations() -> None:
     # subsequent json.load of the schema file picks up an empty
     # $def (none of its properties tagged true). Patch the file
     # read to control what comes back.
-    fake_schema = '{"$defs": {"RunManifest": {"properties": {"x": {"x-deterministic": false}}}}}'
+    fake_doc = {
+        "properties": {"runtime": {"$ref": "#/$defs/RunManifest"}},
+        "$defs": {"RunManifest": {"properties": {"x": {"x-deterministic": False}}}},
+    }
     with (
         mock.patch(
-            "whatifd.serialization.determinism._schema_properties",
-            return_value={"runtime": {"$ref": "#/$defs/RunManifest"}},
+            "whatifd.serialization.determinism._schema_document",
+            return_value=fake_doc,
         ),
         mock.patch(
-            "whatifd.serialization.determinism.files",
-        ) as mock_files,
+            "whatifd.serialization.determinism._schema_properties",
+            return_value=fake_doc["properties"],
+        ),
+        pytest.warns(DeterministicSubsetWarning, match="no properties tagged"),
     ):
-        mock_files.return_value.joinpath.return_value.read_text.return_value = fake_schema
-        with pytest.warns(DeterministicSubsetWarning, match="no properties tagged"):
-            result = _runtime_deterministic_subfields()
+        result = _runtime_deterministic_subfields()
     assert result == frozenset()
 
 

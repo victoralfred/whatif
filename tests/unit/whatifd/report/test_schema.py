@@ -216,3 +216,63 @@ class TestEncodedFixtureMatchesSchema:
         # three documented strings (cardinal #2 contract).
         verdict_enum = schema["properties"]["verdict_state"]["enum"]
         assert encoded_ship_report["verdict_state"] in verdict_enum
+
+
+class TestDataclassToSchemaPerFieldDeterminism:
+    """Phase J: `_dataclass_to_schema` emits per-field `x-deterministic`
+    annotations on dataclasses that opt in via `_DETERMINISTIC_FIELDS`.
+    Direct unit-level coverage of the generator (the existing schema-
+    drift test catches regressions only after regeneration; this test
+    catches generator-logic regressions before that step).
+    """
+
+    def test_emits_per_field_annotations_for_optin_dataclass(self) -> None:
+        # Functional `make_dataclass` rather than `@dataclass` decorator:
+        # this file has `from __future__ import annotations`, which makes
+        # decorator-form annotations strings. Resolving `ClassVar[...]`
+        # from a function-local scope at field-resolution time is brittle.
+        # `make_dataclass` takes type objects directly and the namespace
+        # dict carries the class attribute as-is — exactly the shape the
+        # generator reads via `getattr`.
+        from dataclasses import make_dataclass
+
+        repo_root = Path(__file__).resolve().parents[4]
+        sys.path.insert(0, str(repo_root / "scripts"))
+        try:
+            from generate_schema import _dataclass_to_schema  # type: ignore[import-not-found]
+        finally:
+            sys.path.pop(0)
+
+        opt_in_cls = make_dataclass(
+            "opt_in_cls",
+            [("a", str), ("b", str), ("c", int)],
+            namespace={"_DETERMINISTIC_FIELDS": frozenset({"a", "c"})},
+            frozen=True,
+        )
+
+        defs: dict[str, dict] = {}
+        schema = _dataclass_to_schema(opt_in_cls, defs)
+        props = schema["properties"]
+        assert props["a"]["x-deterministic"] is True
+        assert props["b"]["x-deterministic"] is False
+        assert props["c"]["x-deterministic"] is True
+
+    def test_no_annotations_for_dataclass_without_optin(self) -> None:
+        from dataclasses import make_dataclass
+
+        repo_root = Path(__file__).resolve().parents[4]
+        sys.path.insert(0, str(repo_root / "scripts"))
+        try:
+            from generate_schema import _dataclass_to_schema  # type: ignore[import-not-found]
+        finally:
+            sys.path.pop(0)
+
+        plain_cls = make_dataclass("plain_cls", [("a", str), ("b", int)], frozen=True)
+
+        defs: dict[str, dict] = {}
+        schema = _dataclass_to_schema(plain_cls, defs)
+        # Without _DETERMINISTIC_FIELDS the generator MUST NOT emit
+        # per-field x-deterministic — the top-level annotator owns
+        # that decision for non-opt-in dataclasses.
+        assert "x-deterministic" not in schema["properties"]["a"]
+        assert "x-deterministic" not in schema["properties"]["b"]

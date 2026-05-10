@@ -96,20 +96,25 @@ class DeterministicSubsetWarning(UserWarning):
 
 
 @lru_cache(maxsize=1)
-def _schema_properties() -> dict[str, SchemaProperty]:
-    """Load the v0.1 schema's `properties` map once.
-
-    `importlib.resources.files` is the forward-compatible loader —
-    works under zipimport, namespace packages, and editable installs
-    without depending on `__file__` resolution.
+def _schema_document() -> dict[str, Any]:
+    """Load the bundled report schema once. Sole entry point for
+    schema reads in this module; downstream helpers project from
+    this dict so the JSON file is never opened twice (eliminates
+    the dual-load divergence risk that iter-1 carried).
     """
     from whatifd.report.models_v01 import REPORT_SCHEMA_VERSION
 
     schema_resource = files("whatifd.report.schema").joinpath(
         f"v{REPORT_SCHEMA_VERSION}.schema.json"
     )
-    schema = json.loads(schema_resource.read_text(encoding="utf-8"))
-    properties: dict[str, SchemaProperty] = schema.get("properties", {})
+    doc: dict[str, Any] = json.loads(schema_resource.read_text(encoding="utf-8"))
+    return doc
+
+
+def _schema_properties() -> dict[str, SchemaProperty]:
+    """The schema's top-level `properties` map. Projects from the
+    cached schema document — no separate file read."""
+    properties: dict[str, SchemaProperty] = _schema_document().get("properties", {})
     return properties
 
 
@@ -148,8 +153,6 @@ def _runtime_deterministic_subfields() -> frozenset[str]:
     runtime entirely, matching pre-Phase-J behavior) but the
     warning makes the degradation visible.
     """
-    from whatifd.report.models_v01 import REPORT_SCHEMA_VERSION
-
     properties = _schema_properties()
     runtime_prop = properties.get("runtime", {})
     ref = runtime_prop.get("$ref", "")
@@ -165,11 +168,7 @@ def _runtime_deterministic_subfields() -> frozenset[str]:
         )
         return frozenset()
     def_name = ref[len("#/$defs/") :]
-    schema_resource = files("whatifd.report.schema").joinpath(
-        f"v{REPORT_SCHEMA_VERSION}.schema.json"
-    )
-    schema = json.loads(schema_resource.read_text(encoding="utf-8"))
-    runtime_def = schema.get("$defs", {}).get(def_name, {})
+    runtime_def = _schema_document().get("$defs", {}).get(def_name, {})
     annotated = frozenset(
         name
         for name, prop in runtime_def.get("properties", {}).items()
