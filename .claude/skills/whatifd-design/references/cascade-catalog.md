@@ -1163,6 +1163,21 @@ The cycle is broken at import time because `TYPE_CHECKING` is False at runtime; 
 
 **Trigger for resolution:** the first user request for CLI Inspect AI runs, OR Phase 11 release planning.
 
+### `RunManifest.environment.dependencies` ordering nondeterminism (deferred from Phase J)
+
+**Source decision:** Phase J (PR #95) widened `x-deterministic` annotations into `RunManifest` sub-fields but left the entire `EnvironmentFingerprint` subtree (`environment.python`, `environment.platform`, `environment.whatif_version`, `environment.dependencies`) tagged non-deterministic. The first three are inherently host-specific; `dependencies` is the load-bearing one — it's a `Mapping[str, str]` of installed package versions whose ordering depends on pip's resolution graph at install time. Different build hosts can produce equivalent dependency *contents* in different *orderings*, so the field is non-deterministic by serialization shape even when semantically equal.
+
+**Why this is carried forward, not closed:** today no consumer reads `environment.dependencies` for cross-run comparison. The moment one does (Phase L+'s `whatifd diff` extends to environment drift, OR a Phase M-class audit-bundle integrity check runs `assert manifest_a == manifest_b` on archived runs across machines), the ordering nondeterminism surfaces as spurious diffs.
+
+**Resolution path when triggered:**
+1. Canonicalize the field at projection time: sort `dependencies` items by package name in `whatifd.report.projection` before encoding. This is a serialization-only fix — internal dataclass keeps the dict shape, the wire form gets stable ordering.
+2. Promote the field to `x-deterministic: true` via the Phase J `_DETERMINISTIC_FIELDS` mechanism (extending it to `EnvironmentFingerprint`).
+3. Add a cross-platform byte-equality test on the `environment.dependencies` projection specifically (the existing Phase J cross-platform job runs `scenario_clean_ship` only and excludes runtime sub-fields beyond the nine documented-deterministic ones).
+
+**Trigger for resolution:** first consumer that reads `environment.dependencies` for cross-run or cross-host comparison. Until then, the field's non-determinism is a known and acceptable shape, not a bug.
+
+**Source telemetry:** flagged as a carried-forward risk in `docs/sessions/telemetry-2026-05-10.md`.
+
 ## Resolved cascades
 
 > **Ordering convention:** entries are reverse-chronological — newest at the top, oldest at the bottom. New resolved cascades are PREPENDED to this section, not appended. Reasoning: a contributor scanning for "what shipped recently" or "what's the latest doctrine on X" gets the answer in the first few entries instead of paging to the end. The original v0.1 entries (PRs #26, #31, etc.) sit at the bottom because they were resolved earliest; the most recent v0.2 phases sit at the top.
