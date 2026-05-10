@@ -339,7 +339,7 @@ def test_build_scorer_stub_silently_ignores_inspect_ai_fields() -> None:
     assert isinstance(scorer, StubScorer)
 
 
-def test_build_scorer_inspect_ai_with_score_fn_constructs() -> None:
+def test_build_scorer_inspect_ai_bad_attr_raises_actionable() -> None:
     # Exercises the loader's "module has no attribute" path against
     # a real (importable) module + an intentionally-missing attribute.
     # The match= assertion below is the mechanical pin; the literal

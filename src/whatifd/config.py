@@ -253,6 +253,29 @@ class ScorerConfig(BaseModel):
         description="Arbitrary JSON-primitive knobs passed through to InspectAIScorer.",
     )
 
+    @model_validator(mode="before")
+    @classmethod
+    def _validate_scoring_parameters_are_primitives(cls, data: object) -> object:
+        # Runs BEFORE field-type validation so nested values surface
+        # as a single named-field error rather than Pydantic's 4-arm
+        # union rejection ("expected string OR int OR float OR bool
+        # OR null"). Pins the serialized-string convention
+        # structurally instead of relying on the doc comment.
+        if not isinstance(data, dict):
+            return data
+        params = data.get("scoring_parameters")
+        if not isinstance(params, dict):
+            return data
+        nested = [k for k, v in params.items() if isinstance(v, (list, dict, tuple, set))]
+        if nested:
+            raise ValueError(
+                f"scorer.scoring_parameters: nested structures not allowed at keys "
+                f"{sorted(nested)}. Values must be JSON primitives "
+                "(str | int | float | bool | None). Encode complex shapes as "
+                "serialized strings; the score_fn deserializes."
+            )
+        return data
+
     @model_validator(mode="after")
     def _validate_inspect_ai_required_fields(self) -> ScorerConfig:
         if self.adapter != "inspect_ai":

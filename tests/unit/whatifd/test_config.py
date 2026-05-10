@@ -571,3 +571,37 @@ class TestInspectAiScorerConfig:
         d["scorer"].pop("judge_provider")
         with pytest.raises(ValidationError, match="judge_provider"):
             WhatifConfig(**d)
+
+    def test_stub_silently_ignores_inspect_ai_fields(self) -> None:
+        # Pure ScorerConfig pin (no factory): the docstring promises
+        # inspect_ai-specific fields are silently accepted when
+        # adapter='stub' so a config block can be retargeted with one
+        # keystroke during development. Pinned independently of the
+        # factory test (which exercises the StubScorer construction
+        # path) so the docstring claim stands on its own.
+        from whatifd.config import ScorerConfig
+
+        cfg = ScorerConfig(
+            adapter="stub",
+            score_fn="python:my_pkg:scorer",
+            judge_provider="anthropic",
+            judge_model_id="claude-haiku-4-5",
+            rubric_id="r-v1",
+            rubric_text="Score 0-1.",
+            scoring_parameters={"temperature": 0.0},
+        )
+        assert cfg.adapter == "stub"
+        # Fields preserved (silent-ignore != silent-drop).
+        assert cfg.score_fn == "python:my_pkg:scorer"
+        assert cfg.scoring_parameters == {"temperature": 0.0}
+
+    def test_scoring_parameters_rejects_nested_structures(self) -> None:
+        # The validator catches nested values at config-load with a
+        # single named-field error instead of Pydantic's 4-arm union
+        # rejection.
+        from whatifd.config import ScorerConfig
+
+        with pytest.raises(ValidationError, match="nested structures not allowed"):
+            ScorerConfig(adapter="stub", scoring_parameters={"k": [1, 2, 3]})
+        with pytest.raises(ValidationError, match="nested structures not allowed"):
+            ScorerConfig(adapter="stub", scoring_parameters={"k": {"nested": True}})
