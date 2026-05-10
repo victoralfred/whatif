@@ -1192,8 +1192,6 @@ The cycle is broken at import time because `TYPE_CHECKING` is False at runtime; 
 
 **Resolved by:** Phase I PR on branch `phase-i-github-action`.
 
-
-
 ### Phase E.2 — pipeline switch + MethodologyDisclosure flip (resolved 2026-05-10)
 
 **Source decision:** Phase E.1 (PR #89) shipped the `paired_percentile_bootstrap` algorithm in `whatifd.statistical`. The pipeline still called `statistics.quantiles` and the methodology disclosure still emitted `bootstrap.method = "unavailable"`. Phase E.2 closes that loop: the pipeline now calls the real bootstrap, and the disclosure declares `paired_percentile_bootstrap` truthfully. The doctrine bot raised this as a cardinal-#10 concern across PRs #82, #86, #88, and #89; the disclosure flip is what earns v0.2 the right to claim non-`unavailable` methodology.

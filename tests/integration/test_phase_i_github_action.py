@@ -18,6 +18,7 @@ from __future__ import annotations
 import os
 import re
 import subprocess
+import sys
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, TypedDict, cast
@@ -42,12 +43,16 @@ _ACTION_YML = _REPO_ROOT / ".github" / "actions" / "whatifd-fork" / "action.yml"
 class ActionStepDict(TypedDict, total=False):
     name: str
     id: str
-    if_: str  # `if` is a Python keyword; rename via NotRequired alias below
     run: str
     uses: str
     shell: str
     env: Mapping[str, str]
-    with_: Mapping[str, str]
+    # `if` and `with` are Python keywords and would need a TypedDict
+    # functional-form declaration to be expressible as keys here.
+    # The tests access them via raw dict indexing (`step.get("if",
+    # "")`, `step["with"]`) which works without TypedDict help —
+    # the structural-shape pin is the substantive value, not
+    # complete keyword-key coverage.
 
 
 class ActionInputSpec(TypedDict, total=False):
@@ -522,10 +527,17 @@ class TestExampleWorkflow:
         parsed = yaml.safe_load(example.read_text(encoding="utf-8"))
         assert isinstance(parsed, dict)
         # Workflow shape: top-level keys `name`, `on`, `permissions`,
-        # `jobs`. `on` may parse as the boolean True under
-        # yaml.safe_load (a known YAML 1.1 quirk), so handle either.
+        # `jobs`. `on:` parses as Python boolean `True` under
+        # yaml.safe_load (a known YAML 1.1 quirk where unquoted
+        # `on`/`off`/`yes`/`no` are bools). Look up either form
+        # explicitly so the assertion fails loudly if neither key
+        # is present (the previous `or True in parsed` form was
+        # ambiguous about which side fired).
         assert "name" in parsed
-        assert "on" in parsed or True in parsed
+        on_key = next((k for k in parsed if k in ("on", True)), None)
+        assert on_key is not None, (
+            "example workflow missing the `on:` trigger key (or its boolean-True YAML 1.1 alias)"
+        )
         assert "jobs" in parsed
         assert isinstance(parsed["jobs"], dict)
 
@@ -573,9 +585,8 @@ class TestEditLastGrepLocaleFragility:
         [
             # English (current `gh` CLI v2.x): the heuristic fires.
             ("no comments found", True),
-            ("error: not found", True),
-            ("no comments to edit", True),
-            ("Found no prior comment", True),
+            ("not found", True),
+            ("no prior comment exists", True),
             # Hypothetical localized variants (issue #94 boundary):
             # these would NOT match the English regex. A real
             # operator running under LANG=de_DE.UTF-8 with a future
@@ -588,6 +599,13 @@ class TestEditLastGrepLocaleFragility:
             ("HTTP 403 Forbidden", False),
             ("dial tcp: lookup api.github.com: no such host", False),
             ("validation failed: body must not be empty", False),
+            # Tightened anchor case: "no.*comment" used to match
+            # any sentence with "no" before "comment". The new
+            # `^(...)` anchor rejects such mid-sentence matches —
+            # e.g. validation messages mentioning the word
+            # "comment" no longer trip the first-run fallback.
+            ("validation failed: comment not found in body", False),
+            ("error: comment with id 12345 not present", False),
         ],
     )
     def test_grep_heuristic_boundary(
@@ -663,6 +681,13 @@ class TestShellLogicAtRuntime:
         # `reports/`. This is the explicit case-(c) detection the
         # bot flagged as missing — `glob.glob` silently returns []
         # on chmod-000 dirs, so the pre-flight closes the gap.
+        if sys.platform == "win32":
+            pytest.skip("POSIX permission semantics; Windows ACLs differ")
+        # `os.geteuid` is POSIX-only; the platform check above is the
+        # gate. Skipping under root (CI containers sometimes run as
+        # root, where access checks pass regardless of mode).
+        if hasattr(os, "geteuid") and os.geteuid() == 0:
+            pytest.skip("running as root; os.access bypasses ACL checks")
         reports = tmp_path / "reports"
         reports.mkdir()
         os.chmod(reports, 0o000)
@@ -678,9 +703,6 @@ class TestShellLogicAtRuntime:
                 text=True,
                 check=False,
             )
-            # Skipping under root (CI containers sometimes run as root, where access checks pass anyway).
-            if os.geteuid() == 0:  # type: ignore[attr-defined]
-                pytest.skip("running as root; os.access bypasses ACL checks")
             assert result.returncode == 1, "pre-flight failed to detect unreadable reports/"
         finally:
             os.chmod(reports, 0o755)

@@ -256,7 +256,7 @@ runs:
 
         if [[ $edit_status -eq 0 ]]; then
           : # success
-        elif echo "$edit_stderr" | grep -qiE "no.*comment|not found|no comments"; then
+        elif echo "$edit_stderr" | grep -qiE "^(no comments|not found|no prior comment)"; then
           # First run on this PR — no prior whatifd comment to edit.
           # Create a fresh one. Capture the create's exit code so a
           # failure here doesn't get swallowed (cardinal #1: no
