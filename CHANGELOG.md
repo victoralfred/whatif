@@ -12,6 +12,10 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Circular import between `whatifd.serialization` and `whatifd.cache.lock`** (#85). `cache/lock.py`'s module-load-time imports of `canonical_json_bytes` and `parse_lock_file_content` triggered a re-entry into a partially-initialized `whatifd.serialization` package, surfacing only when a single test (e.g., `tests/unit/whatifd/decision/test_verdict.py`) ran in isolation — the full suite preloaded the cycle's victims earlier and masked it. Fix: defer the three imports to function-local at their call sites in `cache/lock.py` (`acquire_cache_lock`, `_try_takeover_if_stale`, `_build_locked_error`). Regression pinned by subprocess-based fresh-interpreter import tests (`tests/unit/whatifd/test_import_isolation.py`) covering both import orders.
+
 ### Infrastructure
 
 - **Tag↔version parity guard in `release.yml`.** A new `Verify tag matches package versions` step runs as the first build action; it parses every workspace `pyproject.toml` via stdlib `tomllib` and fails the workflow with `::error` annotations if any package's `[project].version` disagrees with the pushed tag (minus the leading `v`). Surfaced during the v0.2.0rc1 TestPyPI dry-run where a `v0.2.0rc1` tag against an unbumped `version = "0.2.0"` silently published `0.2.0` to TestPyPI. On prod PyPI the same mistake is unrecoverable (PyPI rejects republishing); the guard closes the gap structurally. `RELEASING.md` TestPyPI dry-run section adds an explicit pyproject-bump step (now step 3 of 6).

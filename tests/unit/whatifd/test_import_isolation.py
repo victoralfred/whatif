@@ -45,6 +45,28 @@ def test_whatifd_serialization_imports_cleanly_in_a_fresh_interpreter() -> None:
     assert result.stdout.strip() == "OK"
 
 
+def test_whatifd_reverse_order_imports_cleanly_in_a_fresh_interpreter() -> None:
+    # Inverse of the first test: cache.lock before serialization.
+    # The cycle could in principle reappear from either direction
+    # if a future refactor adds a serialization → cache import at
+    # the top level. Pinning both orders means a regression has to
+    # break *neither* test, not just the documented reproducer.
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import whatifd.cache.lock; import whatifd.serialization; print('OK')",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, (
+        f"reverse-order circular import reappeared (issue #85). stderr:\n{result.stderr}"
+    )
+    assert result.stdout.strip() == "OK"
+
+
 def test_whatifd_decision_floor_imports_cleanly_in_a_fresh_interpreter() -> None:
     # The exact reproducer from issue #85: importing the decision
     # surface used to fail because `floor.py` pulls

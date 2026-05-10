@@ -248,6 +248,9 @@ def acquire_cache_lock(
     PID-reuse evidence (both surface via the
     `psutil.NoSuchProcess`/`create_time` mismatch path).
     """
+    # Lazy import — see module-level comment about issue #85's cycle.
+    from whatifd.serialization import canonical_json_bytes
+
     lock_path = cache_root / _LOCK_FILENAME
     cache_root.mkdir(parents=True, exist_ok=True)
 
@@ -304,8 +307,6 @@ def acquire_cache_lock(
         content = _build_lock_content()
         fp.seek(0)
         fp.truncate()
-        from whatifd.serialization import canonical_json_bytes
-
         fp.write(canonical_json_bytes(_content_to_dict(content)).decode("ascii"))
         fp.flush()
         os.fsync(fp.fileno())
@@ -366,9 +367,10 @@ def _try_takeover_if_stale(
     `None` for empty/corrupted/wrong-shape input — both surface as
     "stale by definition" here.
     """
-    fp.seek(0)
+    # Lazy import — see module-level comment about issue #85's cycle.
     from whatifd.serialization import parse_lock_file_content
 
+    fp.seek(0)
     recorded = parse_lock_file_content(fp.read())
     if recorded is None:
         return True
@@ -479,6 +481,9 @@ def _build_locked_error(lock_path: Path) -> CacheLockedError:
     unparseable," and we fall back to a degraded message rather than
     fabricating provenance.
     """
+    # Lazy import — see module-level comment about issue #85's cycle.
+    from whatifd.serialization import parse_lock_file_content
+
     try:
         raw = lock_path.read_text(encoding="utf-8")
     except OSError as diag_err:
@@ -494,8 +499,6 @@ def _build_locked_error(lock_path: Path) -> CacheLockedError:
         # equivalent on a returned-but-not-yet-raised exception object.
         err.__cause__ = diag_err
         return err
-
-    from whatifd.serialization import parse_lock_file_content
 
     content = parse_lock_file_content(raw)
     if content is not None:
