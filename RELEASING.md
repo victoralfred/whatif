@@ -1,19 +1,19 @@
 # Releasing whatifd
 
-Runbook for cutting a release. The release workflow is fully automated via PyPI Trusted Publishing — pushing a `v*.*.*` tag triggers `.github/workflows/release.yml`, which builds all three distributions, publishes each to its own PyPI project, and creates a GitHub Release with auto-generated notes.
+Runbook for cutting a release. The release workflow is fully automated via PyPI Trusted Publishing — pushing a `v*.*.*` tag triggers `.github/workflows/release.yml`, which builds all four distributions, publishes each to its own PyPI project, and creates a GitHub Release with auto-generated notes.
 
 ## One-time setup (per maintainer / per project)
 
 ### 1. Register Trusted Publishers on PyPI
 
-For each of the three packages (`whatifd`, `whatifd-langfuse`, `whatifd-inspect-ai`), add a Trusted Publisher on PyPI. For an unpublished package, use the "Pending Publisher" form at https://pypi.org/manage/account/publishing/. For an already-published package, go to that project's `Settings → Publishing`.
+For each of the four packages (`whatifd`, `whatifd-langfuse`, `whatifd-inspect-ai`, `whatifd-phoenix`), add a Trusted Publisher on PyPI. For an unpublished package, use the "Pending Publisher" form at https://pypi.org/manage/account/publishing/. For an already-published package, go to that project's `Settings → Publishing`.
 
 | Field | Value |
 |---|---|
 | Owner | `victoralfred` |
 | Repository | `whatifd` |
 | Workflow filename | `release.yml` |
-| Environment | `pypi-whatifd` / `pypi-whatifd-langfuse` / `pypi-whatifd-inspect-ai` (match the per-job `environment.name` in `release.yml`) |
+| Environment | `pypi-whatifd` / `pypi-whatifd-langfuse` / `pypi-whatifd-inspect-ai` / `pypi-whatifd-phoenix` (match the per-job `environment.name` in `release.yml`) |
 
 The environment name MUST match exactly. PyPI's OIDC verifier checks `repository`, `workflow`, AND `environment` claims; mismatch on any of the three rejects the publish.
 
@@ -31,7 +31,7 @@ For the v0.1.0 release (or any subsequent release; substitute the version):
 
 ### 1. Pre-flight (on a release-prep branch)
 
-- [ ] All three `pyproject.toml` versions match the target tag (root + both adapter packages)
+- [ ] All four `pyproject.toml` versions match the target tag (root + three adapter packages); `tests/unit/whatifd/test_version_parity.py` pins this
 - [ ] `Development Status` classifier is appropriate (`3 - Alpha` for v0.1.x; bump to `4 - Beta` at v0.5+)
 - [ ] `CHANGELOG.md` `[Unreleased]` block promoted to `[0.1.0] - YYYY-MM-DD`; a fresh `[Unreleased]` header added
 - [ ] CHANGELOG link footer updated (`[Unreleased]` → `[0.1.0]` plus a fresh `[Unreleased]` line)
@@ -57,9 +57,9 @@ The push triggers `.github/workflows/release.yml`. Monitor at `https://github.co
 
 After the workflow completes:
 
-- [ ] All three packages visible at `https://pypi.org/project/whatifd/0.1.0/` (and `/whatifd-langfuse/`, `/whatifd-inspect-ai/`)
+- [ ] All four packages visible at `https://pypi.org/project/whatifd/<version>/` (and `/whatifd-langfuse/`, `/whatifd-inspect-ai/`, `/whatifd-phoenix/`)
 - [ ] GitHub Release created at `https://github.com/victoralfred/whatifd/releases/tag/v0.1.0` with auto-generated notes
-- [ ] `pip install whatifd whatifd-langfuse whatifd-inspect-ai` in a clean venv resolves cleanly
+- [ ] `pip install whatifd whatifd-langfuse whatifd-inspect-ai whatifd-phoenix` in a clean venv resolves cleanly
 - [ ] `whatifd --help` works after install
 - [ ] **Schema URL `https://whatif.codes/schema/report/v0.1.json` resolves with HTTP 200** (every report's `schema_uri` field points here; a 404 silently breaks any consumer that fetches the schema for validation). If the URL still 404s post-tag-push, deploy `src/whatifd/report/schema/v0.1.schema.json` to the static host backing `whatif.codes` BEFORE announcing the release. This is a load-bearing post-release step, not optional.
 
@@ -78,15 +78,15 @@ The job's `environment.name` doesn't match what's configured on PyPI for that pr
 
 ### Build failure on a single package
 
-The build job builds all three in sequence; a failure in one fails the whole tag's release. Fix and either delete + re-tag (if no PyPI uploads happened) or bump to the next patch version (if any package already uploaded — PyPI does NOT permit overwriting a published version).
+The build job builds all four in sequence; a failure in one fails the whole tag's release. Fix and either delete + re-tag (if no PyPI uploads happened) or bump to the next patch version (if any package already uploaded — PyPI does NOT permit overwriting a published version).
 
 ### Mid-release partial upload
 
 If `whatifd` publishes but one of the adapters fails, the resulting state is inconsistent (e.g., users can install `whatifd` but the adapters reference a now-orphaned version). The recovery is:
 
-1. **Bump ALL three packages to the next patch** (e.g., `0.1.1` everywhere — root + both adapters). Three-way version parity is a release invariant that operator-facing docs (README version table, CHANGELOG, schema URI mapping) depend on. Skipping the root bump would orphan `whatifd 0.1.0` against `whatifd-langfuse 0.1.1` / `whatifd-inspect-ai 0.1.1`, breaking the "three packages, one version" mental model.
-2. Update the adapters' `dependencies` to require `whatifd==0.1.1` (or `>=0.1.1` if you don't need to enforce parity at the dependency level).
-3. Tag `v0.1.1` and re-run the workflow. The root `whatifd 0.1.1` is a fresh PyPI publish (PyPI rejects republishing the same version, so the bump is necessary even if no `whatifd` source changed). The adapters publish at `0.1.1` after `whatifd 0.1.1` succeeds.
+1. **Bump ALL four packages to the next patch** (e.g., `0.2.1` everywhere — root + three adapters). Workspace version parity is a release invariant that operator-facing docs (README version table, CHANGELOG, schema URI mapping) depend on; `tests/unit/whatifd/test_version_parity.py` pins it. Skipping any bump orphans that package against the others, breaking the "one workspace, one version" mental model.
+2. Update the adapters' `dependencies` to require `whatifd==<new-version>` (or `>=` if you don't need strict parity).
+3. Tag `vX.Y.Z` and re-run the workflow. PyPI rejects republishing a version, so the bump is necessary even if no source changed. Adapters publish after the root succeeds.
 
 **Cleanest prevention: TestPyPI dry-run on a pre-release tag.** Before pushing the real `v0.1.0` tag, push `v0.1.0rc1` (or any PEP 440 pre-release suffix — `a1`, `b1`, `rc1` all work) against TestPyPI first. This proves the entire publish path end-to-end without committing to a permanent PyPI version.
 
@@ -95,15 +95,15 @@ If `whatifd` publishes but one of the adapters fails, the resulting state is inc
 Steps:
 1. Configure a parallel set of TestPyPI Trusted Publishers at https://test.pypi.org/manage/account/publishing/ — same owner / repo / workflow / environment-name claims; `test.pypi.org` is a separate registry from `pypi.org` so the publishers don't collide.
 2. In a temporary workflow branch, point each `pypa/gh-action-pypi-publish` step at TestPyPI by adding `repository-url: https://test.pypi.org/legacy/`.
-3. Tag and push `v0.1.0rc1`. Verify all three packages appear at `https://test.pypi.org/project/whatifd/0.1.0rc1/` etc.
-4. `pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ whatifd==0.1.0rc1 whatifd-langfuse==0.1.0rc1 whatifd-inspect-ai==0.1.0rc1` in a clean venv.
-5. If everything resolves and `whatifd --help` works, revert the workflow back to PyPI proper, push the real `v0.1.0` tag.
+3. Tag and push `vX.Y.ZrcN` (e.g., `v0.2.0rc1`). Verify all four packages appear at `https://test.pypi.org/project/whatifd/X.Y.ZrcN/` etc.
+4. `pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ whatifd==X.Y.ZrcN whatifd-langfuse==X.Y.ZrcN whatifd-inspect-ai==X.Y.ZrcN whatifd-phoenix==X.Y.ZrcN` in a clean venv.
+5. If everything resolves and `whatifd --help` works, revert the workflow back to PyPI proper, push the real `vX.Y.Z` tag.
 
 The pre-release tag remains on TestPyPI and on a GitHub Release; you can delete the GitHub Release if you want to keep the public release notes focused on the real tag.
 
 ## Supply-chain hardening
 
-The release workflow grants `id-token: write` to three publish jobs so PyPI can verify the OIDC claim. The action that *consumes* that token, `pypa/gh-action-pypi-publish`, is currently pinned to `release/v1` (PyPA's recommended floating ref). For maximum hardening on a sensitive release, pin to a full commit SHA before tagging:
+The release workflow grants `id-token: write` to four publish jobs so PyPI can verify the OIDC claim. The action that *consumes* that token, `pypa/gh-action-pypi-publish`, is currently pinned to `release/v1` (PyPA's recommended floating ref). For maximum hardening on a sensitive release, pin to a full commit SHA before tagging:
 
 1. Find the latest commit SHA for the release on https://github.com/pypa/gh-action-pypi-publish/releases.
 2. Replace each `pypa/gh-action-pypi-publish@release/v1` line in `.github/workflows/release.yml` with `pypa/gh-action-pypi-publish@<full-40-char-sha> # v1.X.Y`.
