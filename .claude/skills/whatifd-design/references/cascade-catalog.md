@@ -1186,7 +1186,7 @@ The cycle is broken at import time because `TYPE_CHECKING` is False at runtime; 
 
 **Known limitations (filed as follow-ups, do not block v0.2.0):**
 - **#94 [HIGHEST-PRIORITY Phase I follow-up]**: replace `--edit-last` + grep with marker-based dedup (`<!-- whatifd-fork:run-id=... -->` HTML comment, `gh api` to find/update). Locale-independent. The English-only grep heuristic is a latent correctness hole on localized runners; rare in practice today (English LANG dominates GitHub-hosted runners) but should land in v0.3 ahead of broader Marketplace adoption.
-- #93: CLI should emit chosen report paths via `GITHUB_OUTPUT` directly so the action's path-discovery shell scaffolding becomes unnecessary.
+- #93: CLI should emit chosen report paths via `GITHUB_OUTPUT` directly so the action's Python path-discovery scaffolding becomes unnecessary. **Couple to the v0.3 `whatifd diff` workflow** — both Actions then share one path-discovery surface instead of each writing its own shell scaffolding. Clean simplification.
 
 **Resolved by:** Phase I PR on branch `phase-i-github-action`.
 
