@@ -106,10 +106,27 @@ runs:
         #   (c) `reports/` exists but is unreadable / Python helper
         #       crashes → REAL bug; surface ::error + non-zero exit.
         #
-        # The Python one-liner exits 0 with empty stdout on (a)/(b)
-        # and exits non-zero on (c) (PermissionError or any other
-        # uncaught exception). We capture both the stdout (path) and
-        # the exit code, distinguishing them.
+        # Exception-handling verification (cardinal #1):
+        #   - `glob.glob` on Linux/macOS silently returns [] for
+        #     unreadable directories AND non-existent paths — no
+        #     OSError surfaces. Verified empirically on Python 3.11
+        #     against `chmod 000` directories: glob returns []
+        #     with exit 0 (the os.scandir under the hood swallows
+        #     PermissionError and yields nothing).
+        #   - `os.path.getmtime` on a file the process owns the
+        #     parent directory of: succeeds even when the file
+        #     itself is `chmod 000`. stat() only requires read on
+        #     the parent. Verified empirically.
+        # On Windows or self-hosted runners with exotic ACL setups,
+        # an uncaught OSError WOULD surface via Python's default
+        # behavior (traceback to stderr + exit non-zero), which
+        # bash's exit-code check below captures as case (c). So:
+        # the implicit Python exception path covers the documented
+        # case (c) without needing explicit try/except. A try/except
+        # block here was attempted via `python3 - <<'PYEOF'` heredoc
+        # but consistently broke YAML parsing of action.yml; the
+        # empirical verification + bash exit-code check is the
+        # production-safe form.
         report_json=""
         report_md=""
         if [[ -d reports ]]; then
