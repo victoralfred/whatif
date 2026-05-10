@@ -307,12 +307,17 @@ def _run_fork_pipeline(cfg: WhatifConfig, proof: TwoAffirmationProof) -> int:
     )
 
     # MethodologyDisclosure: Phase E.2 flipped this to declare the
-    # real `paired_percentile_bootstrap` method. The pipeline-side
-    # bootstrap (whatifd.statistical) runs at the same fixed seed
-    # the disclosure echoes here. Cluster-paired bootstrap (where
-    # resamples respect cluster boundaries like session_id) is the
-    # v0.3 surface and uses the schema's
-    # `cluster_paired_percentile_bootstrap` enum value.
+    # real `paired_percentile_bootstrap` method. Cardinal #10
+    # (statistical claims match the design): the disclosure MUST
+    # echo the seed the pipeline actually ran. Importing
+    # `BOOTSTRAP_SEED` from `whatifd.pipeline` instead of
+    # duplicating the literal eliminates the silent-drift class —
+    # a future change to the seed updates both sites at once.
+    # Cluster-paired bootstrap (where resamples respect cluster
+    # boundaries like session_id) is the v0.3 surface and uses the
+    # schema's `cluster_paired_percentile_bootstrap` enum value.
+    from whatifd.pipeline import BOOTSTRAP_SEED
+
     methodology = MethodologyDisclosure(
         unit_of_analysis="paired_trace_delta",
         primary_metric="faithfulness",
@@ -321,7 +326,7 @@ def _run_fork_pipeline(cfg: WhatifConfig, proof: TwoAffirmationProof) -> int:
         bootstrap=BootstrapMethodDisclosure(
             method="paired_percentile_bootstrap",
             resamples=2000,
-            seed=4_872_109,  # mirrors whatifd.pipeline._BOOTSTRAP_SEED
+            seed=BOOTSTRAP_SEED,
             sample_unit="paired_trace_delta",
             ci_level=DecimalString("0.950"),
             cluster_key=None,

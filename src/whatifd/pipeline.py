@@ -62,7 +62,18 @@ from whatifd.types.statistical import MethodologyDisclosure
 # are part of the deterministic subset). A future surface may
 # parameterize this through `RunManifest.selection_seed` or a
 # dedicated stats-layer seed; v0.2 ships the constant.
-_BOOTSTRAP_SEED = 4_872_109
+#
+# Public (no leading underscore) because `whatifd.cli` imports it
+# to populate `MethodologyDisclosure.bootstrap.seed`. Cardinal #10:
+# the disclosure MUST match what the pipeline actually ran; binding
+# both sites to the same symbol prevents silent drift between the
+# declared seed and the seed the bootstrap used. A test pins the
+# coupling structurally.
+BOOTSTRAP_SEED = 4_872_109
+# Backwards-compat alias — earlier in the same PR `_BOOTSTRAP_SEED`
+# was used internally; keep it pointing at the public name so an
+# in-flight reviewer's grep doesn't false-flag a missing constant.
+_BOOTSTRAP_SEED = BOOTSTRAP_SEED
 
 
 @dataclass(frozen=True, slots=True)
