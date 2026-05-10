@@ -26,6 +26,7 @@ from importlib.metadata import PackageNotFoundError, version
 import pytest
 import whatifd_inspect_ai
 import whatifd_langfuse
+import whatifd_phoenix
 
 import whatifd
 
@@ -82,35 +83,41 @@ def test_whatifd_inspect_ai_version_matches_distribution_metadata() -> None:
     assert whatifd_inspect_ai.__version__ == version("whatifd-inspect-ai")
 
 
+def test_whatifd_phoenix_version_matches_distribution_metadata() -> None:
+    assert whatifd_phoenix.__version__ == version("whatifd-phoenix")
+
+
 def test_no_package_reports_sentinel_when_installed() -> None:
     """`0.0.0+unknown` is the source-only fallback. In an installed
-    test environment all three packages MUST report a real version —
+    test environment all four packages MUST report a real version —
     seeing the sentinel here means `importlib.metadata` couldn't find
     the distribution, which is exactly the failure mode this whole
     pattern exists to catch."""
     assert whatifd.__version__ != "0.0.0+unknown"
     assert whatifd_langfuse.__version__ != "0.0.0+unknown"
     assert whatifd_inspect_ai.__version__ != "0.0.0+unknown"
+    assert whatifd_phoenix.__version__ != "0.0.0+unknown"
 
 
 def test_all_workspace_packages_share_the_same_version() -> None:
-    """Cross-package parity: the three workspace distributions release
+    """Cross-package parity: the four workspace distributions release
     together via `.github/workflows/release.yml` on a single `v*.*.*`
     tag push, and the adapters declare `whatifd>=<version>` lower
     bounds that match their own version. A sub-package whose
     `pyproject.toml` `version` field drifts out of lockstep with the
-    others is a release-correctness bug — the tag would ship three
+    others is a release-correctness bug — the tag would ship four
     distributions that disagree about which release they belong to.
     Pin equality here so any future bump that touches one
-    `pyproject.toml` but forgets the other two fails CI before merge."""
+    `pyproject.toml` but forgets the others fails CI before merge."""
     versions = {
         "whatifd": whatifd.__version__,
         "whatifd-langfuse": whatifd_langfuse.__version__,
         "whatifd-inspect-ai": whatifd_inspect_ai.__version__,
+        "whatifd-phoenix": whatifd_phoenix.__version__,
     }
     distinct = set(versions.values())
     assert len(distinct) == 1, (
         f"workspace packages disagree on version: {versions!r}. "
-        f"All three pyproject.toml `version` fields must be bumped "
+        f"All four pyproject.toml `version` fields must be bumped "
         f"in lockstep — see RELEASING.md."
     )

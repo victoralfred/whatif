@@ -160,3 +160,33 @@ The matrix-finalizer pattern is the standard GitHub Actions idiom for cross-job 
 ## Recommended next step
 
 If this scope and these design choices look right, I implement against the acceptance criteria above. If you want to adjust scope (e.g., narrow the promoted-field set, defer the cross-platform matrix to v0.3), edit this doc and I work to the revised version.
+
+## Session end
+
+**Artifacts produced:**
+- `docs/sessions/2026-05-10-phase-j-design-record.md` — pre-PR design record (this file)
+- `src/whatifd/types/manifest.py` — `_DETERMINISTIC_FIELDS: ClassVar[frozenset[str]]` opt-in attribute
+- `scripts/generate_schema.py` — `_dataclass_to_schema` descends into dataclasses with `_DETERMINISTIC_FIELDS`
+- `src/whatifd/serialization/determinism.py` — `_schema_document()` single-cache loader; `_runtime_deterministic_subfields()` with two `DeterministicSubsetWarning` fallback paths; partial-subtree projection of `runtime`
+- `src/whatifd/report/schema/v0.2.schema.json` — regenerated with per-field annotations on `RunManifest` `$def`
+- `tests/integration/_emit_determinism_artifact.py` — cross-platform CI emit script
+- `tests/integration/test_determinism.py` — partial-subset shape test, dataclass-vs-schema drift test, two warning-branch tests
+- `tests/unit/whatifd/report/test_schema.py` — direct unit tests for `_dataclass_to_schema` per-field annotation emission
+- `.github/workflows/ci.yml` — `determinism-cross-platform-emit` matrix + finalizer
+- `CHANGELOG.md` — Phase J entry under `[Unreleased]`
+- `.claude/skills/whatifd-design/references/cascade-catalog.md` — Phase J resolved entry
+
+**Cascade catalog items:**
+- Resolved: Phase J — determinism widening; per-field opt-in via dataclass `_DETERMINISTIC_FIELDS`, schema-driven extractor descent, cross-platform byte-equality CI gate.
+
+**Gaps surfaced:**
+- Generic descent on any `_DETERMINISTIC_FIELDS` dataclass is YAGNI today (only `RunManifest` opts in); when a second consumer arrives, parametrize `test_runtime_subfield_annotations_match_dataclass_optin` and extend the extractor's hardcoded `runtime` walk into a generic schema-driven loop. File a cascade item the moment that second dataclass appears.
+
+**Doctrine moments:**
+- **Cardinal #1 (failure-as-data) vs typed-exception push:** doctrine bot pushed for raising `SchemaMissingPhaseJAnnotationsError` instead of warning. Held the line: a typed `DeterministicSubsetWarning` class with structured fallback IS the failure-as-data shape; raising would force every caller into try/except and re-create the unhandled-exception class the cardinal forbids. The structured signal is the warning class, not the control-flow primitive.
+- **Cardinal #4 structural enforcement:** the `_DETERMINISTIC_FIELDS` ClassVar on the dataclass + schema-generator descent + extractor descent forms a three-layer chain. Convention-only deterministic claims (the pre-Phase-J docstring) are now structurally enforced; a refactor that breaks the chain fails CI.
+- **Empirical disagreement with doctrine bot on CI action versions:** declined #4 with grep evidence from `main`'s `ci.yml`. Bot was wrong; held the position rather than capitulating to false authority.
+
+**Notes for the next session:**
+- Phase L (release packaging) is the only remaining v0.2.0 critical-path phase. Final pass on README, version-bump to 0.2.0 across the three packages, PyPI publication, schema URL freeze.
+- Per telemetry-workflow rule: a paired `telemetry-2026-05-10.md` (went-well / wrong / risks / next) should land before Phase L starts, since Phase J was a milestone.

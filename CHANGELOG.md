@@ -12,6 +12,12 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-05-10
+
+v0.2.0 highlights: (1) `regression_check` experiment shape joins `failure_rescue` (Phase A/C); (2) doctrinally-correct paired-percentile bootstrap replaces the v0.1 empirical-quantile shortcut, with `MethodologyDisclosure.bootstrap.method` flipped to a real method (Phase E.1/E.2); (3) Arize Phoenix / OpenInference TraceSource adapter ships as `whatifd-phoenix` (Phase D); (4) `whatifd-fork` GitHub Action wraps the CLI for PR-comment + status-annotation workflows (Phase I); (5) cardinal #4 widens from top-level-only to per-field opt-in inside `RunManifest`, with cross-platform CI byte-equality enforcement (Phase J); (6) `inspect_ai` is now reachable from YAML via `scorer.score_fn` (Phase B).
+
+Schema bump: `v0.1` → `v0.2`. The v0.1 schema is frozen at `src/whatifd/report/schema/v0.1.schema.json` (sha256-pinned); use `whatifd report-migrate` to upgrade existing v0.1 reports.
+
 ### Changed — Phase J (determinism widening: per-field `x-deterministic` on `RunManifest`)
 
 - **`runtime` is no longer excluded as a whole** from the deterministic subset. The schema's `$def` for `RunManifest` now carries per-field `x-deterministic` annotations; the extractor descends into runtime and includes the documented-deterministic sub-fields (`experiment_id`, `whatif_version`, `config_hash`, `selection_seed`, `source`, `target`, `trust_floor`, `decision_policy`, `experiment_shape`).

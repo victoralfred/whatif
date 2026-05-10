@@ -39,9 +39,11 @@ jobs:
         run: uv build --package whatifd-langfuse --out-dir dist-whatifd-langfuse
       - name: Build whatifd-inspect-ai distribution
         run: uv build --package whatifd-inspect-ai --out-dir dist-whatifd-inspect-ai
+      - name: Build whatifd-phoenix distribution
+        run: uv build --package whatifd-phoenix --out-dir dist-whatifd-phoenix
       - name: List artifacts
         run: |
-          ls -la dist-whatifd dist-whatifd-langfuse dist-whatifd-inspect-ai
+          ls -la dist-whatifd dist-whatifd-langfuse dist-whatifd-inspect-ai dist-whatifd-phoenix
       - uses: actions/upload-artifact@v4
         with:
           name: dist-whatifd
@@ -56,6 +58,11 @@ jobs:
         with:
           name: dist-whatifd-inspect-ai
           path: dist-whatifd-inspect-ai/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-whatifd-phoenix
+          path: dist-whatifd-phoenix/
           if-no-files-found: error
 
   # Each package publishes from its own job because PyPI Trusted
@@ -131,9 +138,29 @@ jobs:
       # — see RELEASING.md "Supply-chain hardening" section.
       - uses: pypa/gh-action-pypi-publish@release/v1
 
+  publish-whatifd-phoenix:
+    name: publish whatifd-phoenix to PyPI
+    needs: publish-whatifd
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi-whatifd-phoenix
+      url: https://pypi.org/p/whatifd-phoenix
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist-whatifd-phoenix
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
   github-release:
     name: github release with notes
-    needs: [publish-whatifd, publish-whatifd-langfuse, publish-whatifd-inspect-ai]
+    needs:
+      - publish-whatifd
+      - publish-whatifd-langfuse
+      - publish-whatifd-inspect-ai
+      - publish-whatifd-phoenix
     runs-on: ubuntu-latest
     permissions:
       contents: write

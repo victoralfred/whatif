@@ -1,7 +1,7 @@
 [project]
 name = "whatifd-inspect-ai"
-version = "0.1.0"
-description = "Inspect AI `Scorer` adapter for whatifd. Phase 4B.2 of the v0.1 plan."
+version = "0.2.0"
+description = "Inspect AI `Scorer` adapter for whatifd."
 readme = "README.md"
 license = { text = "Apache-2.0" }
 requires-python = ">=3.11"
