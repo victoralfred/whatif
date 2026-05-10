@@ -12,6 +12,10 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+### Infrastructure
+
+- **Tag↔version parity guard in `release.yml`.** A new `Verify tag matches package versions` step runs as the first build action; it parses every workspace `pyproject.toml` via stdlib `tomllib` and fails the workflow with `::error` annotations if any package's `[project].version` disagrees with the pushed tag (minus the leading `v`). Surfaced during the v0.2.0rc1 TestPyPI dry-run where a `v0.2.0rc1` tag against an unbumped `version = "0.2.0"` silently published `0.2.0` to TestPyPI. On prod PyPI the same mistake is unrecoverable (PyPI rejects republishing); the guard closes the gap structurally. `RELEASING.md` TestPyPI dry-run section adds an explicit pyproject-bump step (now step 3 of 6).
+
 ## [0.2.0] - 2026-05-10
 
 v0.2.0 highlights: (1) `regression_check` experiment shape joins `failure_rescue` (Phase A/C); (2) doctrinally-correct paired-percentile bootstrap replaces the v0.1 empirical-quantile shortcut, with `MethodologyDisclosure.bootstrap.method` flipped to a real method (Phase E.1/E.2); (3) Arize Phoenix / OpenInference TraceSource adapter ships as `whatifd-phoenix` (Phase D); (4) `whatifd-fork` GitHub Action wraps the CLI for PR-comment + status-annotation workflows (Phase I); (5) cardinal #4 widens from top-level-only to per-field opt-in inside `RunManifest`, with cross-platform CI byte-equality enforcement (Phase J); (6) `inspect_ai` is now reachable from YAML via `scorer.score_fn` (Phase B).

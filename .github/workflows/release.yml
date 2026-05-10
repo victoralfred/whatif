@@ -29,24 +29,48 @@ jobs:
       # is produced if the tag (minus leading `v`) doesn't match the
       # declared version in every workspace pyproject.
       - name: Verify tag matches package versions
+        # Uses stdlib `tomllib` (Python 3.11+, present on `ubuntu-latest`)
+        # rather than `grep ^version =` so a future pyproject layout
+        # (a `[tool.X] version = ...` subsection, a multi-line array
+        # whose first line happens to begin with `version =`, etc.)
+        # can't false-positive. Runs before setup-uv so we depend on
+        # the runner's system python3 here, not on uv being installed.
         run: |
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
-          declare -i bad=0
-          for pkg in pyproject.toml \
-                     packages/whatifd-langfuse/pyproject.toml \
-                     packages/whatifd-inspect-ai/pyproject.toml \
-                     packages/whatifd-phoenix/pyproject.toml; do
-            PKG_VERSION=$(grep -m1 '^version = ' "$pkg" | cut -d'"' -f2)
-            if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
-              echo "::error file=$pkg::tag $GITHUB_REF_NAME implies version $TAG_VERSION but $pkg declares $PKG_VERSION"
-              bad+=1
-            fi
-          done
-          if [ "$bad" -gt 0 ]; then
-            echo "::error::$bad pyproject.toml file(s) disagree with tag $GITHUB_REF_NAME. Bump versions in lockstep and re-tag."
-            exit 1
-          fi
-          echo "Tag $GITHUB_REF_NAME matches all four workspace pyproject.toml versions ($TAG_VERSION)."
+          python3 <<'PY'
+          import os
+          import sys
+          import tomllib
+          from pathlib import Path
+
+          tag = os.environ["GITHUB_REF_NAME"]
+          tag_version = tag.removeprefix("v")
+          packages = [
+              "pyproject.toml",
+              "packages/whatifd-langfuse/pyproject.toml",
+              "packages/whatifd-inspect-ai/pyproject.toml",
+              "packages/whatifd-phoenix/pyproject.toml",
+          ]
+          bad = 0
+          for pkg in packages:
+              data = tomllib.loads(Path(pkg).read_text())
+              pkg_version = data["project"]["version"]
+              if pkg_version != tag_version:
+                  print(
+                      f"::error file={pkg}::tag {tag} implies version "
+                      f"{tag_version} but [project].version declares {pkg_version}"
+                  )
+                  bad += 1
+          if bad:
+              print(
+                  f"::error::{bad} pyproject.toml file(s) disagree with tag "
+                  f"{tag}. Bump versions in lockstep and re-tag."
+              )
+              sys.exit(1)
+          print(
+              f"Tag {tag} matches all four workspace pyproject.toml "
+              f"versions ({tag_version})."
+          )
+          PY
       - uses: astral-sh/setup-uv@v7
         with:
           python-version: "3.12"
