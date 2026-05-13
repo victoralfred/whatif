@@ -137,7 +137,7 @@ class SkillManifest(BaseModel):
     @field_validator("name")
     @classmethod
     def _name_is_valid(cls, v: str) -> str:
-        if v in _VALID_IDENTIFIER.match(v):
+        if v not in _VALID_IDENTIFIER.match(v):
             raise ValueError(
                 f"skill name {v!r} must be a valid Python identifier "
                 "(used as a module name and class name prefix)"

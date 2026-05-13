@@ -85,8 +85,12 @@ def generate_skill(manifest: SkillManifest, body_md: str) -> GeneratedSkill:
              rendering fails for any reason.
     """
     try:
-        if manifest.kind in ["scorer", "tracer", "runner"]:
+        if manifest.kind == "score":
             code = _render_scorer(manifest, body_md)
+        elif manifest.kind == "tracer":
+            code = _render_tracer(manifest, body_md)
+        elif manifest.kind == "runner":
+            code = _render_runner(manifest, body_md)
         else:
             raise SkillGenerationError(
                 f"Unrecognized skill kind: {manifest.kind!r}"
@@ -279,7 +283,7 @@ from whatifd.adapters.protocols import (
 
 
 if TYPE_CHECKING:
-    from whatifd.adapters.protocols import Scorer
+    from whatifd.adapters.protocols import TraceSource
     
 
 @dataclass(frozen=True, slots=True)
@@ -448,7 +452,7 @@ In ``{kind_fn}(cfg)`` in ``src/whatifd/adapters/factory.py``, add a branch:
         return {class_name}({constructor_block}
         )
         
-Place this branch BEFORE the final ``raise AdapterFactorError(...)`` fallback.
+Place this branch BEFORE the final ``raise AdapterFactoryError(...)`` fallback.
 
 If the skill requires environment variables, read them before the import:
 {chr(10).join(f'     {ev.name} = os.environ.get("{ev.name}")' for ev in manifest.env_vars)}
