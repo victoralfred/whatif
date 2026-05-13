@@ -85,7 +85,7 @@ def generate_skill(manifest: SkillManifest, body_md: str) -> GeneratedSkill:
              rendering fails for any reason.
     """
     try:
-        if manifest.kind == "score":
+        if manifest.kind == "scorer":
             code = _render_scorer(manifest, body_md)
         elif manifest.kind == "tracer":
             code = _render_tracer(manifest, body_md)
