@@ -773,6 +773,94 @@ def report_migrate(
     raise typer.Exit(code=EXIT_SUCCESS)
 
 
+skill_app = typer.Typer(help="Skill scaffolding subcommands.")
+app.add_typer(skill_app, name="skill")
+
+@skill_app.command("generate")
+def skill_generate(
+        name: Annotated[
+            str,
+            typer.Argument(
+                help=(
+                    "Skill name slug. The generator reads"
+                    "`src/whatifd/skills/<name>/skill.md` and writes "
+                    "`src/whatifd/skills/<name>/__init__.py`."
+                )
+            ),
+        ],
+        overwrite: Annotated[
+            bool,
+            typer.Option(
+                "--overwrite",
+                help=(
+                    "Allow overwriting an existing __init__.py. Without this "
+                    "flag the command refuses to clobber existing implementation "
+                    "work."
+                ),
+            ),
+        ] = False,
+        skills_root: Annotated[
+            Path,
+            typer.Option(
+                "--skills-root",
+                help="Root directory containing skill subdirectories.",
+            ),
+        ] = Path("src/whatifd/skills"),
+) -> None:
+    """Scaffold a skill from skill.md manifest.
+
+    Generate the `__init__.py` file for a specified skill based on a `skill.md` file.
+    The command reads the markdown specification file for the skill and generates
+    the corresponding Python implementation file.
+
+    Reads `<skills-root>/<name>/skill.md`, generate protocol-compliant adapter
+    boilerplate, writes `src/whatifd/skills/<name>/__init__.py`, and prints actionable
+    patch instructions for `config.py` and `factory.py`.
+
+    Exit 0 on success. Exit 2 on manifest error, generate error, or file-system error
+    (cardinal #1: all failures are structured signals, not stack traces).
+
+    :param name: Skill name slug. This corresponds to the subdirectory name within
+        the `skills_root` directory. The generator reads the markdown file
+        located at `src/whatifd/skills/<name>/skill.md` and writes the file
+        `src/whatifd/skills/<name>/__init__.py`.
+    :param overwrite: Allow overwriting an existing `__init__.py` file. Without
+        this flag, the command does not permit overwriting existing implementation
+        files. Defaults to False.
+    :param skills_root: Root directory containing subdirectories for skills. Each
+        subdirectory should contain a `skill.md` file describing the skill's
+        metadata and implementation. Defaults to `src/whatifd/skills`.
+    :return: None
+    """
+    from whatifd.skills.errors import SkillGenerationError, SkillManifestError
+    from whatifd.skills.scaffold import scaffold_skill
+
+    skill_dir = skills_root / name
+
+    if not skill_dir.is_dir():
+        typer.echo(
+            f"whatifd skill generate: directory not found: {skill_dir}. "
+            "Create it and add a skill.md file, then re-run.",
+            err=True
+        )
+        raise typer.Exit(code=EXIT_INCONCLUSIVE_OR_SETUP_FAILURE)
+
+    try:
+        result = scaffold_skill(skill_dir, overwrite=overwrite)
+    except SkillGenerationError as exc:
+        typer.echo(f"whatifd skill generate: generation error: \n {exc}", err=True)
+        raise typer.Exit(code=EXIT_INCONCLUSIVE_OR_SETUP_FAILURE) from exc
+    except SkillManifestError as exc:
+        typer.echo(f"whatifd skill generate: manifest error: \n {exc}", err=True)
+        raise typer.Exit(code=EXIT_INCONCLUSIVE_OR_SETUP_FAILURE) from exc
+
+    typer.echo(f"whatifd skill generate: wrote {result.path_written}")
+    typer.echo("")
+    typer.echo(result.config_patch_hint)
+    typer.echo(result.factory_patch_hint)
+    raise typer.Exit(code=EXIT_SUCCESS)
+
+
 def main() -> None:
     """Console-script entry point (`pyproject.toml` declares
     `whatifd = whatifd.cli:main`)."""
