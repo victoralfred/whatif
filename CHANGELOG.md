@@ -12,6 +12,14 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+### Added (feature) — `whatifd skill generate` (skill scaffolding)
+
+- **New `whatifd skill` CLI subcommand.** `whatifd skill generate <name>` reads `src/whatifd/skills/<name>/skill.md`, validates the YAML frontmatter as a `SkillManifest`, generates a protocol-compliant `__init__.py` stub, and prints actionable patch instructions for `config.py` and `factory.py`. Exit 0 on success; exit 2 on any manifest or generation error (cardinal #1 — no raw stack traces escape the scaffolding boundary).
+- **`src/whatifd/skills/` subpackage.** Layered modules: `schema.py` (Pydantic `SkillManifest` with `extra="forbid"`), `errors.py` (`SkillManifestError` / `SkillGenerationError`), `loader.py` (fence-split + `yaml.safe_load` + validation), `generator.py` (deterministic code generation — no LLM calls), `writer.py` (overwrite-guarded file write), `scaffold.py` (load → generate → write → print orchestrator).
+- **`skill.md` frontmatter schema** is hand-written and versioned (cardinal #6). Supported kinds: `scorer`, `tracer`, `runner`. Unknown frontmatter keys raise `SkillManifestError` at parse time, not silently at generation time.
+- **Example skill** at `src/whatifd/skills/example/` — a constant-return stub scorer used as the generator smoke-test (`whatifd skill generate example`).
+- **`.claude/skills/capabilities/SKILL.md`** — Claude Code skill that guides the AI assistant through the same three-step authoring process (write `skill.md` → run generator → apply patches + run tests).
+
 ### Fixed
 
 - **Circular import between `whatifd.serialization` and `whatifd.cache.lock`** (#85). `cache/lock.py`'s module-load-time imports of `canonical_json_bytes` and `parse_lock_file_content` triggered a re-entry into a partially-initialized `whatifd.serialization` package, surfacing only when a single test (e.g., `tests/unit/whatifd/decision/test_verdict.py`) ran in isolation — the full suite preloaded the cycle's victims earlier and masked it. Fix: defer the three imports to function-local at their call sites in `cache/lock.py` (`acquire_cache_lock`, `_try_takeover_if_stale`, `_build_locked_error`). Regression pinned by subprocess-based fresh-interpreter import tests (`tests/unit/whatifd/test_import_isolation.py`) covering both import orders.
