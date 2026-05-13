@@ -108,6 +108,57 @@ uv run whatifd fork --config whatifd.config.yaml
 
 Real Langfuse traces require `LANGFUSE_HOST` (or `LANGFUSE_BASE_URL`) + `LANGFUSE_PUBLIC_KEY` + `LANGFUSE_SECRET_KEY` in the environment. Real Inspect AI scoring is reachable from YAML via `scorer.score_fn: python:<module>:<attr>` (Phase B); the v0.1 programmatic-only path is preserved.
 
+## Quickstart (skill scaffolding — add a new adapter)
+
+```bash
+# 1. Create the skill directory and write a skill.md:
+mkdir -p src/whatifd/skills/my_scorer
+cat > src/whatifd/skills/my_scorer/skill.md <<EOF
+---
+name: my_scorer
+description: "Scores traces using my external API."
+version: "0.1"
+kind: scorer
+env_vars:
+  - name: MY_API_KEY
+    required: true
+    description: "API key for the scoring service."
+parameters:
+  - name: model_id
+    type: str
+    required: true
+    description: "Model identifier."
+  - name: timeout
+    type: float
+    required: false
+    default: "30.0"
+    description: "Request timeout in seconds."
+---
+
+## What this skill does
+
+Calls the external scoring API and returns a float score (0.0–1.0) with rationale.
+EOF
+
+# 2. Run the generator:
+uv run whatifd skill generate my_scorer
+
+# Output:
+#   whatifd skill generate: wrote src/whatifd/skills/my_scorer/__init__.py
+#   === config.py patch instructions ===  ...
+#   === factory.py patch instructions === ...
+
+# 3. Apply the printed config.py and factory.py patches, implement the TODOs, then test:
+pytest tests/ -x -q
+mypy src/whatifd/skills/my_scorer
+```
+
+Options:
+- `--overwrite` — allow regenerating over an existing `__init__.py`
+- `--skills-root <path>` — use a non-default skills root directory
+
+See [`src/whatifd/skills/skill.md`](./src/whatifd/skills/skill.md) for the full frontmatter schema and cardinal rules that apply to all adapters.
+
 ## How it composes
 
 `whatifd` doesn't replace your tracer or your eval framework — it composes them into an experiment.
