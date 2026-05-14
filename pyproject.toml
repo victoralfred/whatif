@@ -77,6 +77,7 @@ workspace = [
   "whatifd-langfuse",
   "whatifd-inspect-ai",
   "whatifd-phoenix",
+  "whatifd-skillgen",
 ]
 
 [project.scripts]
@@ -143,7 +144,7 @@ asyncio_mode = "auto"
 # have their own pyproject.toml and version, but share this venv
 # during development. PyPI publication is per-package.
 [tool.uv.workspace]
-members = ["packages/whatifd-langfuse", "packages/whatifd-inspect-ai", "packages/whatifd-phoenix"]
+members = ["packages/whatifd-langfuse", "packages/whatifd-inspect-ai", "packages/whatifd-phoenix", "packages/whatifd-skillgen"]
 
 # Resolve the workspace adapter packages from the in-tree path
 # instead of PyPI. With this binding, `uv sync` installs them
@@ -153,3 +154,4 @@ members = ["packages/whatifd-langfuse", "packages/whatifd-inspect-ai", "packages
 whatifd-langfuse = { workspace = true }
 whatifd-inspect-ai = { workspace = true }
 whatifd-phoenix = { workspace = true }
+whatifd-skillgen = { workspace = true }
