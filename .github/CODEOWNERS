@@ -25,6 +25,5 @@ pyproject.toml                 @victoralfred
 README.md                      @victoralfred
 CHANGELOG.md                   @victoralfred
 
-# capabilities.md is a skill-level document.
-.claude/skills/capabilities/   @princenyeche
-src/whatifd/skills             @princenyeche
+# whatifd-skillgen is a skill-level document.
+packages/whatifd-skillgen/    @princenyeche
