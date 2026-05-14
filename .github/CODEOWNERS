@@ -24,3 +24,6 @@ pyproject.toml                 @victoralfred
 # Public-facing copy.
 README.md                      @victoralfred
 CHANGELOG.md                   @victoralfred
+
+# whatifd-skillgen is a skill-level document.
+packages/whatifd-skillgen/    @princenyeche

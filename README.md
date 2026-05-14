@@ -108,6 +108,7 @@ uv run whatifd fork --config whatifd.config.yaml
 
 Real Langfuse traces require `LANGFUSE_HOST` (or `LANGFUSE_BASE_URL`) + `LANGFUSE_PUBLIC_KEY` + `LANGFUSE_SECRET_KEY` in the environment. Real Inspect AI scoring is reachable from YAML via `scorer.score_fn: python:<module>:<attr>` (Phase B); the v0.1 programmatic-only path is preserved.
 
+
 ## How it composes
 
 `whatifd` doesn't replace your tracer or your eval framework — it composes them into an experiment.

@@ -23,7 +23,7 @@ jobs:
     outputs:
       ref-name: ${{ github.ref_name }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       # Tag↔version parity guard. The `version` field in each
@@ -58,6 +58,7 @@ jobs:
               "packages/whatifd-langfuse/pyproject.toml",
               "packages/whatifd-inspect-ai/pyproject.toml",
               "packages/whatifd-phoenix/pyproject.toml",
+              "packages/whatifd-skillgen/pyproject.toml",
           ]
           bad = 0
           for pkg in packages:
@@ -98,7 +99,7 @@ jobs:
               )
               sys.exit(1)
           print(
-              f"Tag {tag} matches all four workspace pyproject.toml "
+              f"Tag {tag} matches all five workspace pyproject.toml "
               f"versions ({tag_version})."
           )
           PY
@@ -125,28 +126,35 @@ jobs:
         run: uv build --package whatifd-inspect-ai --out-dir dist-whatifd-inspect-ai
       - name: Build whatifd-phoenix distribution
         run: uv build --package whatifd-phoenix --out-dir dist-whatifd-phoenix
+      - name: Build whatifd-skillgen distribution
+        run: uv build --package whatifd-skillgen --out-dir dist-whatifd-skillgen
       - name: List artifacts
         run: |
-          ls -la dist-whatifd dist-whatifd-langfuse dist-whatifd-inspect-ai dist-whatifd-phoenix
-      - uses: actions/upload-artifact@v7
+          ls -la dist-whatifd dist-whatifd-langfuse dist-whatifd-inspect-ai dist-whatifd-phoenix dist-whatifd-skillgen
+      - uses: actions/upload-artifact@v4
         with:
           name: dist-whatifd
           path: dist-whatifd/
           if-no-files-found: error
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@v4
         with:
           name: dist-whatifd-langfuse
           path: dist-whatifd-langfuse/
           if-no-files-found: error
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@v4
         with:
           name: dist-whatifd-inspect-ai
           path: dist-whatifd-inspect-ai/
           if-no-files-found: error
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@v4
         with:
           name: dist-whatifd-phoenix
           path: dist-whatifd-phoenix/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-whatifd-skillgen
+          path: dist-whatifd-skillgen/
           if-no-files-found: error
 
   # Each package publishes from its own job because PyPI Trusted
@@ -238,6 +246,26 @@ jobs:
           path: dist/
       - uses: pypa/gh-action-pypi-publish@release/v1
 
+  publish-whatifd-skillgen:
+    name: publish whatifd-skillgen to PyPI
+    needs: publish-whatifd
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi-whatifd-skillgen
+      url: https://pypi.org/p/whatifd-skillgen
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist-whatifd-skillgen
+          path: dist/
+      # Supply-chain note: this action consumes the OIDC token
+      # granted by `id-token: write`. For maximum hardening, pin
+      # to a full commit SHA instead of `release/v1` before tagging
+      # — see RELEASING.md "Supply-chain hardening" section.
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
   github-release:
     name: github release with notes
     needs:
@@ -245,11 +273,12 @@ jobs:
       - publish-whatifd-langfuse
       - publish-whatifd-inspect-ai
       - publish-whatifd-phoenix
+      - publish-whatifd-skillgen
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - uses: actions/download-artifact@v4

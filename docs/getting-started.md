@@ -256,6 +256,7 @@ The five-section structure (header → cohort table → findings → cache + met
 - **[Runner contract](./runner-contract.md)** — the protocol your replay code implements
 - **[Concepts](./concepts.md)** — the doctrine: defensible verdicts, non-claims, trust floor vs decision policy
 - **[Walkthroughs](./walkthroughs/)** — six rendered examples (Ship, Don't Ship, Inconclusive)
+- **[Integrations](./integrations/index.md)** — Langfuse, Phoenix, Inspect AI adapters; guide for writing a new `whatifd-<name>` adapter
 - **[`examples/minimal-agent/`](../examples/minimal-agent/)** — copy-paste reference Runner
 
 ## Stub adapters: what they do (and don't)
