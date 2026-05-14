@@ -15,6 +15,7 @@ from collections import defaultdict
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
 
+from whatifd.adapters.pii import wrap_pii_attributes
 from whatifd.adapters.protocols import (
     AdapterMetadata,
     RawTrace,
@@ -254,7 +255,19 @@ class PhoenixTraceSource:
             cohort=self.cohort_classifier(spans),
             user_message=user_message,
             original_response=original_response,
-            metadata={k: v for k, v in root.items() if k not in (_ATTR_INPUT, _ATTR_OUTPUT)},
+            # Wrap PII-bearing OpenInference attributes at the
+            # boundary (cardinal #5, issue #87). Phoenix span
+            # attributes routinely surface `user.id` / `user.email` /
+            # `session.id`; `wrap_pii_attributes` wraps registered
+            # keys as `Sensitive[str]` and passes everything else
+            # through unchanged. The model validator on
+            # `RawTrace.metadata` would catch an unwrapped value here
+            # anyway, but doing the wrap at the projection step
+            # produces the right shape directly rather than relying
+            # on the validator to surface a failure.
+            metadata=wrap_pii_attributes(
+                {k: v for k, v in root.items() if k not in (_ATTR_INPUT, _ATTR_OUTPUT)}
+            ),
         )
 
 

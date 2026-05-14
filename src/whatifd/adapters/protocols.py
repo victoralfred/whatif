@@ -39,8 +39,9 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Any, Protocol, runtime_checkable
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from whatifd.adapters.pii import PII_ATTRIBUTE_KEYS
 from whatifd.cache.keying.v1 import CacheKeyComponents
 from whatifd.contract import ScoreCase
 from whatifd.types.sensitive import Sensitive
@@ -116,7 +117,15 @@ class RawTrace(BaseModel):
     )
     metadata: dict[str, Any] = Field(
         default_factory=dict,
-        description="Free-form trace metadata pulled from the source tracer.",
+        description=(
+            "Free-form trace metadata pulled from the source tracer. "
+            "Values at keys in `whatifd.adapters.PII_ATTRIBUTE_KEYS` "
+            "MUST be `Sensitive[str]` or `None`; the model validator "
+            "enforces this at construction time. Use "
+            "`whatifd.adapters.wrap_pii_attributes(...)` to wrap the "
+            "raw dict at the adapter boundary — that's the typical "
+            "happy path. Cardinal #5."
+        ),
     )
     cluster_key: str | None = Field(
         default=None,
@@ -133,6 +142,50 @@ class RawTrace(BaseModel):
             "`FailureRecord` rather than silently dropping the row."
         ),
     )
+
+    @model_validator(mode="after")
+    def _enforce_pii_attribute_wrapping(self) -> RawTrace:
+        """Boundary enforcement for cardinal #5 (PII at known-PII
+        attribute keys must be wrapped).
+
+        For each key in `PII_ATTRIBUTE_KEYS` that appears in
+        `metadata`, the value must be `Sensitive[str]` or `None`. A
+        raw `str` (or any other type) at a registered PII key fails
+        validation at construction — *before* the trace flows
+        through the replay / scoring / serialization pipeline.
+
+        Per `references/enforcement.md`'s hierarchy of strength,
+        this is layer (a) of the cardinal-#5 chain: type-level
+        prevention via the Pydantic boundary check. Pre-serialization
+        graph-walk (`assert_no_unredacted_sensitive`) is layer (b);
+        the JSON encoder fallback is layer (c). Catching at layer
+        (a) means an adapter author who forgets to call
+        `wrap_pii_attributes` sees the failure at the first
+        `RawTrace(...)` construction in their integration test,
+        not after a full pipeline run.
+
+        The validator is mode='after' so it sees the post-coercion
+        dict (Pydantic has already validated the outer
+        `dict[str, Any]` shape). It does NOT walk nested values
+        under non-PII keys — those are legitimately free-form
+        tooling state per the docstring on `metadata`.
+        """
+        for key, value in self.metadata.items():
+            if key not in PII_ATTRIBUTE_KEYS:
+                continue
+            if value is None or isinstance(value, Sensitive):
+                continue
+            raise ValueError(
+                f"RawTrace.metadata key {key!r} is registered as PII "
+                f"(`whatifd.adapters.PII_ATTRIBUTE_KEYS`) but the value "
+                f"is unwrapped ({type(value).__name__}). Cardinal #5: "
+                "PII-bearing attributes must be wrapped as "
+                "`Sensitive[str]` at the adapter boundary. Call "
+                "`whatifd.adapters.wrap_pii_attributes(raw_dict)` in "
+                "your adapter's projection step instead of passing "
+                "the dict through unchanged."
+            )
+        return self
 
 
 class JudgeResult(BaseModel):

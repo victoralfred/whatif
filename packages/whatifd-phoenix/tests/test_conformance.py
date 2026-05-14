@@ -149,6 +149,28 @@ class TestSpanGrouping:
         assert "model.name" in trace.metadata
         assert trace.metadata["model.name"] == "claude-haiku-4-5"
 
+    def test_pii_attributes_wrapped_at_boundary(self) -> None:
+        # Issue #87: OpenInference `user.id` and `session.id` are
+        # registered in `whatifd.adapters.PII_ATTRIBUTE_KEYS` and
+        # MUST be wrapped as `Sensitive[str]` at the projection
+        # boundary. The fixture in `_make_root_span` populates both
+        # — this test pins that the Phoenix adapter wraps them via
+        # `wrap_pii_attributes`. A regression that removes the
+        # wrap or drops the import surfaces here, not at
+        # serialization time downstream.
+        from whatifd.types.sensitive import Sensitive
+
+        spans = [_make_root_span("t-1")]
+        source = PhoenixTraceSource(
+            spans_provider=lambda: spans,
+            cohort_classifier=_classify_baseline,
+        )
+        [trace] = list(source.iter_traces())
+        assert isinstance(trace.metadata["user.id"], Sensitive)
+        assert isinstance(trace.metadata["session.id"], Sensitive)
+        # Non-PII attribute unchanged — passthrough discipline.
+        assert isinstance(trace.metadata["model.name"], str)
+
     def test_classifier_receives_full_span_list(self) -> None:
         # Cohort classification often depends on non-root spans
         # (e.g., a tool span that errored, a tag attribute on a

@@ -28,6 +28,11 @@ enforces the boundary.
 """
 
 from whatifd.adapters.factory import AdapterFactoryError, build_scorer, build_trace_source
+from whatifd.adapters.pii import (
+    PII_ATTRIBUTE_KEYS,
+    PIIAttributeTypeError,
+    wrap_pii_attributes,
+)
 from whatifd.adapters.protocols import (
     AdapterMetadata,
     JudgeResult,
@@ -44,13 +49,16 @@ from whatifd.types.statistical import ClusterKeySupport
 # `whatifd.types.statistical` (cardinal #6 typed-boundary discipline);
 # this re-export is for ergonomics at the adapter boundary.
 __all__ = [
+    "PII_ATTRIBUTE_KEYS",
     "AdapterFactoryError",
     "AdapterMetadata",
     "ClusterKeySupport",
     "JudgeResult",
+    "PIIAttributeTypeError",
     "RawTrace",
     "Scorer",
     "TraceSource",
     "build_scorer",
     "build_trace_source",
+    "wrap_pii_attributes",
 ]

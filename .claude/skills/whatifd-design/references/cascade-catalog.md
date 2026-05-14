@@ -1178,6 +1178,26 @@ The cycle is broken at import time because `TYPE_CHECKING` is False at runtime; 
 
 **Source telemetry:** flagged as a carried-forward risk in `docs/sessions/telemetry-2026-05-10.md`.
 
+### `PII_ATTRIBUTE_KEYS` registry — adapter-boundary cardinal-#5 enforcement (issue #87)
+
+**Source decision:** Issue #87 closes a gap in cardinal-#5 enforcement: `RawTrace.metadata` was typed `dict[str, Any]` with the convention that "input.value and output.value are `Sensitive[str]`; everything else passes through unwrapped because it's expected to be tooling state." OpenInference and Langfuse both routinely surface PII-bearing attributes (`user.id`, `session.id`, `user.email`, `user_id`, `userId`, etc.) at non-`input`/`output` keys. The convention was a comment, not enforcement. The doctrine bot flagged this on PR #86 across multiple iterations.
+
+The fix (this PR): a frozenset `PII_ATTRIBUTE_KEYS` at `whatifd.adapters.pii` + a `wrap_pii_attributes(metadata)` helper that wraps registered keys as `Sensitive[str]` at the adapter boundary. A Pydantic `model_validator(mode="after")` on `RawTrace.metadata` rejects unwrapped values at registered keys, raising at construction-time. The conformance harness asserts the property structurally across every adapter.
+
+**Rippled to / refactor protection:**
+
+- **Adapters**: both `whatifd-langfuse.LangfuseTraceSource._project` and `whatifd-phoenix.PhoenixTraceSource._project` now pipe their raw metadata dict through `wrap_pii_attributes`. Adapter-specific tests pin the wrap.
+- **`enforcement.md`** has a paired row documenting the three-layer chain.
+- **Future adapters**: the conformance harness automatically extends to any future adapter that wires `TraceSourceConformance`. No per-adapter code change required to inherit the enforcement.
+
+**Registry contract:**
+
+The static frozenset covers v0.2-era adapter needs (OpenInference + Langfuse + generic). Custom adapter-specific keys are NOT supported in v0.2 — adapter authors observing PII at a non-registered key in production should file an issue, not extend the set locally. A future `register_pii_attribute(key)` API is the natural v0.3 extension surface; until then, the static set is the contract.
+
+**Status:** open (resolves on next merge that wires the registry — this PR).
+
+**Resolution:** closes when this PR merges. Followup cascade entry needed if a third adapter (LangSmith / OTel GenAI) lands and surfaces attribute keys not in the current set.
+
 ## Resolved cascades
 
 > **Ordering convention:** entries are reverse-chronological — newest at the top, oldest at the bottom. New resolved cascades are PREPENDED to this section, not appended. Reasoning: a contributor scanning for "what shipped recently" or "what's the latest doctrine on X" gets the answer in the first few entries instead of paging to the end. The original v0.1 entries (PRs #26, #31, etc.) sit at the bottom because they were resolved earliest; the most recent v0.2 phases sit at the top.

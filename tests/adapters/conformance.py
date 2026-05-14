@@ -176,6 +176,38 @@ class TraceSourceConformance:
             assert isinstance(rt.user_message, Sensitive)
             assert isinstance(rt.original_response, Sensitive)
 
+    def test_emitted_traces_wrap_pii_attributes(self, trace_source: TraceSource) -> None:
+        # Issue #87 / cardinal #5: every emitted RawTrace whose
+        # metadata contains a key registered in PII_ATTRIBUTE_KEYS
+        # must have that value wrapped as Sensitive[str] (or set to
+        # None). The Pydantic model_validator on RawTrace enforces
+        # this at construction — this harness test re-asserts at the
+        # adapter-boundary level so a regression that emits raw PII
+        # via model_construct (bypassing validation) fails loudly.
+        #
+        # Adapter authors satisfy this by calling
+        # `whatifd.adapters.wrap_pii_attributes(raw_dict)` in their
+        # projection step. A test failure here is the canonical
+        # signal that the adapter is missing the wrap.
+        from whatifd.adapters.pii import PII_ATTRIBUTE_KEYS
+
+        emitted = list(trace_source.iter_traces())
+        if not emitted:
+            pytest.skip(
+                "trace_source emitted no traces; the harness cannot exercise "
+                "PII-attribute wrapping. Provide a fixture that emits at least one."
+            )
+        for rt in emitted:
+            for key, value in rt.metadata.items():
+                if key not in PII_ATTRIBUTE_KEYS:
+                    continue
+                assert value is None or isinstance(value, Sensitive), (
+                    f"trace {rt.trace_id} emits unwrapped value at PII-registered "
+                    f"key {key!r} (got {type(value).__name__}). Cardinal #5: wrap "
+                    "via whatifd.adapters.wrap_pii_attributes(...) at the adapter "
+                    "projection boundary."
+                )
+
 
 class ScorerConformance:
     """Conformance properties every `Scorer` must satisfy.

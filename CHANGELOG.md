@@ -12,6 +12,14 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+### Added — cardinal-#5 enforcement for PII-bearing metadata attributes (#87)
+
+- **New `whatifd.adapters.pii` module.** Ships `PII_ATTRIBUTE_KEYS` (frozenset of OpenInference + Langfuse + generic PII attribute names), `wrap_pii_attributes(metadata)` helper that wraps registered keys as `Sensitive[str]` at the adapter boundary, and `PIIAttributeTypeError` for adapters emitting non-string values at registered keys.
+- **`RawTrace.metadata` boundary validator.** New Pydantic `model_validator(mode="after")` on `whatifd.adapters.protocols.RawTrace` rejects unwrapped values at any `PII_ATTRIBUTE_KEYS` member, raising at construction-time. Layer (a) of the cardinal-#5 three-layer chain; the graph-walk (b) and encoder fallback (c) remain in place as defense-in-depth.
+- **Conformance harness extension.** `tests/adapters/conformance.py::TraceSourceConformance::test_emitted_traces_wrap_pii_attributes` walks every emitted `RawTrace` from every adapter and asserts known-PII attributes are wrapped. Adapter regressions surface at the harness boundary, not at serialization downstream.
+- **`whatifd-langfuse` + `whatifd-phoenix` adapters wired.** Both adapter packages' projection paths now call `wrap_pii_attributes(...)` on the raw metadata dict. Adapter-specific tests pin the wrap on fixture traces carrying `user_id` / `sessionId` (Langfuse) and `user.id` / `session.id` (Phoenix / OpenInference).
+- **Enforcement-table row added** to `.claude/skills/whatifd-design/references/enforcement.md` covering the three-layer chain for PII-bearing metadata.
+
 ### Fixed
 
 - **Circular import between `whatifd.serialization` and `whatifd.cache.lock`** (#85). `cache/lock.py`'s module-load-time imports of `canonical_json_bytes` and `parse_lock_file_content` triggered a re-entry into a partially-initialized `whatifd.serialization` package, surfacing only when a single test (e.g., `tests/unit/whatifd/decision/test_verdict.py`) ran in isolation — the full suite preloaded the cycle's victims earlier and masked it. Fix: defer the three imports to function-local at their call sites in `cache/lock.py` (`acquire_cache_lock`, `_try_takeover_if_stale`, `_build_locked_error`). Regression pinned by subprocess-based fresh-interpreter import tests (`tests/unit/whatifd/test_import_isolation.py`) covering both import orders.
