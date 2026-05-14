@@ -19,7 +19,6 @@ Behaviors under test:
 from __future__ import annotations
 
 import pytest
-from pydantic import ValidationError
 
 from whatifd.adapters.pii import (
     PII_ATTRIBUTE_KEYS,
@@ -156,11 +155,25 @@ class TestSharedMessageTemplate:
         # Same routing pin for the model_validator surface — a
         # future refactor that drifts one wording but not the other
         # would fail here OR in `test_helper_surface_message_uses_the_template`.
-        with pytest.raises(ValidationError) as exc_info:
+        with pytest.raises(PIIAttributeTypeError) as exc_info:
             RawTrace(**_minimal_rawtrace_kwargs(metadata={"user.id": "leaked"}))
         msg = str(exc_info.value)
         assert "PII_ATTRIBUTE_KEYS" in msg
         assert "wrap_pii_attributes" in msg
+
+    def test_both_surfaces_raise_the_same_exception_class(self) -> None:
+        # Cardinal #1 taxonomy symmetry: a caller writing
+        # `except PIIAttributeTypeError` catches both the
+        # wrap-helper raise site AND the model-validator raise
+        # site. Pin this so a future refactor can't accidentally
+        # reintroduce the asymmetry (helper raises
+        # PIIAttributeTypeError; validator raises ValueError /
+        # ValidationError) that the original PR #104 review
+        # flagged.
+        with pytest.raises(PIIAttributeTypeError):
+            wrap_pii_attributes({"user.id": 42})
+        with pytest.raises(PIIAttributeTypeError):
+            RawTrace(**_minimal_rawtrace_kwargs(metadata={"user.id": "leaked"}))
 
 
 class TestRawTraceBoundaryValidator:
@@ -177,11 +190,11 @@ class TestRawTraceBoundaryValidator:
         assert rt.metadata["user.id"] is None
 
     def test_construction_with_raw_str_at_pii_key_fails(self) -> None:
-        with pytest.raises(ValidationError, match=r"user\.id.*unwrapped"):
+        with pytest.raises(PIIAttributeTypeError, match=r"user\.id.*unwrapped"):
             RawTrace(**_minimal_rawtrace_kwargs(metadata={"user.id": "leaked-id"}))
 
     def test_construction_with_int_at_pii_key_fails(self) -> None:
-        with pytest.raises(ValidationError, match=r"user\.id.*unwrapped"):
+        with pytest.raises(PIIAttributeTypeError, match=r"user\.id.*unwrapped"):
             RawTrace(**_minimal_rawtrace_kwargs(metadata={"user.id": 12345}))
 
     def test_construction_with_unregistered_key_does_not_fire(self) -> None:
@@ -192,7 +205,64 @@ class TestRawTraceBoundaryValidator:
         assert rt.metadata["request_count"] == 42
 
     def test_validator_errors_name_the_offending_key(self) -> None:
-        with pytest.raises(ValidationError) as exc_info:
+        with pytest.raises(PIIAttributeTypeError) as exc_info:
             RawTrace(**_minimal_rawtrace_kwargs(metadata={"session.id": "s-leak"}))
         msg = str(exc_info.value)
         assert "session.id" in msg
+
+
+class TestModelConstructBypass:
+    """The conformance harness comment claims that
+    `test_emitted_traces_wrap_pii_attributes` re-asserts at the
+    harness boundary specifically to catch a regression that
+    constructs RawTrace via `model_construct` (which bypasses the
+    Pydantic validator). This class pins that claim with actual
+    tests — both that `model_construct` CAN produce a raw-PII
+    RawTrace (proving the bypass is real) AND that the harness
+    walker catches it.
+
+    Cardinal #5 has a known escape hatch (`model_construct` is a
+    legitimate Pydantic API for fast-path construction skipping
+    validation); the load-bearing defense is the conformance
+    harness's read-side walk over emitted traces. These tests
+    structurally pin that defense so the harness comment isn't
+    convention-only.
+    """
+
+    def test_model_construct_bypasses_validator(self) -> None:
+        # Sanity check: prove the bypass is real (otherwise the
+        # subsequent harness-catches-it test would be testing
+        # nothing). `model_construct` returns a RawTrace with the
+        # raw PII string intact at `user.id`, no validation error.
+        rt = RawTrace.model_construct(
+            **_minimal_rawtrace_kwargs(metadata={"user.id": "leaked-via-construct"})
+        )
+        assert rt.metadata["user.id"] == "leaked-via-construct"
+        assert not isinstance(rt.metadata["user.id"], Sensitive)
+
+    def test_harness_walk_catches_model_construct_bypass(self) -> None:
+        # Simulate what `test_emitted_traces_wrap_pii_attributes`
+        # does: walk the emitted RawTrace's metadata and check that
+        # any PII-registered key carries a Sensitive (or None).
+        # This test fires the same assertion the harness fires —
+        # if the harness logic changes and stops catching this
+        # case, this test fails.
+        from whatifd.adapters.pii import PII_ATTRIBUTE_KEYS
+
+        bypass_trace = RawTrace.model_construct(
+            **_minimal_rawtrace_kwargs(metadata={"user.id": "leaked"})
+        )
+        leak_keys = [
+            k
+            for k, v in bypass_trace.metadata.items()
+            if k in PII_ATTRIBUTE_KEYS and v is not None and not isinstance(v, Sensitive)
+        ]
+        # Harness would fail if leak_keys is non-empty — pin that
+        # the bypass IS detected at the read-side walk.
+        assert leak_keys == ["user.id"], (
+            "the harness-shaped read-side walk did not catch the "
+            "model_construct bypass; the load-bearing defense is "
+            "broken. (See conformance.py "
+            "test_emitted_traces_wrap_pii_attributes for the actual "
+            "harness assertion.)"
+        )

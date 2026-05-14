@@ -1178,23 +1178,6 @@ The cycle is broken at import time because `TYPE_CHECKING` is False at runtime; 
 
 **Source telemetry:** flagged as a carried-forward risk in `docs/sessions/telemetry-2026-05-10.md`.
 
-### `PII_ATTRIBUTE_KEYS` registry — adapter-boundary cardinal-#5 enforcement (issue #87)
-
-**Source decision:** Issue #87 closes a cardinal-#5 gap: `RawTrace.metadata` was typed `dict[str, Any]` with the convention that "input.value and output.value are `Sensitive[str]`; everything else passes through unwrapped because it's expected to be tooling state." OpenInference and Langfuse both surface PII-bearing attributes (`user.id`, `session.id`, `user.email`, `user_id`, `userId`, etc.) at non-`input`/`output` keys. The convention was a comment, not enforcement. Doctrine bot flagged on PR #86.
-
-The fix: `whatifd.adapters.pii.PII_ATTRIBUTE_KEYS` frozenset + `wrap_pii_attributes(metadata)` helper that wraps registered keys as `Sensitive[str]` at the adapter boundary. A Pydantic `model_validator(mode="after")` on `RawTrace.metadata` rejects unwrapped values at registered keys, raising at construction-time. The conformance harness asserts the property structurally across every adapter. Both violation surfaces (`PIIAttributeTypeError` and the model_validator's `ValidationError`) route through a shared `_format_pii_violation()` template so registry-shape refactors update both consistently.
-
-**Rippled to / refactor protection:**
-
-- Both `whatifd-langfuse.LangfuseTraceSource._project` and `whatifd-phoenix.PhoenixTraceSource._project` pipe metadata through `wrap_pii_attributes`. Adapter-specific tests pin the wrap.
-- `enforcement.md` has a paired row for the three-layer chain.
-- `TraceSourceConformance` docstring documents the "fixture discipline" rule: subclasses MUST emit at least one trace; the existing `pytest.skip` for empty fixtures is a safety-net diagnostic.
-- Future adapters automatically inherit the enforcement via the conformance harness.
-
-**Registry contract:** Static frozenset covers v0.2-era adapter needs (OpenInference + Langfuse + generic). Custom adapter-specific keys are NOT supported in v0.2 — adapter authors observing PII at a non-registered key in production should file an issue, not extend the set locally. A future `register_pii_attribute(key)` API is the natural v0.3 extension.
-
-**Status:** open (resolves on next merge that wires the registry).
-
 ### `RawTrace.tool_spans` — same cardinal-#5 risk as `metadata`, deferred coordinated change
 
 **Source decision:** The `RawTrace.metadata` enforcement (above) shipped via `PII_ATTRIBUTE_KEYS` + `wrap_pii_attributes` + the `model_validator` chain. The sibling field `tool_spans: list[dict[str, Any]]` carries the same structural risk — tracer-emitted tool spans routinely include user content (search queries, retrieval results, tool arguments echoing user input) and could surface PII identifiers in span attributes — but is deliberately scoped out.
@@ -1221,6 +1204,23 @@ The fix: `whatifd.adapters.pii.PII_ATTRIBUTE_KEYS` frozenset + `wrap_pii_attribu
 ## Resolved cascades
 
 > **Ordering convention:** entries are reverse-chronological — newest at the top, oldest at the bottom. New resolved cascades are PREPENDED to this section, not appended. Reasoning: a contributor scanning for "what shipped recently" or "what's the latest doctrine on X" gets the answer in the first few entries instead of paging to the end. The original v0.1 entries (PRs #26, #31, etc.) sit at the bottom because they were resolved earliest; the most recent v0.2 phases sit at the top.
+
+### `PII_ATTRIBUTE_KEYS` registry — adapter-boundary cardinal-#5 enforcement (resolved 2026-05-14; issue #87, PR #109)
+
+**Source decision:** Issue #87 closed a cardinal-#5 gap: `RawTrace.metadata` was typed `dict[str, Any]` with the convention that "input.value and output.value are `Sensitive[str]`; everything else passes through unwrapped because it's expected to be tooling state." OpenInference and Langfuse both surface PII-bearing attributes (`user.id`, `session.id`, `user.email`, `user_id`, `userId`, etc.) at non-`input`/`output` keys. The convention was a comment, not enforcement. Doctrine bot flagged on PR #86.
+
+**Resolution:** `whatifd.adapters.pii.PII_ATTRIBUTE_KEYS` frozenset + `wrap_pii_attributes(metadata)` helper that wraps registered keys as `Sensitive[str]` at the adapter boundary. A Pydantic `model_validator(mode="after")` on `RawTrace.metadata` rejects unwrapped values at registered keys, raising at construction-time. The conformance harness asserts the property structurally across every adapter. Both violation surfaces raise `PIIAttributeTypeError` (cardinal #1 taxonomy symmetry) and route their message text through a shared `_format_pii_violation()` template so registry-shape refactors update both surfaces consistently.
+
+**Rippled to / refactor protection:**
+- Both `whatifd-langfuse.LangfuseTraceSource._project` and `whatifd-phoenix.PhoenixTraceSource._project` pipe metadata through `wrap_pii_attributes`. Adapter-specific tests pin the wrap.
+- `enforcement.md` has a paired row for the three-layer chain.
+- `TraceSourceConformance` docstring documents the "fixture discipline" rule: subclasses MUST emit at least one trace; the existing `pytest.skip` for empty fixtures is a safety-net diagnostic, not a sanctioned design choice.
+- Future adapters automatically inherit the enforcement via the conformance harness.
+- `model_construct` bypass path is explicitly tested (`TestModelConstructBypass` in `tests/unit/whatifd/adapters/test_pii.py`) — the conformance harness's read-side walk over emitted traces catches PII even when an adapter uses Pydantic's fast-path construction to skip the validator.
+
+**Registry contract:** Static frozenset covers v0.2-era adapter needs (OpenInference + Langfuse + generic). Custom adapter-specific keys are NOT supported in v0.2 — adapter authors observing PII at a non-registered key in production should file an issue, not extend the set locally. A future `register_pii_attribute(key)` API is the natural v0.3 extension.
+
+**Status:** resolved.
 
 ### Phase J — Determinism widening: per-field `x-deterministic` on `RunManifest` + cross-platform CI (resolved 2026-05-10)
 

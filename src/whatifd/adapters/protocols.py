@@ -41,7 +41,11 @@ from typing import Any, Protocol, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from whatifd.adapters.pii import PII_ATTRIBUTE_KEYS, _format_pii_violation
+from whatifd.adapters.pii import (
+    PII_ATTRIBUTE_KEYS,
+    PIIAttributeTypeError,
+    _format_pii_violation,
+)
 from whatifd.cache.keying.v1 import CacheKeyComponents
 from whatifd.contract import ScoreCase
 from whatifd.types.sensitive import Sensitive
@@ -180,7 +184,17 @@ class RawTrace(BaseModel):
                 continue
             if value is None or isinstance(value, Sensitive):
                 continue
-            raise ValueError(
+            # Cardinal #1 taxonomy symmetry: both the helper-surface
+            # raise (`wrap_pii_attributes`) and this validator-surface
+            # raise use `PIIAttributeTypeError`. A single exception
+            # class for one structural concern simplifies the public
+            # API — callers `pytest.raises(PIIAttributeTypeError)` or
+            # `except PIIAttributeTypeError` covers both paths.
+            # Pydantic propagates `TypeError` subclasses directly
+            # (verified empirically), so this does NOT get wrapped
+            # into `ValidationError`; the exception surfaces as
+            # `PIIAttributeTypeError` to the caller.
+            raise PIIAttributeTypeError(
                 _format_pii_violation(
                     key,
                     f"unwrapped ({type(value).__name__})",
