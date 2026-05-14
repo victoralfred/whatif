@@ -41,7 +41,7 @@ from typing import Any, Protocol, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from whatifd.adapters.pii import PII_ATTRIBUTE_KEYS
+from whatifd.adapters.pii import PII_ATTRIBUTE_KEYS, _format_pii_violation
 from whatifd.cache.keying.v1 import CacheKeyComponents
 from whatifd.contract import ScoreCase
 from whatifd.types.sensitive import Sensitive
@@ -176,14 +176,15 @@ class RawTrace(BaseModel):
             if value is None or isinstance(value, Sensitive):
                 continue
             raise ValueError(
-                f"RawTrace.metadata key {key!r} is registered as PII "
-                f"(`whatifd.adapters.PII_ATTRIBUTE_KEYS`) but the value "
-                f"is unwrapped ({type(value).__name__}). Cardinal #5: "
-                "PII-bearing attributes must be wrapped as "
-                "`Sensitive[str]` at the adapter boundary. Call "
-                "`whatifd.adapters.wrap_pii_attributes(raw_dict)` in "
-                "your adapter's projection step instead of passing "
-                "the dict through unchanged."
+                _format_pii_violation(
+                    key,
+                    f"unwrapped ({type(value).__name__})",
+                    context=(
+                        "Cardinal #5: PII-bearing attributes must be "
+                        "wrapped as `Sensitive[str]` at the adapter "
+                        "boundary"
+                    ),
+                )
             )
         return self
 

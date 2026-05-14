@@ -102,6 +102,27 @@ class TraceSourceConformance:
     concrete adapter. `__test__ = False` so pytest does not collect
     the base — only concrete subclasses are run.
 
+    ## Fixture discipline (cardinal #1)
+
+    Subclasses MUST provide a `trace_source` fixture that emits at
+    least one trace. Several conformance tests
+    (`test_emitted_traces_wrap_user_content`,
+    `test_emitted_traces_wrap_pii_attributes`) materialize the stream
+    to assert per-trace properties; with zero emitted traces those
+    tests have nothing to walk and surface a `pytest.skip(...)` as
+    a diagnostic. **The skip is a safety net, not a sanctioned
+    design choice** — a subclass that ships an empty fixture
+    silently under-tests every per-trace property the harness
+    covers, and the conformance gate weakens to "the adapter is a
+    valid `TraceSource` instance with the right method signatures."
+    That's not enough to call an adapter conformance-passing.
+
+    Real-adapter authors: if you have a legitimate reason to wire a
+    fixture that may emit zero traces in some environments (e.g., a
+    hosted-service fixture that times out without credentials), file
+    a follow-up issue describing the case so the discipline can be
+    relaxed deliberately rather than by accident.
+
     **Real-adapter authors (Phase 4B):** `test_emitted_traces_wrap_user_content`
     materializes the entire stream via `list()` to assert
     `Sensitive[str]` wrapping on every emitted trace. The harness

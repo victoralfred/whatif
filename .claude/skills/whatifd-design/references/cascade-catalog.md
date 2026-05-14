@@ -1198,6 +1198,31 @@ The static frozenset covers v0.2-era adapter needs (OpenInference + Langfuse + g
 
 **Resolution:** closes when this PR merges. Followup cascade entry needed if a third adapter (LangSmith / OTel GenAI) lands and surfaces attribute keys not in the current set.
 
+### `RawTrace.tool_spans` — same cardinal-#5 risk as `metadata`, deferred coordinated change
+
+**Source decision:** PR #104 (issue #87 resolution) shipped boundary-level cardinal-#5 enforcement for `RawTrace.metadata` via `PII_ATTRIBUTE_KEYS` + `wrap_pii_attributes` + the `model_validator` chain. The sibling field `tool_spans: list[dict[str, Any]]` carries the same structural risk — tracer-emitted tool spans routinely include user content (search queries, retrieval results, tool arguments echoing user input) and could surface PII identifiers in span attributes — but was deliberately scoped out of the PR.
+
+The doctrine-bot review on PR #104 (post-merge) flagged this as a tracking gap: an "out of scope" note in a PR is convention, and convention is not enforcement. This entry exists so the deferral is structural, not memory-bound.
+
+**Why scoped out of #104:**
+
+- `tool_spans` is typed `list[dict[str, Any]]` for parity with `whatifd.contract.ReplayOutput.tool_spans` — the runner contract surface that core whatifd ships to user-supplied runners. Tightening the adapter-side type without lifting the contract diverges the two shapes.
+- The PII registry would need a different value-shape for tool spans (the spans are nested objects, not flat key-value attributes), so the same `wrap_pii_attributes(metadata)` helper doesn't directly apply.
+- The runner-contract typed-`ToolSpan` work is its own scope (deferred from v0.1 — see existing cascade entry).
+
+**Resolution path:**
+
+1. Coordinate a runner-contract bump: introduce `whatifd.contract.ToolSpan` as a typed model (Pydantic, with fields for span kind / input / output / metadata). `ReplayOutput.tool_spans` and `RawTrace.tool_spans` both adopt it.
+2. Apply per-field PII discipline at the `ToolSpan` boundary — likely the input + output text slots become `Sensitive[str]`, with the metadata sub-dict subject to the same `PII_ATTRIBUTE_KEYS` validator as the parent.
+3. Update both shipped adapters (`whatifd-langfuse`, `whatifd-phoenix`) to project tool spans through the typed model.
+4. Extend the conformance harness with the equivalent `test_emitted_traces_wrap_tool_span_user_content` property.
+
+**Trigger for resolution:** the first of (a) a user report of unwrapped PII in tool spans from a real adapter run, or (b) the runner-contract `ToolSpan` typing work landing for an unrelated reason (deferred from v0.1, tracked as a separate cascade entry).
+
+**Status:** open. Not blocking on schema freeze because the metadata gap closed in PR #104 — `tool_spans` is the next-priority surface but cardinally-equivalent to a v0.3 concern.
+
+**Tracking issue:** #106 — filed with cross-reference to this catalog entry and to PR #104.
+
 ## Resolved cascades
 
 > **Ordering convention:** entries are reverse-chronological — newest at the top, oldest at the bottom. New resolved cascades are PREPENDED to this section, not appended. Reasoning: a contributor scanning for "what shipped recently" or "what's the latest doctrine on X" gets the answer in the first few entries instead of paging to the end. The original v0.1 entries (PRs #26, #31, etc.) sit at the bottom because they were resolved earliest; the most recent v0.2 phases sit at the top.

@@ -141,6 +141,51 @@ class PIIAttributeTypeError(TypeError):
     """
 
 
+def _format_pii_violation(key: str, value_description: str, *, context: str) -> str:
+    """Shared message template for cardinal-#5 PII-attribute
+    violations.
+
+    Two callers surface this text: `wrap_pii_attributes` (raising
+    `PIIAttributeTypeError` when an adapter emits a non-string at a
+    registered key) and `RawTrace`'s `model_validator` (raising
+    `ValueError` / Pydantic `ValidationError` when an unwrapped
+    value reaches construction). Keeping the message in one place
+    means a future registry-shape change (e.g., per-key
+    classification, custom-key registration in v0.3) updates both
+    surfaces consistently — neither caller can drift the wording
+    while the other stays stale.
+
+    Parameters
+    ----------
+    key
+        The offending metadata key (always quoted with `!r` in the
+        rendered message so a whitespace-bearing key surfaces clearly).
+    value_description
+        Caller-supplied description of why the value violates. The
+        helper passes a phrase like `"int, not str"`; the validator
+        passes `"unwrapped (str)"`. Kept caller-supplied so the
+        message text reflects which surface raised without changing
+        the shared boilerplate.
+    context
+        One-sentence framing of which contract was violated. The
+        helper passes the value-shape contract ("must be strings");
+        the validator passes the boundary-wrapping contract
+        ("must be wrapped as Sensitive[str]").
+    """
+    return (
+        f"metadata key {key!r} is registered as PII "
+        f"(`whatifd.adapters.PII_ATTRIBUTE_KEYS`) but the value is "
+        f"{value_description}. {context}. Call "
+        "`whatifd.adapters.wrap_pii_attributes(raw_dict)` in the "
+        "adapter's projection step to wrap registered keys "
+        "automatically. If this attribute is structured (e.g., a "
+        "JSON object), the adapter must either flatten the identifier "
+        "out and emit it under a different key, or extend "
+        "`PII_ATTRIBUTE_KEYS` via the v0.3+ `register_pii_attribute()` "
+        "API (not yet shipped)."
+    )
+
+
 def wrap_pii_attributes(metadata: Mapping[str, Any]) -> dict[str, Any]:
     """Wrap registered PII-attribute values as `Sensitive[str]`.
 
@@ -194,14 +239,14 @@ def wrap_pii_attributes(metadata: Mapping[str, Any]) -> dict[str, Any]:
             result[key] = Sensitive(value=value, classification="user_content")
             continue
         raise PIIAttributeTypeError(
-            f"metadata key {key!r} is registered as PII "
-            f"(`PII_ATTRIBUTE_KEYS`) but the value is "
-            f"{type(value).__name__}, not str. PII-bearing attribute "
-            "values must be strings (identifiers) so they can be "
-            "wrapped as `Sensitive[str]` at the adapter boundary. If "
-            "this attribute is structured (e.g., a JSON object), the "
-            "adapter must either flatten the identifier out and emit "
-            "it under a different key, or extend `PII_ATTRIBUTE_KEYS` "
-            "with a specialized classification (v0.3+ API)."
+            _format_pii_violation(
+                key,
+                f"{type(value).__name__}, not str",
+                context=(
+                    "PII-bearing attribute values must be strings "
+                    "(identifiers) so they can be wrapped as "
+                    "`Sensitive[str]` at the adapter boundary"
+                ),
+            )
         )
     return result
