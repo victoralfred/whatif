@@ -325,7 +325,35 @@ def acquire_cache_lock(
         # (`-W default::ResourceWarning`) and routable through
         # `warnings.filterwarnings(...)` for CI/test discipline.
         # Matches the precedent in `whatifd/serialization/decimal.py`.
+        # F-3.1 (production-hardening review 2026-05-16): cleanup
+        # order is `unlink -> LOCK_UN -> close`, NOT the original
+        # `LOCK_UN -> close -> unlink`. The original order opens the
+        # classic fcntl/unlink race: between LOCK_UN and unlink, a
+        # concurrent contender opens the existing inode and acquires
+        # flock on it; our subsequent unlink removes the directory
+        # entry while the inode survives via the contender's refcount;
+        # a third opener using O_CREAT then creates a different inode
+        # at the path and acquires flock on THAT, leaving two
+        # "holders" of the lock on different inodes — the single-
+        # writer guarantee is defeated.
+        #
+        # Unlinking while still holding flock means: any contender
+        # blocked on flock(LOCK_EX) keeps waiting on the (now-doomed)
+        # inode until we release; any contender arriving after the
+        # unlink hits O_CREAT and locks a fresh inode independently.
+        # The doomed-inode waiter eventually acquires its flock, then
+        # discovers the directory entry now points to a different
+        # inode (the fresh one held by another contender) — this is
+        # why a complete fix also pairs acquisition with an inode-
+        # identity check; that hardening is tracked as a follow-up.
+        # The cleanup reorder here is the minimum that closes the
+        # race window the original cleanup opened.
         if acquired:
+            with contextlib.suppress(FileNotFoundError):
+                # FileNotFoundError on unlink is the expected "another
+                # process took over via stale-detection and unlinked
+                # before us" race; benign and not warning-worthy.
+                lock_path.unlink()
             try:
                 fcntl.flock(fp.fileno(), fcntl.LOCK_UN)
             except OSError as e:
@@ -342,12 +370,6 @@ def acquire_cache_lock(
                 ResourceWarning,
                 stacklevel=2,
             )
-        if acquired:
-            with contextlib.suppress(FileNotFoundError):
-                # FileNotFoundError on unlink is the expected "another
-                # process took over via stale-detection and unlinked
-                # before us" race; benign and not warning-worthy.
-                lock_path.unlink()
 
 
 def _try_takeover_if_stale(

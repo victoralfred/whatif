@@ -668,6 +668,56 @@ class TestUnlinkRaceTolerance:
         )
 
 
+class TestCleanupOrderUnlinkBeforeUnlock:
+    """F-3.1 (production-hardening review 2026-05-16): cleanup must
+    `unlink -> LOCK_UN -> close`, NOT the original
+    `LOCK_UN -> close -> unlink`.
+
+    The original order opened the classic fcntl/unlink race: between
+    LOCK_UN and unlink, a contender could open the existing inode and
+    flock it; our subsequent unlink left the inode alive via the
+    contender's refcount; a third opener using O_CREAT then created a
+    different inode at the path and locked it — two "holders" on
+    different inodes, single-writer guarantee defeated.
+
+    Pinned via source inspection (the cleanup order is a structural
+    invariant; a runtime test of the race requires three coordinated
+    processes and is flaky). Source-level pin protects against future
+    refactors silently reverting the order.
+    """
+
+    def test_cleanup_order_is_unlink_before_unlock(self) -> None:
+        import inspect
+
+        from whatifd.cache import lock as lock_module
+
+        source = inspect.getsource(lock_module.acquire_cache_lock)
+        # Find the cleanup block (after the `finally:` keyword).
+        finally_idx = source.find("finally:")
+        assert finally_idx >= 0, "acquire_cache_lock must have a finally cleanup block"
+        cleanup = source[finally_idx:]
+
+        unlink_idx = cleanup.find("lock_path.unlink()")
+        unlock_idx = cleanup.find("fcntl.LOCK_UN")
+        close_idx = cleanup.find("fp.close()")
+        assert unlink_idx >= 0 and unlock_idx >= 0 and close_idx >= 0, (
+            "cleanup must call unlink, LOCK_UN, and close"
+        )
+        assert unlink_idx < unlock_idx, (
+            "F-3.1: unlink MUST occur before LOCK_UN to avoid the "
+            "fcntl/unlink race. Reorder back to "
+            "`unlink -> LOCK_UN -> close`."
+        )
+
+    def test_cleanup_still_removes_lock_file(self, tmp_path: Path) -> None:
+        """After exit, the lock file is gone — same observable behavior
+        as before the F-3.1 reorder."""
+        cache_root = tmp_path / "cache"
+        with acquire_cache_lock(cache_root):
+            assert (cache_root / ".lock").exists()
+        assert not (cache_root / ".lock").exists()
+
+
 class TestPackageReExport:
     """The most-used lock surface is re-exported at the package level
     so callers don't need to reach into `whatifd.cache.lock`. Pin both
