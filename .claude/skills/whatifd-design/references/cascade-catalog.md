@@ -1205,6 +1205,25 @@ The cycle is broken at import time because `TYPE_CHECKING` is False at runtime; 
 
 > **Ordering convention:** entries are reverse-chronological — newest at the top, oldest at the bottom. New resolved cascades are PREPENDED to this section, not appended. Reasoning: a contributor scanning for "what shipped recently" or "what's the latest doctrine on X" gets the answer in the first few entries instead of paging to the end. The original v0.1 entries (PRs #26, #31, etc.) sit at the bottom because they were resolved earliest; the most recent v0.2 phases sit at the top.
 
+### Phoenix `tool_spans` projection (partial; content-stripped) — F-2.2 fix (resolved 2026-05-16)
+
+**Source decision:** Production-hardening review F-2.2: `PhoenixTraceSource._project` pre-wrapped `input.value`/`output.value` on every span via `_wrap_user_content_in_span`, then discarded all non-root spans — `RawTrace.tool_spans` stayed at the empty-list default. Consumers reading the verdict report had no visibility into tool-call structure (which tools fired, in what order, with what timing). The wrapped child-span content was wasted work; the dropped tool-span structure was lost information.
+
+**Resolution:** New `_project_tool_span(span)` helper in `packages/whatifd-phoenix/src/whatifd_phoenix/source.py` projects each non-root span into a `dict[str, Any]` entry for `RawTrace.tool_spans`, **stripping** content keys (`input.value`, `output.value`) and PII-registered keys (`PII_ATTRIBUTE_KEYS` members) at the projection boundary. `_project` calls this for every span where `s is not root` and passes the resulting list as `RawTrace.tool_spans`.
+
+**Why strip rather than wrap:** `RawTrace.tool_spans` is typed `list[dict[str, Any]]` and is NOT subject to the `RawTrace.metadata` `model_validator` that enforces `Sensitive[str]` at PII keys. Wrapping content as `Sensitive[str]` inside `tool_spans` dicts would be caught by `assert_no_unredacted_sensitive` at the serialization boundary (the graph walk does not distinguish "wrapped" from "leaked"; both surface as defects on the report path). Stripping is the structural fix that respects cardinal #5 without requiring typed-`ToolSpan` work.
+
+**Rippled to / refactor protection:**
+
+- 6 new tests in `packages/whatifd-phoenix/tests/test_conformance.py::TestToolSpansProjection` pin the projection shape: non-root spans appear, root span excluded, content keys stripped, PII keys stripped, structural keys preserved, empty when no children.
+- Full test suite green: 1316 passing (was 1310 pre-fix).
+- The Langfuse adapter is structurally different (`trace.tool_spans` doesn't exist on the Langfuse `Trace` shape — Langfuse models tool calls as separate generations, not nested spans). No Langfuse-side change needed for parity.
+- The Inspect AI adapter is a Scorer, not a TraceSource; `tool_spans` is not in its surface.
+
+**Trigger for upgrade:** Issue #108 (typed `ToolSpan`) lands. At that point, `_project_tool_span` upgrades from strip-content to wrap-content-as-Sensitive[T]; the structural fix above is the placeholder until the typed shape ships.
+
+**Status:** resolved (partial — full content surfacing tracks issue #108).
+
 ### `PII_ATTRIBUTE_KEYS` registry — adapter-boundary cardinal-#5 enforcement (resolved 2026-05-14; issue #87, PR #109)
 
 **Source decision:** Issue #87 closed a cardinal-#5 gap: `RawTrace.metadata` was typed `dict[str, Any]` with the convention that "input.value and output.value are `Sensitive[str]`; everything else passes through unwrapped because it's expected to be tooling state." OpenInference and Langfuse both surface PII-bearing attributes (`user.id`, `session.id`, `user.email`, `user_id`, `userId`, etc.) at non-`input`/`output` keys. The convention was a comment, not enforcement. Doctrine bot flagged on PR #86.

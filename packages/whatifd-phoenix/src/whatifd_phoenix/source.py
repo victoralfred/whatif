@@ -15,7 +15,7 @@ from collections import defaultdict
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
 
-from whatifd.adapters.pii import wrap_pii_attributes
+from whatifd.adapters.pii import PII_ATTRIBUTE_KEYS, wrap_pii_attributes
 from whatifd.adapters.protocols import (
     AdapterMetadata,
     RawTrace,
@@ -108,6 +108,36 @@ def _wrap_user_content_in_span(span: dict[str, object]) -> dict[str, object]:
             classification="user_content",
         )
     return wrapped
+
+
+def _project_tool_span(span: dict[str, object]) -> dict[str, object]:
+    """Project a non-root OpenInference span into a `RawTrace.tool_spans` entry.
+
+    `RawTrace.tool_spans` is typed `list[dict[str, Any]]` and is NOT
+    subject to the `RawTrace.metadata` `model_validator` that enforces
+    `Sensitive[str]` wrapping at PII-registry keys. Cardinal #5 here
+    is preserved by **stripping** content and PII keys at the
+    projection boundary rather than wrapping them — wrapped
+    `Sensitive[T]` instances inside `tool_spans` dicts would be
+    caught by `assert_no_unredacted_sensitive` at serialization
+    time (the graph walk does not distinguish "wrapped" from
+    "leaked"; both surface as defects on the report path).
+
+    Surfaces ONLY structural/tooling attributes — kind, parent_id,
+    tool.name, model.name, timing, etc. Content (`input.value`,
+    `output.value`) and PII-registered attribute keys are dropped.
+
+    A consumer reading the report sees tool-span structure (which
+    tools fired, in what order, at what latency) without seeing
+    content or identifiers. Issue #108 tracks the typed `ToolSpan`
+    upgrade that will surface content via proper `Sensitive[T]`
+    wrapping; until then, content stripping is the structural fix.
+    """
+    return {
+        k: v
+        for k, v in span.items()
+        if k not in (_ATTR_INPUT, _ATTR_OUTPUT) and k not in PII_ATTRIBUTE_KEYS
+    }
 
 
 def _is_root_span(span: dict[str, object]) -> bool:
@@ -250,11 +280,24 @@ class PhoenixTraceSource:
             if isinstance(wrapped_output, Sensitive)
             else Sensitive(_stringify(wrapped_output), classification="user_content")
         )
+        # Project non-root spans into `RawTrace.tool_spans` so the
+        # verdict report sees the trace's tool-call structure (which
+        # tools fired, in what order, with what timing). Each entry
+        # is content-stripped + PII-stripped per `_project_tool_span`
+        # — issue #108 tracks the typed `ToolSpan` upgrade that will
+        # surface content via Sensitive[T]; until then, stripping is
+        # the structural fix that preserves cardinal #5. Identity
+        # comparison (`s is not root`) is correct because `root` was
+        # picked from `spans`; the same list object never has two
+        # references to the same span dict.
+        tool_spans = [_project_tool_span(s) for s in spans if s is not root]
+
         return RawTrace(
             trace_id=trace_id,
             cohort=self.cohort_classifier(spans),
             user_message=user_message,
             original_response=original_response,
+            tool_spans=tool_spans,
             # Wrap PII-bearing OpenInference attributes at the
             # boundary (cardinal #5, issue #87). Phoenix span
             # attributes routinely surface `user.id` / `user.email` /

@@ -196,6 +196,118 @@ class TestSpanGrouping:
         assert len(list(source.iter_traces())) == 3
 
 
+class TestToolSpansProjection:
+    """Phoenix `_project` populates `RawTrace.tool_spans` with
+    non-root spans (content-stripped per cardinal #5; see F-2.2 in
+    `docs/sessions/2026-05-16-production-hardening-review-findings.md`
+    and the catalog entry "Phoenix tool_spans projection (partial;
+    content-stripped)").
+
+    The tests below pin:
+      1. Non-root spans appear in tool_spans
+      2. Root span does NOT appear in tool_spans
+      3. Content keys (input.value, output.value) are stripped
+      4. PII-registered keys (user.id, session.id) are stripped
+      5. Structural keys (tool.name, span.kind, parent_id) pass through
+      6. Empty when there are no non-root spans
+    """
+
+    def test_non_root_spans_appear_in_tool_spans(self) -> None:
+        spans = [
+            _make_root_span("t-1"),
+            _make_child_span("t-1", parent_id="root-1"),
+            _make_child_span("t-1", parent_id="root-1"),
+        ]
+        source = PhoenixTraceSource(
+            spans_provider=lambda: spans,
+            cohort_classifier=_classify_baseline,
+        )
+        [trace] = list(source.iter_traces())
+        assert len(trace.tool_spans) == 2
+
+    def test_root_span_excluded_from_tool_spans(self) -> None:
+        spans = [_make_root_span("t-1"), _make_child_span("t-1")]
+        source = PhoenixTraceSource(
+            spans_provider=lambda: spans,
+            cohort_classifier=_classify_baseline,
+        )
+        [trace] = list(source.iter_traces())
+        # The single tool_span entry must be the child, not the root.
+        # The root's `openinference.span.kind` is "CHAIN"; the child's
+        # is "TOOL". Distinguishing on kind avoids relying on dict
+        # identity which is harder to assert across the projection.
+        assert len(trace.tool_spans) == 1
+        assert trace.tool_spans[0].get("openinference.span.kind") == "TOOL"
+
+    def test_tool_spans_strip_content_keys(self) -> None:
+        # A child span carrying its own input.value/output.value
+        # (e.g., a sub-agent's prompt) must NOT surface that content
+        # in tool_spans. The strip preserves cardinal #5 — issue #108
+        # tracks the typed-ToolSpan path that surfaces content via
+        # Sensitive[T] proper.
+        child_with_content = {
+            "context.trace_id": "t-1",
+            "parent_id": "root-1",
+            "openinference.span.kind": "TOOL",
+            "tool.name": "search",
+            "input.value": "user's secret query",
+            "output.value": "tool's secret response",
+        }
+        spans = [_make_root_span("t-1"), child_with_content]
+        source = PhoenixTraceSource(
+            spans_provider=lambda: spans,
+            cohort_classifier=_classify_baseline,
+        )
+        [trace] = list(source.iter_traces())
+        assert "input.value" not in trace.tool_spans[0]
+        assert "output.value" not in trace.tool_spans[0]
+
+    def test_tool_spans_strip_pii_keys(self) -> None:
+        child_with_pii = {
+            "context.trace_id": "t-1",
+            "parent_id": "root-1",
+            "openinference.span.kind": "TOOL",
+            "tool.name": "search",
+            "user.id": "u-7",
+            "session.id": "s-42",
+            "user.email": "leak@example.com",
+        }
+        spans = [_make_root_span("t-1"), child_with_pii]
+        source = PhoenixTraceSource(
+            spans_provider=lambda: spans,
+            cohort_classifier=_classify_baseline,
+        )
+        [trace] = list(source.iter_traces())
+        assert "user.id" not in trace.tool_spans[0]
+        assert "session.id" not in trace.tool_spans[0]
+        assert "user.email" not in trace.tool_spans[0]
+
+    def test_tool_spans_preserve_structural_keys(self) -> None:
+        # The fix surfaces tool-span structure (kind, parent, name,
+        # timing) — that's the WHOLE point of populating tool_spans.
+        # Confirm the structural keys pass through.
+        spans = [_make_root_span("t-1"), _make_child_span("t-1", parent_id="root-1")]
+        source = PhoenixTraceSource(
+            spans_provider=lambda: spans,
+            cohort_classifier=_classify_baseline,
+        )
+        [trace] = list(source.iter_traces())
+        child = trace.tool_spans[0]
+        assert child.get("openinference.span.kind") == "TOOL"
+        assert child.get("tool.name") == "search"
+        assert child.get("parent_id") == "root-1"
+        assert child.get("context.trace_id") == "t-1"
+
+    def test_tool_spans_empty_when_no_children(self) -> None:
+        spans = [_make_root_span("t-1")]
+        source = PhoenixTraceSource(
+            spans_provider=lambda: spans,
+            cohort_classifier=_classify_baseline,
+        )
+        [trace] = list(source.iter_traces())
+        assert trace.tool_spans == []
+
+
 class TestAdapterMetadata:
     def test_adapter_id_is_phoenix(self) -> None:
         source = PhoenixTraceSource(
