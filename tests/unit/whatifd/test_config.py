@@ -627,16 +627,42 @@ class TestExperimentShapeConfig:
         assert cfg.experiment_shape == "failure_rescue"
 
     def test_regression_check_accepted(self) -> None:
+        # regression_check requires baseline_cohort only; failure_cohort
+        # MUST be omitted (D-1 validator).
         d = _minimal_config_dict()
         d["experiment_shape"] = "regression_check"
+        del d["selection"]["failure_cohort"]
         cfg = WhatifConfig(**d)
         assert cfg.experiment_shape == "regression_check"
+        assert cfg.selection.failure_cohort is None
 
     def test_failure_rescue_accepted_explicit(self) -> None:
         d = _minimal_config_dict()
         d["experiment_shape"] = "failure_rescue"
         cfg = WhatifConfig(**d)
         assert cfg.experiment_shape == "failure_rescue"
+
+    def test_regression_check_rejects_failure_cohort(self) -> None:
+        # D-1 (docs audit): docs/reference/config.md:47 promises
+        # `failure_cohort is rejected at config-load with a named-field
+        # error if present` under regression_check. Pre-fix the check
+        # was missing and the cohort was silently ignored. Pin the
+        # rejection here so a future refactor that drops the validator
+        # surfaces the doc-promise gap immediately.
+        d = _minimal_config_dict()
+        d["experiment_shape"] = "regression_check"
+        # failure_cohort still present from _minimal_config_dict
+        with pytest.raises(ValidationError, match="failure_cohort"):
+            WhatifConfig(**d)
+
+    def test_failure_rescue_rejects_missing_failure_cohort(self) -> None:
+        # Symmetric pin: failure_rescue without failure_cohort is the
+        # other half of D-1's cross-field contract.
+        d = _minimal_config_dict()
+        # default shape == failure_rescue
+        del d["selection"]["failure_cohort"]
+        with pytest.raises(ValidationError, match="failure_cohort"):
+            WhatifConfig(**d)
 
     def test_unknown_shape_rejected(self) -> None:
         # Literal-typed: unknown values fail at config-load with a

@@ -161,8 +161,6 @@ def test_whatif_fork_e2e_experiment_shape_threaded_to_report(
         target:
           runner: python:{_RUNNER_FIXTURE_MODULE}:run
         selection:
-          failure_cohort:
-            limit: 5
           baseline_cohort:
             limit: 5
         change:

@@ -202,11 +202,20 @@ class CohortSelectionConfig(BaseModel):
 
 
 class SelectionConfig(BaseModel):
-    """Per-cohort selection limits."""
+    """Per-cohort selection limits.
+
+    `failure_cohort` is required for `experiment_shape=failure_rescue`
+    (the v0.2 default) and rejected for `experiment_shape=regression_check`
+    (where the failure cohort is meaningless — the baseline is what's
+    under test). The cross-field rule lives on `WhatifConfig` so it
+    can read `experiment_shape`; this class declares the field as
+    optional to allow the regression_check shape to omit it.
+    `baseline_cohort` is required under both shapes.
+    """
 
     model_config = _STRICT
 
-    failure_cohort: CohortSelectionConfig
+    failure_cohort: CohortSelectionConfig | None = None
     baseline_cohort: CohortSelectionConfig
 
 
@@ -429,6 +438,34 @@ class WhatifConfig(BaseModel):
     # Set to "regression_check" for the regression-check shape;
     # see whatifd.types.manifest.ExperimentShape for the contract.
     experiment_shape: ExperimentShape = "failure_rescue"
+
+    @model_validator(mode="after")
+    def _check_selection_matches_experiment_shape(self) -> WhatifConfig:
+        # D-1 (production-hardening docs audit): docs/reference/config.md
+        # claims `failure_cohort` is "rejected at config-load with a
+        # named-field error if present" under `regression_check`.
+        # Pre-fix the rejection didn't exist and the cohort was silently
+        # ignored by the verdict-policy chain — misleading per cardinal
+        # #10. Symmetrically: failure_rescue must have failure_cohort
+        # (the failure-rescue verdict needs the paired-cohort evidence).
+        if self.experiment_shape == "failure_rescue" and self.selection.failure_cohort is None:
+            raise ValueError(
+                "selection.failure_cohort is required when "
+                "experiment_shape='failure_rescue'; the failure-rescue "
+                "verdict needs paired failure/baseline evidence."
+            )
+        if (
+            self.experiment_shape == "regression_check"
+            and self.selection.failure_cohort is not None
+        ):
+            raise ValueError(
+                "selection.failure_cohort must be omitted when "
+                "experiment_shape='regression_check'; the regression-check "
+                "verdict tests the baseline itself, so a failure cohort "
+                "is meaningless and would be ignored by the policy chain. "
+                "Remove the `selection.failure_cohort` block."
+            )
+        return self
 
 
 # ---------------------------------------------------------------------------
