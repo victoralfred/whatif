@@ -224,6 +224,57 @@ def test_build_trace_source_langfuse_empty_string_host_treated_as_absent(
     assert "LANGFUSE_HOST" in str(excinfo.value)
 
 
+def _phoenix_spans_fixture() -> list[dict[str, object]]:
+    """Used by `test_build_trace_source_phoenix_*` via a `python:` ref."""
+    return []
+
+
+def test_build_trace_source_phoenix_dispatches(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """F-1.1: `source.adapter='phoenix'` must reach `PhoenixTraceSource`
+    via the factory. Docs at `whatifd-docs/docs/reference/config.md`
+    document this surface; pre-fix the factory raised
+    `AdapterFactoryError("Unknown trace-source adapter 'phoenix'.")`.
+    """
+    pytest.importorskip("whatifd_phoenix")
+    src = build_trace_source(
+        SourceConfig(
+            adapter="phoenix",
+            spans_provider=f"python:{_phoenix_spans_fixture.__module__}:_phoenix_spans_fixture",
+        )
+    )
+    from whatifd_phoenix import PhoenixTraceSource
+
+    assert isinstance(src, PhoenixTraceSource)
+
+
+def test_build_trace_source_phoenix_missing_spans_provider_raises() -> None:
+    """SourceConfig's model_validator catches missing `spans_provider`
+    at config-load time; the factory's belt-and-suspenders check fires
+    only via `model_construct` bypass. Both paths produce typed errors."""
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError, match="spans_provider"):
+        SourceConfig(adapter="phoenix")
+
+    # model_construct bypass — factory's own check fires.
+    bypass = SourceConfig.model_construct(adapter="phoenix", spans_provider=None)
+    with pytest.raises(AdapterFactoryError, match="spans_provider"):
+        build_trace_source(bypass)
+
+
+def test_build_trace_source_phoenix_bad_reference_raises() -> None:
+    pytest.importorskip("whatifd_phoenix")
+    with pytest.raises(AdapterFactoryError, match=r"source\.spans_provider"):
+        build_trace_source(
+            SourceConfig(
+                adapter="phoenix",
+                spans_provider="python:nonexistent.module:get_spans",
+            )
+        )
+
+
 def test_factory_re_exports_from_adapters_package() -> None:
     """`AdapterFactoryError`, `build_trace_source`, `build_scorer` are
     importable from `whatifd.adapters` directly so callers don't need

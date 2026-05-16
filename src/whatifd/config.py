@@ -158,11 +158,26 @@ class SourceConfig(BaseModel):
         ...,
         description="Adapter name; e.g., 'langfuse'. Resolved at load time.",
     )
-    # Adapter-specific options omitted from v0.1 per YAGNI:
-    # `langfuse` (the only v0.1 adapter) takes no config-level
-    # options. Phase 4 adapter integration will revisit if a future
-    # adapter needs them; the typed shape (dedicated `<Adapter>Options`
-    # model, NOT `dict[str, Any]`) lands then per cardinal #6.
+    spans_provider: str | None = Field(
+        default=None,
+        description=(
+            "`python:<module.path>:<attr>` reference to a "
+            "`Callable[[], Iterable[dict]]` yielding OpenInference-shaped "
+            "span dicts. Required when `adapter='phoenix'`; ignored for "
+            "other adapters (kept silent so a config block can be "
+            "retargeted without deleting the field)."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _check_adapter_required_fields(self) -> SourceConfig:
+        if self.adapter == "phoenix" and self.spans_provider is None:
+            raise ValueError(
+                "source.adapter='phoenix' requires source.spans_provider "
+                "(a `python:<module.path>:<attr>` reference to a "
+                "zero-arg callable yielding OpenInference span dicts)."
+            )
+        return self
 
 
 class TargetConfig(BaseModel):
