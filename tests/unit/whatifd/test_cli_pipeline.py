@@ -156,6 +156,46 @@ def test_original_tool_spans_threaded_into_score_case() -> None:
     assert original_spans[0].output.unwrap(reason="test") == "the tool result"
 
 
+def test_runner_replays_against_cached_tool_output() -> None:
+    # 108b-2: build_delta_fn populates the ToolCache from rt.tool_spans, so a
+    # runner calling tool_cache.lookup(name, args) gets the ORIGINAL output
+    # (use-original — side effects don't re-fire) instead of a cache miss.
+    from whatifd.contract import ToolSpan
+
+    seen: dict[str, Any] = {}
+
+    def _tool_using_runner(
+        trace_input: TraceInput,
+        config: ReplayConfig,
+        tool_cache: ToolCache,
+    ) -> ReplayOutput:
+        _ = (trace_input, config)
+        seen["cached"] = tool_cache.lookup("search", {"q": "weather"})
+        return ReplayOutput(text="ok")
+
+    rt = RawTrace(
+        trace_id="t-cache",
+        cohort="failure",
+        user_message=Sensitive("hi", classification="user_message"),
+        original_response=Sensitive("orig", classification="original_response"),
+        tool_spans=[
+            ToolSpan(
+                name="search",
+                args={"q": "weather"},
+                output=Sensitive("sunny", classification="user_content"),
+            )
+        ],
+    )
+    delta_fn = build_delta_fn(
+        loaded_runner=_loaded(_tool_using_runner, "sync"),
+        scorer=_ScoringScorer(score=0.0),
+        change=_change(),
+        replay_timeout_seconds=10.0,
+    )
+    delta_fn(rt)
+    assert seen["cached"] == "sunny"
+
+
 def test_async_runner_via_asyncio_run() -> None:
     scorer = _ScoringScorer(score=0.3)
     delta_fn = build_delta_fn(

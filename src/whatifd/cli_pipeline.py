@@ -55,13 +55,13 @@ from whatifd.contract import (
     ReplayOutput,
     Runner,
     ScoreCase,
-    ToolCache,
     TraceInput,
     TraceOutput,
 )
 from whatifd.replay.kernel import replay_one_trace
 from whatifd.replay.kernel_async import replay_one_trace_async
 from whatifd.replay.result import ReplayFailure, ReplaySuccess
+from whatifd.replay.tool_cache import build_tool_cache
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -119,13 +119,16 @@ def build_delta_fn(
         )
 
         trace_input = TraceInput(user_message=user_message)
-        # v0.1's strict tool-cache policy is `use-original`; the
-        # cache is constructed empty here because the v0.1
-        # adapters don't yet emit per-trace tool spans. A real
-        # runner that calls `tool_cache.lookup` will hit
-        # `CacheMissError` → ReplayFailure(tool_cache_miss), which
-        # is the correct surface for v0.1's no-tool-spans path.
-        tool_cache = ToolCache()
+        # Populate the strict `use-original` tool cache from the trace's
+        # recorded tool spans (#108, 108b-2). A runner that calls
+        # `tool_cache.lookup(name, args)` gets the original output back when
+        # its replay args match the recorded ones — destructive side effects
+        # don't re-fire. A genuine miss (the runner calls a tool/args the
+        # original turn didn't) still raises `CacheMissError` →
+        # `ReplayFailure(tool_cache_miss)`, the correct cardinal-#1 surface.
+        # Empty when the trace has no tool spans (e.g., the adapter emits
+        # none, or a prompt-only agent), which preserves the prior behavior.
+        tool_cache = build_tool_cache(rt.tool_spans, trace_id=rt.trace_id)
 
         if is_async:
             # `asyncio.run` creates a fresh event loop and

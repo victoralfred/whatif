@@ -282,20 +282,29 @@ On implementation, 108b is NOT one clean change — it splits:
   Low-risk, mechanical; pinned by
   `test_cli_pipeline.py::test_original_tool_spans_threaded_into_score_case`.
 
-- **108b-2 — ToolCache population (BLOCKED on a keying decision).** Populating
-  the runner's `ToolCache` via the existing
-  `whatifd.replay.tool_cache.make_strict_tool_cache(entries, trace_id=...)`
-  needs `entries` keyed by `ToolCache._key(tool_name, args_dict)` — and the
-  runner looks up by `(tool_name, args_dict)`. But 108a made `ToolSpan.input`
-  an opaque `Sensitive[str]` (correct for the *scorer*, which only judges
-  content). There is **no structured args dict to key the cache by**. Options:
-  (a) add a structured/keyable args field to `ToolSpan`; (b) key the cache by
-  `tool_call_id` and change the runner lookup contract to accept it; (c) parse
-  `ToolSpan.input` back to a dict (only valid when it is canonical-JSON of a
-  dict). This is a genuine design decision, not mechanical — **deferred until
-  decided.** Most agents in the faithfulness/regression use cases re-synthesize
-  from the reference rather than calling tools during replay, so 108b-1 is the
-  load-bearing unblock; 108b-2 serves the general tool-replay case.
+- **108b-2 — ToolCache population (CORE SHIPPED; keying decided = option a).**
+  Decision: **add a structured `ToolSpan.args: dict | None`** (option a). `input`
+  stays the rendered, judge-facing form; `args` is the keyable structure. Option
+  b (`tool_call_id`) was rejected — a replayed agent generates *fresh* call ids,
+  so they can't match the original; option c (parse `input` back) is fragile to
+  non-dict inputs. Shipped: `ToolSpan.args`, `whatifd.replay.tool_cache.
+  build_tool_cache(tool_spans, *, trace_id)` (entries keyed by
+  `ToolCache._key(name, args or {})`, value = the original output unwrapped to a
+  plain str), and `build_delta_fn` now builds the cache from `rt.tool_spans`
+  instead of an empty `ToolCache()`. A runner's `tool_cache.lookup(name, args)`
+  now returns the original output (use-original) when its replay args match.
+  Pinned by `test_tool_cache.py::TestBuildToolCache` + end-to-end
+  `test_cli_pipeline.py::test_runner_replays_against_cached_tool_output`.
+  **Remaining (thin):** adapters must populate `ToolSpan.args` from their tracer
+  so *real* traces fill the cache (Phoenix leaves `args=None` today → keys by
+  `{}`, only zero-arg tools hit). That extraction is tracer-specific
+  (best-effort parse of the span's input) and wants a real tool-span fixture to
+  get right — tracked, not rushed. Most faithfulness/regression cases
+  re-synthesize from the reference (108b-1), so this serves the general
+  tool-replay case.
+  Caveat: a structured tool output surfaces here as the canonical-JSON string
+  the span recorded (`ToolSpan.output` is `Sensitive[str]`); a runner needing a
+  dict parses it. A structured-result field is a possible future refinement.
 
 - **108b-3 — Langfuse `[TOOL]` projection (deferred).** The Langfuse adapter
   uses `api.trace.list`, whose payload does NOT include `observations`, so

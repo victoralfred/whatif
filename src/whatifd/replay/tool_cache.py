@@ -112,7 +112,7 @@ trace, hands it to the runner, discards it after replay.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from pydantic import PrivateAttr
@@ -131,7 +131,7 @@ from pydantic import PrivateAttr
 # TYPE_CHECKING; ToolCache._key function-level lazy import; this
 # module-level prime). Cleanup will retire all three.
 import whatifd.cache  # noqa: F401
-from whatifd.contract import ToolCache
+from whatifd.contract import ToolCache, ToolSpan
 from whatifd.types.primitives import JsonPrimitive
 
 # Private sentinel for sentinel-vs-None miss detection. Module-level
@@ -313,8 +313,48 @@ def make_strict_tool_cache(
     )
 
 
+def build_tool_cache(
+    tool_spans: Sequence[ToolSpan],
+    *,
+    trace_id: str,
+) -> StrictToolCache:
+    """Build a `StrictToolCache` from a trace's recorded tool spans (#108, 108b-2).
+
+    Each span with a recorded `output` becomes a cache entry keyed by
+    `ToolCache._key(span.name, span.args or {})`. A runner's
+    `tool_cache.lookup(span.name, args)` then returns the original output when
+    its replay `args` canonicalize to the recorded `span.args` — the
+    `use-original` policy: destructive tool side effects do not re-fire, and
+    the experiment varies only the proposed change, not the tool environment
+    (cardinal #10's "associated under cached-tool replay").
+
+    The cached value is the original tool output as a plain `str` — the
+    `Sensitive[str]` content unwrapped at this in-process boundary with an
+    audit reason (the cache map is never serialized; `ReportV01` carries no
+    tool spans). Tools that originally returned structured data surface here
+    as the canonical-JSON string the span recorded; a runner that needs a dict
+    parses it. Spans with no `output` are skipped (nothing to replay); a
+    repeated `(name, args)` key keeps the last span's output.
+
+    For the cache to HIT, the adapter must populate `ToolSpan.args` with the
+    original structured arguments (so the key matches the runner's replay
+    lookup). Adapters that leave `args=None` key by an empty dict — useful only
+    for zero-arg tools.
+    """
+    entries: dict[str, Any] = {}
+    for span in tool_spans:
+        if span.output is None:
+            continue
+        key = ToolCache._key(span.name, span.args or {})
+        entries[key] = span.output.unwrap(
+            reason="replay.tool_cache.build: use-original tool output for replay"
+        )
+    return make_strict_tool_cache(entries, trace_id=trace_id)
+
+
 __all__ = [
     "CacheMissError",
     "StrictToolCache",
+    "build_tool_cache",
     "make_strict_tool_cache",
 ]

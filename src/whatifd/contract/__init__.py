@@ -186,6 +186,19 @@ class ToolSpan(BaseModel):
     output: Sensitive[str] | None = Field(
         default=None, description="Tool output/result — user content, wrapped as Sensitive[str]."
     )
+    args: dict[str, Any] | None = Field(
+        default=None,
+        description=(
+            "Structured tool-call arguments, for `ToolCache` keying (108b-2). "
+            "Distinct from `input` (the rendered, judge-facing form): the cache "
+            "keys by `ToolCache._key(name, args)`, so a runner's "
+            "`tool_cache.lookup(name, args)` hits only when its replay args "
+            "canonicalize to the recorded `args`. None when the source has no "
+            "structured args (the call then keys by an empty dict). Consumed for "
+            "keying (hashed, never serialized to the wire), so a plain dict here "
+            "carries no cardinal-#5 exposure — `ReportV01` holds no tool spans."
+        ),
+    )
     attributes: dict[str, Any] = Field(
         default_factory=dict,
         description=(
