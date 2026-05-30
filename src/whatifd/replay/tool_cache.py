@@ -341,10 +341,25 @@ def build_tool_cache(
     lookup). Adapters that leave `args=None` key by an empty dict — useful only
     for zero-arg tools.
     """
+    # Cardinal-#5 boundary (legibility, doctrine-review): the `entries` dict
+    # and the resulting `StrictToolCache.cache` hold the UNWRAPPED tool output
+    # as a plain value — by design, not a leak. The ToolCache contract returns
+    # plain values (`lookup(...) -> Any`): the runner consumes the cached
+    # output as the tool's return value, exactly as the real tool would have.
+    # The cache is per-trace, in-process, and NEVER serialized (ReportV01
+    # carries no tool spans / no cache), so no graph-walk / wire exposure
+    # exists at this boundary. This mirrors `cli_pipeline.build_delta_fn`,
+    # which unwraps `user_message`/`original_response` with an audit reason
+    # before handing the runner plain `str`. Wrapping the value would break
+    # the runner's `lookup(...) -> Any` contract.
     entries: dict[str, Any] = {}
     for span in tool_spans:
         if span.output is None:
             continue
+        # `_key` canonicalizes (name, args) via canonical_json_bytes; a span
+        # whose `args` carries a non-JSON-serializable value raises here
+        # (a typed encoder error), surfacing the adapter bug rather than
+        # silently producing an unmatchable key (cardinal #1).
         key = ToolCache._key(span.name, span.args or {})
         entries[key] = span.output.unwrap(
             reason="replay.tool_cache.build: use-original tool output for replay"

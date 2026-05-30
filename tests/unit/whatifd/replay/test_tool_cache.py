@@ -24,6 +24,7 @@ Pin properties:
 from __future__ import annotations
 
 import pytest
+from pydantic import ValidationError
 
 from whatifd.contract import ToolCache, ToolSpan
 from whatifd.exceptions import InvariantViolationError
@@ -284,3 +285,39 @@ class TestBuildToolCache:
         assert isinstance(cache, StrictToolCache)
         with pytest.raises(CacheMissError):
             cache.lookup("anything", {})
+
+    def test_non_dict_args_rejected_by_schema(self) -> None:
+        # ToolSpan.args is `dict[str, Any] | None`; a non-dict is rejected at
+        # construction (pydantic), not silently accepted — the schema is the
+        # first guard on the keyable args.
+        with pytest.raises(ValidationError):
+            ToolSpan(name="search", args="not-a-dict")  # type: ignore[arg-type]
+
+    def test_nested_dict_args_round_trip(self) -> None:
+        # Structured/nested args canonicalize deterministically through
+        # ToolCache._key, so the runner's matching nested args hit.
+        spans = [
+            ToolSpan(
+                name="search",
+                args={"filters": {"region": "eu"}, "limit": 10},
+                output=Sensitive("hit", classification="user_content"),
+            )
+        ]
+        cache = build_tool_cache(spans, trace_id="t-1")
+        assert cache.lookup("search", {"filters": {"region": "eu"}, "limit": 10}) == "hit"
+
+    def test_non_serializable_args_raises_structurally(self) -> None:
+        # `dict[str, Any]` accepts any value, but a non-JSON-serializable arg
+        # value surfaces as a typed encoder error when build_tool_cache keys
+        # it (canonical_json_bytes) — a loud failure, not a silently
+        # unmatchable key (cardinal #1). An adapter putting non-serializable
+        # data in `args` is a bug; this pins that it is not swallowed.
+        spans = [
+            ToolSpan(
+                name="search",
+                args={"obj": object()},
+                output=Sensitive("hit", classification="user_content"),
+            )
+        ]
+        with pytest.raises(TypeError):
+            build_tool_cache(spans, trace_id="t-1")
