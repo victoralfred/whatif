@@ -81,3 +81,7 @@ tests/skill-benchmarks/results/**/*.txt
 .claude/scheduled_tasks.lock
 .claude/cache/
 .claude/state/
+# Local settings — may hold credentials (e.g. an `env` block with
+# LANGFUSE_*/ANTHROPIC_* keys). Never commit; keep secrets local.
+.claude/settings.json
+.claude/settings.local.json
