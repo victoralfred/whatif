@@ -197,6 +197,30 @@ _REGISTRY_BUILDER: dict[str, FindingCodeSpec] = {
             "authoritative; the template here is renderer documentation)."
         ),
     ),
+    "required_cohort_absent": FindingCodeSpec(
+        severity="blocks_all",
+        message_template=(
+            "required cohort {cohort} matched zero traces (absent); "
+            "verdict cannot be computed for this experiment shape"
+        ),
+        required_details=("cohort",),
+        derived_from_failures_expectation="never",
+        description=(
+            "A cohort required by the experiment shape (failure_rescue "
+            "requires both 'failure' and 'baseline'; regression_check "
+            "requires 'baseline') matched zero traces at selection time, so "
+            "it never appears in `cohort_results`. The trust floor emits a "
+            "run-level `required_cohort_present: absent` FloorFailure "
+            "(cardinal #2), but that failure has no per-cohort home and was "
+            "historically dropped from the wire (cascade 'Run-level "
+            "FloorFailure projection'). This finding surfaces it through the "
+            "`decision_findings` channel so the Inconclusive is actionable "
+            "(cardinal #8): the operator learns WHICH cohort was empty and "
+            "that the cause is upstream — a cohort classifier or selection "
+            "filter that matched nothing. `derived_from_failures` is empty "
+            "because the source is a floor rule, not a FailureRecord."
+        ),
+    ),
 }
 
 FINDING_CODE_REGISTRY: Mapping[str, FindingCodeSpec] = MappingProxyType(_REGISTRY_BUILDER)

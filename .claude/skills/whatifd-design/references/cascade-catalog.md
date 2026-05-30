@@ -1055,11 +1055,17 @@ Recommend option 2 (ContextVar) when concurrent or embedded runs become a real u
 - Tests in `test_projection.py` update to assert the field is populated for missing-cohort cases.
 - Phase 7 renderer surfaces run-level vs per-cohort floor failures distinctly (the missing-cohort case currently renders awkwardly with no cohort to anchor the failure under).
 
-**Status:** open
+**Status:** resolved (decision_findings path; no wire-schema change)
 
-**Resolution:** v0.2 minor (or v0.1.x patch since it's purely additive). The decision is whether the missing-cohort case is rare enough to keep dropping (and surface via `decision_findings` only) or worth a dedicated wire field.
+**Resolution:** v0.2.1 — surface via `decision_findings` only; the dedicated wire field is NOT added. The trigger fired 2026-05-30 during a live Langfuse run (`docs/sessions/2026-05-30-langfuse-integration-test.md`): an operator's cohort classifier keyed off a `failed` tag the traces didn't carry, so every trace landed in `baseline`, `failure` was absent, and the report came back `verdict_state="inconclusive"` with `decision_findings: []` — a bare, non-actionable verdict (cardinal #8 violation). Chosen over the wire field because (a) `decision_findings` is the actionable channel renderers already surface, directly satisfying cardinal #8 — a `floor_failures` wire field is pure disclosure (cardinal #3: necessary-not-sufficient); (b) no change to the published v0.2 wire contract (cardinal #6 schema discipline); (c) reversible/additive — the wire field can still be added later if a machine consumer needs structured floor data.
 
-**Trigger for resolution:** the first user-facing report that exhibits a missing-cohort case AND the operator complains about the loss of structured floor-failure data, OR the v0.2 schema-bump cycle that revisits ReportV01 fields.
+Implementation (v0.2.1):
+- `FINDING_CODE_REGISTRY["required_cohort_absent"]` — severity `blocks_all`, `required_details=("cohort",)`, `derived_from_failures_expectation="never"` (its evidence is a FloorFailure, not a FailureRecord — the one documented exception to the "blocks_all ⇒ derives from failures" invariant; carved out in `test_finding_codes.py::_FLOOR_DERIVED_BLOCKS_ALL`).
+- `FIX_SUGGESTION_REGISTRY["required_cohort_absent"]` — points the operator upstream (classifier / data / experiment_shape).
+- `compute_verdict` derives absent cohorts from `_required_cohorts_for_shape` minus present cohorts and appends one finding per absent required cohort. An absent required cohort always forces a `FloorFailureSet` (the floor still drives the Inconclusive per cardinal #2); the finding is the cardinal-#8 disclosure layer on top.
+- Pinned by `test_verdict.py::TestRegressionCheckShape::test_absent_required_cohort_emits_actionable_finding` (+ negative pin). `TestFloorFailuresProjection` is unchanged — the run-level aggregate is still absent from the wire schema, which remains the intended projection behavior.
+
+**Deferred (still open as a separate concern):** Phase 7 renderer surfacing run-level vs per-cohort floor failures distinctly. The `decision_findings` path makes the missing-cohort case actionable; dedicated renderer treatment of run-level floor failures is independent and remains future work.
 
 ### Serialization ↔ report ↔ cache import cycle
 

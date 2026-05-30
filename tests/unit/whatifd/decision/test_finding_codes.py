@@ -120,19 +120,44 @@ class TestRegistryShape:
 
 
 class TestSeveritySemantics:
+    # Documented exception: blocks_all codes whose Inconclusive-driving
+    # evidence is a *floor rule* (FloorFailure), not a FailureRecord. For
+    # these, `derived_from_failures` is legitimately empty — the operational
+    # evidence is the trust-floor failure (cardinal #2), and the finding is
+    # the cardinal-#8 disclosure layer that surfaces it on the wire. The
+    # "Inconclusive without evidence" bypass this test guards against cannot
+    # occur, because the floor itself forces Inconclusive before the finding
+    # severity is ever consulted.
+    _FLOOR_DERIVED_BLOCKS_ALL = frozenset({"required_cohort_absent"})
+
     def test_blocks_all_codes_expect_failure_derivation(self) -> None:
         # blocks_all findings represent operational catastrophes (cache
         # corruption, lock failures, systemic cohort failures). Each one
         # should wrap at least one FailureRecord — otherwise the run is
         # forced Inconclusive without operational evidence, which is the
-        # bypass cardinal #2 forbids.
+        # bypass cardinal #2 forbids. The sole exceptions are floor-derived
+        # codes (see `_FLOOR_DERIVED_BLOCKS_ALL`), whose evidence is a
+        # FloorFailure rather than a FailureRecord.
         for code, spec in FINDING_CODE_REGISTRY.items():
-            if spec.severity == "blocks_all":
+            if spec.severity == "blocks_all" and code not in self._FLOOR_DERIVED_BLOCKS_ALL:
                 assert spec.derived_from_failures_expectation == "always", (
                     f"blocks_all code {code!r} should expect derived_from_failures "
                     f"(got {spec.derived_from_failures_expectation!r}) — otherwise "
                     "Inconclusive can fire without operational evidence."
                 )
+
+    def test_floor_derived_blocks_all_codes_do_not_expect_failure_derivation(self) -> None:
+        # The carve-out is explicit, not a blanket relaxation: floor-derived
+        # blocks_all codes must expect NO failure derivation (their evidence
+        # is a FloorFailure). Pins the exception so a future blocks_all code
+        # can't silently join the set without expecting failures.
+        for code in self._FLOOR_DERIVED_BLOCKS_ALL:
+            spec = FINDING_CODE_REGISTRY[code]
+            assert spec.severity == "blocks_all"
+            assert spec.derived_from_failures_expectation == "never", (
+                f"floor-derived code {code!r} should expect no failure "
+                f"derivation (got {spec.derived_from_failures_expectation!r})."
+            )
 
     def test_info_codes_do_not_expect_failure_derivation(self) -> None:
         # info findings are observations about the run itself (improvement

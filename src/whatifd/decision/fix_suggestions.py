@@ -177,6 +177,32 @@ _REGISTRY_BUILDER: dict[str, FixSuggestion] = {
             "policy (rerun whatifd)."
         ),
     ),
+    "required_cohort_absent": FixSuggestion(
+        finding_code="required_cohort_absent",
+        summary="A required cohort matched zero traces — check your cohort classifier / selection.",
+        steps=(
+            "Identify the empty cohort from the finding's `details.cohort` (e.g., `failure`). "
+            "`failure_rescue` requires BOTH `failure` and `baseline`; `regression_check` requires "
+            "`baseline`. An absent required cohort always yields Inconclusive.",
+            "The usual cause is upstream, not whatifd: the cohort classifier put every trace in the "
+            "other cohort. With the Langfuse adapter this happens when the classifier keys off a signal "
+            "the traces don't carry (e.g., a `failed` tag none of them have) — switch it to a signal "
+            "they do (an attached evaluator score thresholded into failure/baseline).",
+            "If the classifier is correct but the cohort is genuinely empty, your data has no traces of "
+            "that kind (e.g., zero failures to rescue). Either collect failing traces, or switch "
+            "`experiment_shape` to `regression_check` (baseline-only) if you only mean to guard against "
+            "regressions.",
+            "Confirm the selection filter in `whatifd.config.yaml` (`selection.<cohort>.filter`) is not "
+            "so narrow it matches nothing, then rerun `whatifd fork`.",
+        ),
+        description=(
+            "Cardinal #8 actionability for the missing-cohort case (cascade 'Run-level FloorFailure "
+            "projection', resolved via decision_findings). The floor's run-level "
+            "`required_cohort_present: absent` failure has no per-cohort home on the wire; this finding "
+            "carries the operator-facing remedy. Fix is upstream (classifier / data / shape) before "
+            "policy (rerun)."
+        ),
+    ),
 }
 
 FIX_SUGGESTION_REGISTRY: Mapping[str, FixSuggestion] = MappingProxyType(_REGISTRY_BUILDER)

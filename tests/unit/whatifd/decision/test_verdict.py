@@ -458,6 +458,38 @@ class TestRegressionCheckShape:
         )
         assert isinstance(verdict, Inconclusive)
 
+    def test_absent_required_cohort_emits_actionable_finding(self) -> None:
+        # Cardinal #8: the missing-cohort Inconclusive must NAME the empty
+        # cohort and point upstream, not return a bare verdict with no
+        # decision_findings. Resolves cascade "Run-level FloorFailure
+        # projection" via the decision_findings channel (no wire-schema
+        # change). This is the live-Langfuse scenario: a cohort classifier
+        # that put every trace in `baseline`, leaving `failure` empty.
+        verdict = compute_verdict(
+            cohort_results=[_passing_baseline_cohort()],
+            floor=TrustFloor(),
+            policy=DecisionPolicy(),
+            experiment_shape="failure_rescue",
+        )
+        assert isinstance(verdict, Inconclusive)
+        absent = [f for f in verdict.findings if f.code == "required_cohort_absent"]
+        assert len(absent) == 1, [f.code for f in verdict.findings]
+        assert absent[0].severity == "blocks_all"
+        assert absent[0].details["cohort"] == "failure"
+        # It must ride the blocking subset so renderers surface it.
+        assert absent[0] in verdict.blocking_findings
+
+    def test_present_required_cohorts_emit_no_absent_finding(self) -> None:
+        # Negative pin: when both required cohorts are present, no
+        # required_cohort_absent finding is fabricated.
+        verdict = compute_verdict(
+            cohort_results=[_passing_failure_cohort(), _passing_baseline_cohort()],
+            floor=TrustFloor(),
+            policy=DecisionPolicy(),
+            experiment_shape="failure_rescue",
+        )
+        assert not any(f.code == "required_cohort_absent" for f in verdict.findings)
+
     def test_default_shape_is_failure_rescue(self) -> None:
         # Back-compat: callers that don't pass experiment_shape get
         # the v0.1 default behavior.

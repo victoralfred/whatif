@@ -61,6 +61,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+from whatifd.decision.finding_codes import make_decision_finding
 from whatifd.decision.floor import FloorFailureSet, FloorPassedProof, evaluate_floor
 from whatifd.decision.guards import (
     Guard,
@@ -167,6 +168,31 @@ def compute_verdict(
     # (improvement_observed, etc.) appear in the report even when the
     # floor is the structural reason for Inconclusive.
     findings = run_guards(resolved_guards, cohort_results, policy)
+
+    # Cardinal #8: a required cohort that matched zero traces produces a
+    # run-level floor failure (`required_cohort_present: absent`) with no
+    # per-cohort home — it was historically dropped from the wire, leaving a
+    # bare, non-actionable Inconclusive (cascade "Run-level FloorFailure
+    # projection"). Surface it through the `decision_findings` channel,
+    # naming WHICH cohort was empty, so the operator is pointed upstream at
+    # their cohort classifier / selection. An absent required cohort always
+    # implies a FloorFailureSet below (evaluate_floor refuses missing
+    # cohorts), so these findings only ever ride the Inconclusive path.
+    required_cohorts = _required_cohorts_for_shape(experiment_shape, policy)
+    present_cohorts = {c.name for c in cohort_results}
+    findings = findings + [
+        make_decision_finding(
+            "required_cohort_absent",
+            message=(
+                f"required cohort {name!r} matched zero traces (absent) — "
+                "check the cohort classifier / selection filters; nothing "
+                "was assigned to this cohort"
+            ),
+            details={"cohort": name},
+        )
+        for name in required_cohorts
+        if name not in present_cohorts
+    ]
 
     # Pre-compute severity-partitioned views once; both Inconclusive
     # branches and the DontShip branch read from these.
