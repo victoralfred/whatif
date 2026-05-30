@@ -193,11 +193,19 @@ def build_delta_fn(
             )
         replayed_output: ReplayOutput = replay_result.output
 
+        # Thread the original trace's tool spans into the ScoreCase so the
+        # scorer can read the reference (the tool results the agent actually
+        # observed) via `case.original_output.tool_spans` — issue #108 / 108b.
+        # Previously dropped, which forced faithfulness-style scorers to
+        # re-fetch the reference out of band (see the live-Langfuse session).
+        # The replayed side's tool_spans already arrive on `replayed_output`
+        # from the runner. Tool-span content is `Sensitive[str]` and never
+        # reaches the wire report (ReportV01 carries no tool spans).
         case = ScoreCase(
             trace_id=rt.trace_id,
             cohort=rt.cohort,  # type: ignore[arg-type]
             input=trace_input,
-            original_output=TraceOutput(text=original_response),
+            original_output=TraceOutput(text=original_response, tool_spans=list(rt.tool_spans)),
             replayed_output=replayed_output,
         )
         judge = scorer.score(case)

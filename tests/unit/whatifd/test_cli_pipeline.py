@@ -119,6 +119,43 @@ def test_sync_runner_runs_through_kernel_and_produces_score() -> None:
     assert scorer.last_case.original_output.text == "orig response"
 
 
+def test_original_tool_spans_threaded_into_score_case() -> None:
+    # 108b: build_delta_fn must carry the original trace's tool_spans into
+    # ScoreCase.original_output so the scorer can read the reference (the
+    # tool results the agent observed) via case.original_output.tool_spans.
+    # Previously dropped — which forced faithfulness-style scorers to
+    # re-fetch the reference out of band (the live-Langfuse session).
+    from whatifd.contract import ToolSpan
+
+    rt = RawTrace(
+        trace_id="t-spans",
+        cohort="failure",
+        user_message=Sensitive("hello", classification="user_message"),
+        original_response=Sensitive("orig", classification="original_response"),
+        tool_spans=[
+            ToolSpan(
+                name="search",
+                output=Sensitive("the tool result", classification="user_content"),
+            )
+        ],
+    )
+    scorer = _ScoringScorer(score=0.5)
+    delta_fn = build_delta_fn(
+        loaded_runner=_loaded(_sync_runner, "sync"),
+        scorer=scorer,
+        change=_change(),
+        replay_timeout_seconds=10.0,
+    )
+    delta_fn(rt)
+
+    assert scorer.last_case is not None
+    original_spans = scorer.last_case.original_output.tool_spans
+    assert len(original_spans) == 1
+    assert original_spans[0].name == "search"
+    assert original_spans[0].output is not None
+    assert original_spans[0].output.unwrap(reason="test") == "the tool result"
+
+
 def test_async_runner_via_asyncio_run() -> None:
     scorer = _ScoringScorer(score=0.3)
     delta_fn = build_delta_fn(

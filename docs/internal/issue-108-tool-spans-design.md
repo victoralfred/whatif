@@ -268,6 +268,41 @@ mypy clean. **108b** (ToolCache population + `RawTrace.tool_spans` →
 `TraceOutput.tool_spans` threading + Langfuse `[TOOL]` projection + runner/scorer
 reference access) is the follow-up.
 
+### 108b status — split into b1 (shipped) + b2 (keying decision needed)
+
+On implementation, 108b is NOT one clean change — it splits:
+
+- **108b-1 — scorer reference threading (SHIPPED).** `build_delta_fn` now
+  threads the original trace's `tool_spans` into
+  `ScoreCase.original_output.tool_spans` (previously dropped — it built
+  `TraceOutput(text=...)` with no spans). A scorer can now read the reference
+  (the tool results the agent observed) via `case.original_output.tool_spans`
+  instead of re-fetching out of band — the exact gap the live-Langfuse run hit.
+  The replayed side's spans already arrive on `replayed_output` from the runner.
+  Low-risk, mechanical; pinned by
+  `test_cli_pipeline.py::test_original_tool_spans_threaded_into_score_case`.
+
+- **108b-2 — ToolCache population (BLOCKED on a keying decision).** Populating
+  the runner's `ToolCache` via the existing
+  `whatifd.replay.tool_cache.make_strict_tool_cache(entries, trace_id=...)`
+  needs `entries` keyed by `ToolCache._key(tool_name, args_dict)` — and the
+  runner looks up by `(tool_name, args_dict)`. But 108a made `ToolSpan.input`
+  an opaque `Sensitive[str]` (correct for the *scorer*, which only judges
+  content). There is **no structured args dict to key the cache by**. Options:
+  (a) add a structured/keyable args field to `ToolSpan`; (b) key the cache by
+  `tool_call_id` and change the runner lookup contract to accept it; (c) parse
+  `ToolSpan.input` back to a dict (only valid when it is canonical-JSON of a
+  dict). This is a genuine design decision, not mechanical — **deferred until
+  decided.** Most agents in the faithfulness/regression use cases re-synthesize
+  from the reference rather than calling tools during replay, so 108b-1 is the
+  load-bearing unblock; 108b-2 serves the general tool-replay case.
+
+- **108b-3 — Langfuse `[TOOL]` projection (deferred).** The Langfuse adapter
+  uses `api.trace.list`, whose payload does NOT include `observations`, so
+  `[TOOL]` projection needs a per-trace `api.trace.get` (extra API calls).
+  Decision #4 (project from `[TOOL]` observations) stands; the fetch strategy
+  is the open implementation detail.
+
 ---
 
 ## 10. Cascade-catalog updates (to land with the code)
