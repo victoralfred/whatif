@@ -16,6 +16,10 @@ change is called out under `### Changed (BREAKING)`.
 
 - **Cache keying bumped from `v1` to `v2`** (F-2.1 of the 2026-05-16 production-hardening review). v1 omitted `original_output.text` and `replayed_output.text` from the cache key — two scoring calls with identical inputs but different replayed outputs hashed to the same key and silently returned stale `JudgeResult` (silent wrong delta). v0.2 fork CLI defaulted to cache `mode="off"` which mitigated CLI users; programmatic callers that enabled the cache hit this with no warning. v2 adds `original_output_hash` and `replayed_output_hash` to `CacheKeyComponents` as required hex-digest fields. Both shipped scorer adapters (`whatifd-inspect-ai`, `whatifd.adapters.stub`) populate them via `_hash16("output", "original"|"replayed", text)`. **Persisted v1 cache entries become unreachable on upgrade** — the version prefix change (`v1:` → `v2:`) means lookups produce cache misses and re-score on first v0.2.1 run. This is NOT data loss; entries remain on disk under `cache_key_version: v1` in `meta.json` and can be inspected or removed via `whatifd cache rebuild --force`. Operators with large v1 caches should plan for a one-time re-score wave.
 
+### Notes
+
+- **No `LangfuseScorer` adapter — by design.** `whatifd-langfuse` ships a `TraceSource` only and will not gain a `Scorer`. Scoring replays with a rubric is `whatifd-inspect-ai`'s job — both original and replayed outputs go through one judge so the ruler is consistent (cardinal #10). To reuse an existing Langfuse LLM-judge evaluator, configure the Inspect AI scorer (`scorer.adapter: inspect_ai`) with the same rubric text + judge model. A standalone `LangfuseScorer` would reinvent that, and Langfuse exposes evaluator configs only via its unstable API. Rationale: cascade-catalog "LangfuseScorer adapter (rejected, not deferred)". This clarifies earlier session notes that had listed a LangfuseScorer as planned.
+
 ### Fixed
 
 #### Production-hardening review (2026-05-16, P1 batch)

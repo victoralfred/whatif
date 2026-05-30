@@ -1248,6 +1248,14 @@ The doctrine-bot review on PR #104 (post-merge) flagged this as a tracking gap: 
 
 **Trigger for resolution:** the next cache-subsystem hardening pass, OR a real report of cross-process cache corruption under concurrent runs.
 
+### LangfuseScorer adapter (rejected, not deferred)
+
+**Source decision:** A live Langfuse integration test (session `2026-05-30-langfuse-integration-test`) surfaced an apparent gap: `whatifd-langfuse` ships only a `TraceSource`, not a `Scorer`, so an operator with an existing Langfuse LLM-judge evaluator has no `whatifd-langfuse` surface that scores replayed outputs. A `LangfuseScorer` adapter was proposed to "reuse the Langfuse evaluator."
+
+**Rationale for rejection:** Building it would reinvent `whatifd-inspect-ai`. Scoring a replay means running a judge with a rubric against `case.original_output` and `case.replayed_output` with one consistent ruler (cardinal #10) — exactly what `InspectAIScorer` does. The architecture deliberately split the roles: Langfuse = TraceSource, Inspect AI = Scorer (`references/phases.md` §"Real adapters"). A `LangfuseScorer` would either (a) duplicate Inspect AI's judge machinery, or (b) depend on Langfuse's **unstable** `api.unstable.evaluators` endpoint to re-run judging — fragile by Langfuse's own marking. The public Langfuse API exposes only `score_configs` (the score *schema*) and `scores` (existing values), not evaluator configs, so the rubric cannot be auto-fetched stably regardless. Per the project principle "whatifd is an integration, not a reinvention," the supported path is `LangfuseTraceSource` + `InspectAIScorer` configured with the rubric text + judge model **copied** from the operator's Langfuse evaluator. No new adapter ships.
+
+**Trigger for resolution:** None as a rejection. If Langfuse promotes `evaluators` from `unstable` to a stable API surface, a *thin* convenience that fetches an evaluator config and constructs an `InspectAIScorer` from it (glue, not a new judge) may be reconsidered — but a standalone judging `LangfuseScorer` stays rejected.
+
 ## Resolved cascades
 
 > **Ordering convention:** entries are reverse-chronological — newest at the top, oldest at the bottom. New resolved cascades are PREPENDED to this section, not appended. Reasoning: a contributor scanning for "what shipped recently" or "what's the latest doctrine on X" gets the answer in the first few entries instead of paging to the end. The original v0.1 entries (PRs #26, #31, etc.) sit at the bottom because they were resolved earliest; the most recent v0.2 phases sit at the top.
