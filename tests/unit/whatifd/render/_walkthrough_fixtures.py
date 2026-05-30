@@ -96,6 +96,30 @@ def _methodology() -> MethodologyDisclosure:
     )
 
 
+def _methodology_regression_check() -> MethodologyDisclosure:
+    """Methodology for a `regression_check` run: a single baseline
+    cohort, one non-regression endpoint, no multiplicity correction.
+
+    Differs from `_methodology()` (failure_rescue) in exactly the
+    fields the shape changes: `cohorts` drops `failure`,
+    `primary_endpoints` drops `failure_improvement`, and
+    `multiplicity.primary_endpoint_count` is 1 not 2. Everything else
+    (bootstrap, judge, effect size) is identical — the shape changes
+    what is measured, not how."""
+    import dataclasses
+
+    return dataclasses.replace(
+        _methodology(),
+        primary_endpoints=("baseline_non_regression",),
+        cohorts=("baseline",),
+        multiplicity=MultiplicityDisclosure(
+            primary_endpoint_count=1,
+            correction="none",
+            reason="single baseline non-regression endpoint",
+        ),
+    )
+
+
 def _cache_summary(hits: int = 38, misses: int = 2) -> CacheSummary:
     return CacheSummary(
         schema_version="v1",
@@ -446,6 +470,62 @@ def scenario_6_rerun_after_fix() -> ReportV01:
     return dataclasses.replace(base, runtime=rerun_runtime)
 
 
+def scenario_7_regression_check_ship() -> ReportV01:
+    """Regression-check (clean Ship): a baseline-only run that finds no
+    regression in the candidate change.
+
+    The `regression_check` experiment shape has NO failure cohort — the
+    operator only wants to know "does my change regress the known-good
+    set?" This exercises the renderer + projection on a single-cohort
+    `cohort_results` list and a methodology that omits the failure-cohort
+    endpoint, which the six failure-rescue scenarios never cover.
+    """
+    import dataclasses
+
+    from whatifd.decision.floor import FloorPassedProof, evaluate_floor
+    from whatifd.report.projection import project_to_report_v01
+    from whatifd.types.policy import TrustFloor
+    from whatifd.types.verdict import Ship
+
+    from ..report._fixtures import runtime as _runtime
+
+    baseline = _cohort(
+        "baseline",
+        selected=20,
+        replayed=20,
+        scored=20,
+        improved=2,
+        unchanged=17,
+        regressed=1,
+        median_delta="0.010",
+        ci_lower="-0.020",
+        ci_upper="0.040",
+    )
+    # regression_check requires ONLY the baseline cohort (see
+    # `_required_cohorts_for_shape` in decision/verdict.py).
+    proof_or_failures = evaluate_floor(
+        [baseline],
+        TrustFloor(),
+        required_cohorts=("baseline",),
+    )
+    assert isinstance(proof_or_failures, FloorPassedProof)
+    verdict = Ship(
+        proof=proof_or_failures,
+        cohort_results=[baseline],
+        findings=[],
+    )
+    # The runtime fixture defaults to failure_rescue; flip the shape so
+    # the report's top-level `experiment_shape` reflects this scenario.
+    regression_runtime = dataclasses.replace(_runtime(), experiment_shape="regression_check")
+    return project_to_report_v01(
+        verdict,
+        failures=[],
+        cache_summary=_cache_summary(38, 2),
+        methodology=_methodology_regression_check(),
+        runtime=regression_runtime,
+    )
+
+
 class Scenario(NamedTuple):
     """Named record for one walkthrough scenario.
 
@@ -480,6 +560,11 @@ SCENARIOS: dict[int, Scenario] = {
         scenario_5_inconclusive_cache_corruption,
     ),
     6: Scenario("Rerun after fix", "ship", scenario_6_rerun_after_fix),
+    7: Scenario(
+        "Regression-check (clean)",
+        "ship",
+        scenario_7_regression_check_ship,
+    ),
 }
 
 
@@ -492,4 +577,5 @@ __all__ = [
     "scenario_4_inconclusive_insufficient_sample",
     "scenario_5_inconclusive_cache_corruption",
     "scenario_6_rerun_after_fix",
+    "scenario_7_regression_check_ship",
 ]

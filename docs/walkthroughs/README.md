@@ -16,6 +16,7 @@ The walkthroughs are also the empirical reviewer for the design. Each scenario s
 | 4 | [04-inconclusive-insufficient-sample.md](04-inconclusive-insufficient-sample.md) | Inconclusive | Per-cohort floor table; failure-driven fix text |
 | 5 | [05-inconclusive-cache-corruption.md](05-inconclusive-cache-corruption.md) | Inconclusive | Run-scope failure → CLI recovery commands |
 | 6 | [06-rerun-after-fix.md](06-rerun-after-fix.md) | Diff | `whatifd diff` CLI surface; diff JSON schema |
+| 7 | [07-regression-check.md](07-regression-check.md) | Ship | `regression_check` shape: baseline-only cohort; methodology omits the failure endpoint |
 
 ## Scenario 1: Clean Ship
 

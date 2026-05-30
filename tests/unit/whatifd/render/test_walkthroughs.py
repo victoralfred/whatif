@@ -237,6 +237,45 @@ class TestScenarioStructure:
         template = FIX_SUGGESTION_REGISTRY["cache_lock_unavailable"]
         assert f"### {template.summary}" in full
 
+    def test_scenario_7_regression_check_shape_and_byte_equal(self) -> None:
+        """The regression_check walkthrough (#7): baseline-only cohort,
+        report `experiment_shape == "regression_check"`, methodology omits
+        the failure-cohort endpoint, AND the rendered Markdown is
+        byte-equal to the committed `docs/walkthroughs/07-regression-check.md`.
+
+        This is the byte-equality round-trip #83 asks for. It is feasible
+        here (unlike the failure-rescue scenarios 1-6, which stay
+        structural pending their deferred renderer features — per-trace
+        evidence, multi-cause fix suggestions, the floor PASS table)
+        because the regression_check Ship report uses only features the
+        renderer fully emits today. If the renderer drifts for this shape,
+        this test fails before merge.
+        """
+        from pathlib import Path
+
+        from ._walkthrough_fixtures import scenario_7_regression_check_ship
+
+        report = scenario_7_regression_check_ship()
+
+        # Shape: regression_check, baseline-only cohort (no failure cohort).
+        assert report.experiment_shape == "regression_check"
+        assert [c.name for c in report.cohort_results] == ["baseline"]
+
+        # Methodology omits the failure-cohort endpoint (cardinal #10:
+        # the disclosure must match the shape that was actually run).
+        assert report.methodology.cohorts == ("baseline",)
+        assert report.methodology.primary_endpoints == ("baseline_non_regression",)
+
+        # Byte-equality round-trip: render == committed walkthrough.
+        doc = (
+            Path(__file__).resolve().parents[4] / "docs" / "walkthroughs" / "07-regression-check.md"
+        )
+        assert render_full_report(report) == doc.read_text(encoding="utf-8"), (
+            "rendered regression_check report drifted from "
+            "docs/walkthroughs/07-regression-check.md — regenerate the "
+            "walkthrough (render_full_report) or fix the renderer."
+        )
+
     def test_clean_ship_no_fix_section_content(self) -> None:
         # Clean Ship's Suggested-next-steps section is the "no
         # actionable findings" placeholder (NOT a registry
