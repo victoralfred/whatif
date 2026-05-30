@@ -12,6 +12,8 @@ change is called out under `### Changed (BREAKING)`.
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-05-30
+
 ### Changed (BREAKING for cache consumers)
 
 - **Cache keying bumped from `v1` to `v2`** (F-2.1 of the 2026-05-16 production-hardening review). v1 omitted `original_output.text` and `replayed_output.text` from the cache key — two scoring calls with identical inputs but different replayed outputs hashed to the same key and silently returned stale `JudgeResult` (silent wrong delta). v0.2 fork CLI defaulted to cache `mode="off"` which mitigated CLI users; programmatic callers that enabled the cache hit this with no warning. v2 adds `original_output_hash` and `replayed_output_hash` to `CacheKeyComponents` as required hex-digest fields. Both shipped scorer adapters (`whatifd-inspect-ai`, `whatifd.adapters.stub`) populate them via `_hash16("output", "original"|"replayed", text)`. **Persisted v1 cache entries become unreachable on upgrade** — the version prefix change (`v1:` → `v2:`) means lookups produce cache misses and re-score on first v0.2.1 run. This is NOT data loss; entries remain on disk under `cache_key_version: v1` in `meta.json` and can be inspected or removed via `whatifd cache rebuild --force`. Operators with large v1 caches should plan for a one-time re-score wave.
