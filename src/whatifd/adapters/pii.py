@@ -146,7 +146,7 @@ class PIIAttributeTypeError(TypeError):
     """
 
 
-def format_pii_violation(key: str, value_description: str, *, context: str) -> str:
+def _format_pii_violation(key: str, value_description: str, *, context: str) -> str:
     """Shared message template for cardinal-#5 PII-attribute
     violations.
 
@@ -168,7 +168,9 @@ def format_pii_violation(key: str, value_description: str, *, context: str) -> s
     value_description
         Caller-supplied description of why the value violates. The
         helper passes a phrase like `"int, not str"`; the validator
-        passes `"unwrapped (str)"`.
+        passes `"unwrapped (str)"`. Kept caller-supplied so the
+        message text reflects which surface raised without changing
+        the shared boilerplate.
     context
         One-sentence framing of which contract was violated. The
         helper passes the value-shape contract ("must be strings");
